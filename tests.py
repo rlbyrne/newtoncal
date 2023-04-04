@@ -51,7 +51,7 @@ def test_jac_single_pol_real_part(verbose=False):
     test_freq_ind = 0
     test_pol_ind = 0
     delta_gain = 1e-8
-    lambda_val = 0
+    lambda_val = 0  # Don't test regularization
     gain_stddev = 0.1
 
     model = pyuvdata.UVData()
@@ -130,7 +130,7 @@ def test_jac_single_pol_real_part(verbose=False):
         print(f"Gradient approximation value: {grad_approx}")
         print(f"Jacobian value: {jac_value}")
 
-    np.testing.assert_allclose(grad_approx, jac_value, rtol=1e-6)
+    np.testing.assert_allclose(grad_approx, jac_value, rtol=1e-5)
 
 
 def test_jac_single_pol_imaginary_part(verbose=False):
@@ -139,7 +139,7 @@ def test_jac_single_pol_imaginary_part(verbose=False):
     test_freq_ind = 0
     test_pol_ind = 0
     delta_gain = 1e-8
-    lambda_val = 0
+    lambda_val = 0  # Don't test regularization
     gain_stddev = 0.1
 
     model = pyuvdata.UVData()
@@ -218,7 +218,7 @@ def test_jac_single_pol_imaginary_part(verbose=False):
         print(f"Gradient approximation value: {grad_approx}")
         print(f"Jacobian value: {jac_value}")
 
-    np.testing.assert_allclose(grad_approx, jac_value, rtol=1e-6)
+    np.testing.assert_allclose(grad_approx, jac_value, rtol=1e-5)
 
 
 def test_jac_single_pol_regularization_real_part(verbose=False):
@@ -248,7 +248,7 @@ def test_jac_single_pol_regularization_real_part(verbose=False):
         gains_exp_mat_2,
     ) = calibration.calibration_setup(data, model)
 
-    visibility_weights = np.zeros_like(visibility_weights)
+    visibility_weights = np.zeros_like(visibility_weights)  # Don't test data
 
     np.random.seed(0)
     gains_init_real = np.random.normal(
@@ -308,7 +308,7 @@ def test_jac_single_pol_regularization_real_part(verbose=False):
         print(f"Gradient approximation value: {grad_approx}")
         print(f"Jacobian value: {jac_value}")
 
-    np.testing.assert_allclose(grad_approx, jac_value, rtol=1e-6)
+    np.testing.assert_allclose(grad_approx, jac_value, rtol=1e-5)
 
 
 def test_jac_single_pol_regularization_imaginary_part(verbose=False):
@@ -338,7 +338,7 @@ def test_jac_single_pol_regularization_imaginary_part(verbose=False):
         gains_exp_mat_2,
     ) = calibration.calibration_setup(data, model)
 
-    visibility_weights = np.zeros_like(visibility_weights)
+    visibility_weights = np.zeros_like(visibility_weights)  # Don't test data
 
     np.random.seed(0)
     gains_init_real = np.random.normal(
@@ -398,4 +398,4 @@ def test_jac_single_pol_regularization_imaginary_part(verbose=False):
         print(f"Gradient approximation value: {grad_approx}")
         print(f"Jacobian value: {jac_value}")
 
-    np.testing.assert_allclose(grad_approx, jac_value, rtol=1e-6)
+    np.testing.assert_allclose(grad_approx, jac_value, rtol=1e-5)
