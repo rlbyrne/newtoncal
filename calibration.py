@@ -199,6 +199,10 @@ def calibration_setup(
         Shape (Nbls, Nants,).
     """
 
+    # Autocorrelations are not currently supported
+    data.select(ant_str="cross")
+    model.select(ant_str="cross")
+
     Nants = data.Nants_data
     Nbls = data.Nbls
     Ntimes = data.Ntimes
