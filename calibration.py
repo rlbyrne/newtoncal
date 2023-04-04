@@ -112,28 +112,12 @@ def jacobian_single_pol(
     gains_expanded_1 = np.matmul(gains_exp_mat_1, gains)[np.newaxis, :]
     gains_expanded_2 = np.matmul(gains_exp_mat_2, gains)[np.newaxis, :]
 
-    term1_per_visibility = np.sum(
-        visibility_weights
-        * (
-            gains_expanded_1
-            * np.abs(gains_expanded_2) ** 2.0
-            * np.abs(data_visibilities) ** 2.0
-            - model_visibilities * gains_expanded_2 * np.conj(data_visibilities)
-        ),
-        axis=0,
-    )  # Sum over times
-    term1 = np.matmul(gains_exp_mat_1.T, term1_per_visibility)  # Sum over antennas
-    term2_per_visibility = np.sum(
-        visibility_weights
-        * (
-            gains_expanded_2
-            * np.abs(gains_expanded_1) ** 2.0
-            * np.abs(data_visibilities) ** 2.0
-            - np.conj(model_visibilities) * gains_expanded_1 * data_visibilities
-        ),
-        axis=0,
-    )  # Sum over times
-    term2 = np.matmul(gains_exp_mat_2.T, term2_per_visibility)  # Sum over antennas
+    res_vec = gains_expanded_1 * np.conj(gains_expanded_2) * data_visibilities - model_visibilities
+    term1 = np.sum(visibility_weights * gains_expanded_2 * np.conj(data_visibilities) * res_vec, axis=0)
+    term1 = np.matmul(gains_exp_mat_1.T, term1)
+    term2 = np.sum(visibility_weights * gains_expanded_1 * data_visibilities * np.conj(res_vec), axis=0)
+    term2 = np.matmul(gains_exp_mat_2.T, term2)
+
     regularization_term = (
         lambda_val * 1j * np.sum(np.angle(gains)) * gains / np.abs(gains) ** 2.0
     )
