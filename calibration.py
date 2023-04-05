@@ -268,6 +268,15 @@ def hessian_single_pol(
     hess_real_imag = hess_components[:, :, 1] + hess_components[:, :, 2].T
     hess_imag_imag = hess_components[:, :, 3] + hess_components[:, :, 3].T
 
+    # Calculate the antenna diagonals
+    hess_diag = 2 * (
+        np.matmul(gains_exp_mat_1.T, np.abs(gains_expanded_2) ** 2.0 * data_squared)
+        + np.matmul(gains_exp_mat_2.T, np.abs(gains_expanded_1) ** 2.0 * data_squared)
+    )
+    np.fill_diagonal(hess_real_real, hess_diag)
+    np.fill_diagonal(hess_imag_imag, hess_diag)
+    np.fill_diagonal(hess_real_imag, 0.0)
+
     return hess_real_real, hess_real_imag, hess_imag_imag
 
 
