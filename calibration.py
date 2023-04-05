@@ -209,7 +209,7 @@ def hessian_single_pol(
         Number of antennas.
     Nbls : int
         Number of baselines.
-    model_visibilities :  array of complex
+    model_visibilities : array of complex
         Shape (Ntimes, Nbls,).
     data_visibilities : array of complex
         Shape (Ntimes, Nbls,).
@@ -224,7 +224,16 @@ def hessian_single_pol(
 
     Returns
     -------
-
+    hess_real_real : array of float
+        Real-real derivative components of the Hessian of the cost function.
+        Shape (Nants, Nants,).
+    hess_real_imag : array of float
+        Real-imaginary derivative components of the Hessian of the cost
+        function. Note that the transpose of this array gives the imaginary-real
+        derivative components. Shape (Nants, Nants,).
+    hess_imag_imag : array of float
+        Imaginary-imaginary derivative components of the Hessian of the cost
+        function. Shape (Nants, Nants,).
     """
 
     gains_expanded_1 = np.matmul(gains_exp_mat_1, gains)
@@ -276,6 +285,33 @@ def hessian_single_pol(
     np.fill_diagonal(hess_real_real, hess_diag)
     np.fill_diagonal(hess_imag_imag, hess_diag)
     np.fill_diagonal(hess_real_imag, 0.0)
+
+    # Add regularization term
+    gains_weighted = gains / np.abs(gains) ** 2.0
+    arg_sum = np.sum(np.angle(gains))
+    # Antenna off-diagonals
+    hess_real_real += (
+        2 * lambda_val * np.outer(np.imag(gains_weighted), np.imag(gains_weighted))
+    )
+    hess_real_imag -= (
+        2 * lambda_val * np.outer(np.imag(gains_weighted), np.real(gains_weighted))
+    )
+    hess_imag_imag += (
+        2 * lambda_val * np.outer(np.real(gains_weighted), np.real(gains_weighted))
+    )
+    # Antenna diagonals
+    hess_real_real += np.diag(
+        4 * lambda_val * arg_sum * np.imag(gains_weighted) * np.real(gains_weighted)
+    )
+    hess_real_imag -= np.diag(
+        2
+        * lambda_val
+        * arg_sum
+        * (np.real(gains_weighted) ** 2.0 - np.imag(gains_weighted) ** 2.0)
+    )
+    hess_imag_imag -= np.diag(
+        4 * lambda_val * arg_sum * np.imag(gains_weighted) * np.real(gains_weighted)
+    )
 
     return hess_real_real, hess_real_imag, hess_imag_imag
 
