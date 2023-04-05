@@ -75,7 +75,7 @@ def jacobian_single_pol(
     lambda_val,
 ):
     """
-    Calculate the Jacobian of the chi-squared.
+    Calculate the Jacobian of the cost function.
 
     Parameters
     ----------
@@ -112,10 +112,19 @@ def jacobian_single_pol(
     gains_expanded_1 = np.matmul(gains_exp_mat_1, gains)[np.newaxis, :]
     gains_expanded_2 = np.matmul(gains_exp_mat_2, gains)[np.newaxis, :]
 
-    res_vec = gains_expanded_1 * np.conj(gains_expanded_2) * data_visibilities - model_visibilities
-    term1 = np.sum(visibility_weights * gains_expanded_2 * np.conj(data_visibilities) * res_vec, axis=0)
+    res_vec = (
+        gains_expanded_1 * np.conj(gains_expanded_2) * data_visibilities
+        - model_visibilities
+    )
+    term1 = np.sum(
+        visibility_weights * gains_expanded_2 * np.conj(data_visibilities) * res_vec,
+        axis=0,
+    )
     term1 = np.matmul(gains_exp_mat_1.T, term1)
-    term2 = np.sum(visibility_weights * gains_expanded_1 * data_visibilities * np.conj(res_vec), axis=0)
+    term2 = np.sum(
+        visibility_weights * gains_expanded_1 * data_visibilities * np.conj(res_vec),
+        axis=0,
+    )
     term2 = np.matmul(gains_exp_mat_2.T, term2)
 
     regularization_term = (
@@ -124,6 +133,142 @@ def jacobian_single_pol(
     jac = 2 * (term1 + term2 + regularization_term)
 
     return jac
+
+
+def reformat_baselines_to_antenna_matrix(
+    bl_array,
+    gains_exp_mat_1,
+    gains_exp_mat_2,
+    Nants,
+    Nbls,
+):
+    """
+    Reformat an array indexed in baselines into a matrix with antenna indices.
+
+    Parameters
+    ----------
+    bl_array : array of float or complex
+        Shape (Nbls, ...,).
+    gains_exp_mat_1 : array of int
+        Shape (Nbls, Nants,).
+    gains_exp_mat_2 : array of int
+        Shape (Nbls, Nants,).
+    Nants : int
+        Number of antennas.
+    Nbls : int
+        Number of baselines.
+
+    Returns
+    -------
+    antenna matrix : array of float or complex
+        Shape (Nants, Nants, ...,). Same dtype as bl_array.
+    """
+
+    antenna_matrix = np.zeros_like(
+        bl_array[
+            0,
+        ],
+        dtype=bl_array.dtype,
+    )
+    antenna_matrix = np.repeat(
+        np.repeat(antenna_matrix[np.newaxis,], Nants, axis=0)[
+            np.newaxis,
+        ],
+        Nants,
+        axis=0,
+    )
+    antenna_numbers = np.arange(Nants)
+    antenna1_num = np.matmul(gains_exp_mat_1, antenna_numbers)
+    antenna2_num = np.matmul(gains_exp_mat_2, antenna_numbers)
+    for bl_ind in range(Nbls):
+        antenna_matrix[antenna1_num[bl_ind], antenna2_num[bl_ind],] = bl_array[
+            bl_ind,
+        ]
+    return antenna_matrix
+
+
+def hessian_single_pol(
+    gains,
+    Nants,
+    Nbls,
+    model_visibilities,
+    data_visibilities,
+    visibility_weights,
+    gains_exp_mat_1,
+    gains_exp_mat_2,
+    lambda_val,
+):
+    """
+    Calculate the Hessian of the cost function.
+
+    Parameters
+    ----------
+    gains : array of complex
+        Shape (Nants,).
+    Nants : int
+        Number of antennas.
+    Nbls : int
+        Number of baselines.
+    model_visibilities :  array of complex
+        Shape (Ntimes, Nbls,).
+    data_visibilities : array of complex
+        Shape (Ntimes, Nbls,).
+    visibility_weights : array of float
+        Shape (Ntimes, Nbls,).
+    gains_exp_mat_1 : array of int
+        Shape (Nbls, Nants,).
+    gains_exp_mat_2 : array of int
+        Shape (Nbls, Nants,).
+    lambda_val : float
+        Weight of the phase regularization term; must be positive.
+
+    Returns
+    -------
+
+    """
+
+    gains_expanded_1 = np.matmul(gains_exp_mat_1, gains)
+    gains_expanded_2 = np.matmul(gains_exp_mat_2, gains)
+    data_squared = np.sum(visibility_weights * np.abs(data_visibilities) ** 2.0, axis=0)
+    data_times_model = np.sum(
+        visibility_weights * model_visibilities * np.conj(data_visibilities), axis=0
+    )
+
+    # Calculate the antenna off-diagonal components
+    hess_components = np.zeros((Nbls, 4), dtype=float)
+    # Real-real Hessian component:
+    hess_components[:, 0] = np.real(
+        4 * np.real(gains_expanded_1) * np.real(gains_expanded_2) * data_squared
+        - 2 * np.real(data_times_model)
+    )
+    # Real-imaginary Hessian component, term 1:
+    hess_components[:, 1] = np.real(
+        4 * np.real(gains_expanded_1) * np.imag(gains_expanded_2) * data_squared
+        + 2 * np.imag(data_times_model)
+    )
+    # Real-imaginary Hessian component, term 2:
+    hess_components[:, 2] = np.real(
+        4 * np.imag(gains_expanded_1) * np.real(gains_expanded_2) * data_squared
+        - 2 * np.imag(data_times_model)
+    )
+    # Imaginary-imaginary Hessian component:
+    hess_components[:, 3] = np.real(
+        4 * np.imag(gains_expanded_1) * np.imag(gains_expanded_2) * data_squared
+        - 2 * np.real(data_times_model)
+    )
+
+    hess_components = reformat_baselines_to_antenna_matrix(
+        hess_components,
+        gains_exp_mat_1,
+        gains_exp_mat_2,
+        Nants,
+        Nbls,
+    )
+    hess_real_real = hess_components[:, :, 0] + hess_components[:, :, 0].T
+    hess_real_imag = hess_components[:, :, 1] + hess_components[:, :, 2].T
+    hess_imag_imag = hess_components[:, :, 3] + hess_components[:, :, 3].T
+
+    return hess_real_real, hess_real_imag, hess_imag_imag
 
 
 def initialize_gains_from_calfile(
