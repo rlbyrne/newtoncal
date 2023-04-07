@@ -4,11 +4,6 @@ import scipy
 import scipy.optimize
 import time
 import pyuvdata
-from scipy import signal
-
-
-model_path = "data/test_model_1freq.uvfits"
-data_path = "data/test_data_1freq.uvfits"
 
 
 def cost_function_single_pol(
@@ -60,6 +55,72 @@ def cost_function_single_pol(
     regularization_term = lambda_val * np.sum(np.angle(gains)) ** 2.0
     cost += regularization_term
 
+    return cost
+
+
+def cost_function_single_pol_wrapper(
+    gains_flattened,
+    Nants,
+    Nbls,
+    model_visibilities,
+    data_visibilities,
+    visibility_weights,
+    gains_exp_mat_1,
+    gains_exp_mat_2,
+    lambda_val,
+):
+    """
+    Wrapper for function cost_function_single_pol. Reformats the input gains to
+    be compatible with the scipy.optimize.minimize function.
+
+    Parameters
+    ----------
+    gains_flattened : array of float
+        Array of gain values. gains_flattened[0:Nants] corresponds to the real
+        components of the gains and gains_flattened[Nants:] correponds to the
+        imaginary components. Shape (2*Nants,).
+    Nants : int
+        Number of antennas.
+    Nbls : int
+        Number of baselines.
+    model_visibilities :  array of complex
+        Shape (Ntimes, Nbls,).
+    data_visibilities : array of complex
+        Shape (Ntimes, Nbls,).
+    visibility_weights : array of float
+        Shape (Ntimes, Nbls,).
+    gains_exp_mat_1 : array of int
+        Shape (Nbls, Nants,).
+    gains_exp_mat_2 : array of int
+        Shape (Nbls, Nants,).
+    lambda_val : float
+        Weight of the phase regularization term; must be positive.
+
+    Returns
+    -------
+    cost : float
+        Value of the cost function.
+    """
+
+    gains = np.reshape(
+        gains_flattened,
+        (
+            2,
+            Nants,
+        ),
+    )
+    gains = gains[0, :] + 1.0j * gains[1, :]
+    cost = cost_function_single_pol(
+        gains,
+        Nants,
+        Nbls,
+        model_visibilities,
+        data_visibilities,
+        visibility_weights,
+        gains_exp_mat_1,
+        gains_exp_mat_2,
+        lambda_val,
+    )
     return cost
 
 
@@ -133,6 +194,76 @@ def jacobian_single_pol(
     jac = 2 * (term1 + term2 + regularization_term)
 
     return jac
+
+
+def jacobian_single_pol_wrapper(
+    gains_flattened,
+    Nants,
+    Nbls,
+    model_visibilities,
+    data_visibilities,
+    visibility_weights,
+    gains_exp_mat_1,
+    gains_exp_mat_2,
+    lambda_val,
+):
+    """
+    Wrapper for function jacobian_single_pol. Reformats the input gains and
+    output Jacobian to be compatible with the scipy.optimize.minimize function.
+
+    Parameters
+    ----------
+    gains_flattened : array of float
+        Array of gain values. gains_flattened[0:Nants] corresponds to the real
+        components of the gains and gains_flattened[Nants:] correponds to the
+        imaginary components. Shape (2*Nants,).
+    Nants : int
+        Number of antennas.
+    Nbls : int
+        Number of baselines.
+    model_visibilities :  array of complex
+        Shape (Ntimes, Nbls,).
+    data_visibilities : array of complex
+        Shape (Ntimes, Nbls,).
+    visibility_weights : array of float
+        Shape (Ntimes, Nbls,).
+    gains_exp_mat_1 : array of int
+        Shape (Nbls, Nants,).
+    gains_exp_mat_2 : array of int
+        Shape (Nbls, Nants,).
+    lambda_val : float
+        Weight of the phase regularization term; must be positive.
+
+    Returns
+    -------
+    jac_flattened : array of float
+        Jacobian of the cost function, shape (2*Nants,). jac_flattened[0:Nants]
+        corresponds to the derivatives with respect to the real part of the
+        gains; jac_flattened[Nants:] corresponds to derivatives with respect to
+        the imaginary part of the gains.
+    """
+
+    gains = np.reshape(
+        gains_flattened,
+        (
+            2,
+            Nants,
+        ),
+    )
+    gains = gains[0, :] + 1.0j * gains[1, :]
+    jac = jacobian_single_pol(
+        gains,
+        Nants,
+        Nbls,
+        model_visibilities,
+        data_visibilities,
+        visibility_weights,
+        gains_exp_mat_1,
+        gains_exp_mat_2,
+        lambda_val,
+    )
+    jac_flattened = np.stack((np.real(jac), np.imag(jac)), axis=0).flatten()
+    return jac_flattened
 
 
 def reformat_baselines_to_antenna_matrix(
@@ -316,6 +447,80 @@ def hessian_single_pol(
     return hess_real_real, hess_real_imag, hess_imag_imag
 
 
+def hessian_single_pol_wrapper(
+    gains_flattened,
+    Nants,
+    Nbls,
+    model_visibilities,
+    data_visibilities,
+    visibility_weights,
+    gains_exp_mat_1,
+    gains_exp_mat_2,
+    lambda_val,
+):
+    """
+    Wrapper for function hessian_single_pol. Reformats the input gains and
+    output Hessian to be compatible with the scipy.optimize.minimize function.
+
+    Parameters
+    ----------
+    gains_flattened : array of float
+        Array of gain values. gains_flattened[0:Nants] corresponds to the real
+        components of the gains and gains_flattened[Nants:] correponds to the
+        imaginary components. Shape (2*Nants,).
+    Nants : int
+        Number of antennas.
+    Nbls : int
+        Number of baselines.
+    model_visibilities :  array of complex
+        Shape (Ntimes, Nbls,).
+    data_visibilities : array of complex
+        Shape (Ntimes, Nbls,).
+    visibility_weights : array of float
+        Shape (Ntimes, Nbls,).
+    gains_exp_mat_1 : array of int
+        Shape (Nbls, Nants,).
+    gains_exp_mat_2 : array of int
+        Shape (Nbls, Nants,).
+    lambda_val : float
+        Weight of the phase regularization term; must be positive.
+
+    Returns
+    -------
+    hess_flattened : array of float
+        Jacobian of the cost function, shape (2*Nants, 2*Nants,). jac_flattened[0:Nants]
+        corresponds to the derivatives with respect to the real part of the
+        gains; jac_flattened[Nants:] corresponds to derivatives with respect to
+        the imaginary part of the gains.
+    """
+
+    gains = np.reshape(
+        gains_flattened,
+        (
+            2,
+            Nants,
+        ),
+    )
+    gains = gains[0, :] + 1.0j * gains[1, :]
+    hess_real_real, hess_real_imag, hess_imag_imag = hessian_single_pol(
+        gains,
+        Nants,
+        Nbls,
+        model_visibilities,
+        data_visibilities,
+        visibility_weights,
+        gains_exp_mat_1,
+        gains_exp_mat_2,
+        lambda_val,
+    )
+    hess_flattened = np.array((2 * Nants, 2 * Nants), dtype=float)
+    hess_flattened[0:Nants, 0:Nants] = hess_real_real
+    hess_flattened[Nants:, 0:Nants] = hess_real_imag
+    hess_flattened[0:Nants, Nants:] = hess_real_imag
+    hess_flattened[Nants:, Nants:] = hess_imag_imag
+    return hess_flattened
+
+
 def initialize_gains_from_calfile(
     gain_init_calfile,
     Nants,
@@ -341,14 +546,14 @@ def initialize_gains_from_calfile(
     return gains_init
 
 
-def calibration_setup(
+def uvdata_calibration_setup(
     data,
     model,
     gain_init_calfile=None,
     gain_init_stddev=0.0,
 ):
     """
-    Generate the quantities needed for calibration.
+    Generate the quantities needed for calibration from uvdata objects.
 
     Parameters
     ----------
@@ -512,3 +717,128 @@ def calibration_setup(
         gains_exp_mat_1,
         gains_exp_mat_2,
     )
+
+
+def run_calibration_optimization_unpolarized(
+    gains_init,
+    Nants,
+    Nbls,
+    Nfreqs,
+    N_feed_pols,
+    model_visibilities,
+    data_visibilities,
+    visibility_weights,
+    gains_exp_mat_1,
+    gains_exp_mat_2,
+    lambda_val,
+    xtol=1e-8,
+):
+    """
+    Run calibration without full polarization support. Here the XX and YY
+    visibilities are calibrated separately.
+
+    Parameters
+    ----------
+    gains_init : array of complex
+        Initial guess for the gains. Shape (Nants, Nfreqs, N_feed_pols,).
+    Nants : int
+        Number of antennas.
+    Nbls : int
+        Number of baselines.
+    Nfreqs : int
+        Number of frequency channels.
+    N_feed_pols : int
+        Number of feed polarization modes to be fit.
+    model_visibilities : array of complex
+        Shape (Ntimes, Nbls, Nfreqs, N_vis_pols,).
+    data_visibilities : array of complex
+        Shape (Ntimes, Nbls, Nfreqs, N_vis_pols,).
+    visibility_weights : array of float
+        Shape (Ntimes, Nbls, Nfreqs, N_vis_pols,).
+    gains_exp_mat_1 : array of int
+        Shape (Nbls, Nants,).
+    gains_exp_mat_2 : array of int
+        Shape (Nbls, Nants,).
+    lambda_val : float
+        Weight of the phase regularization term; must be positive.
+    xtol : float
+        Accuracy tolerance for optimizer. Default 1e-8.
+
+    Returns
+    -------
+    gains_fit : array of complex
+        Fit gain values. Shape (Nants, Nfreqs, N_feed_pols,).
+    """
+
+    gains_fit = np.full(
+        (
+            Nants,
+            Nfreqs,
+            N_feed_pols,
+        ),
+        np.nan,
+        dtype=complex,
+    )
+    for pol_ind in range(N_feed_pols):
+        for freq_ind in range(Nfreqs):
+            gains_init_flattened = np.stack(
+                (
+                    np.real(gains_init[:, freq_ind, pol_ind]),
+                    np.imag(gains_init[:, freq_ind, pol_ind]),
+                ),
+                axis=0,
+            ).flatten()
+
+            # Minimize the cost function
+            start_optimize = time.time()
+            result = scipy.optimize.minimize(
+                cost_function_single_pol_wrapper,
+                gains_init_flattened,
+                args=(
+                    Nants,
+                    Nbls,
+                    Ntimes,
+                    Nfreqs,
+                    model_visibilities[
+                        :,
+                        :,
+                        freq_ind,
+                        pol_ind,
+                    ],
+                    data_visibilities[
+                        :,
+                        :,
+                        freq_ind,
+                        pol_ind,
+                    ],
+                    visibility_weights[
+                        :,
+                        :,
+                        freq_ind,
+                        pol_ind,
+                    ],
+                    gains_exp_mat_1,
+                    gains_exp_mat_2,
+                    lambda_val,
+                ),
+                method="Newton-CG",
+                jac=jacobian_single_pol_wrapper,
+                hess=hessian_single_pol_wrapper,
+                options={"disp": True, "xtol": xtol},
+            )
+            end_optimize = time.time()
+            print(result.message)
+            print(f"Optimization time: {(end_optimize - start_optimize)/60.} minutes")
+            sys.stdout.flush()
+
+            gains_fit_single_freq = np.reshape(
+                result.x,
+                (
+                    2,
+                    Nants,
+                ),
+            )
+            gains_fit_single_freq = gains_fit[0, :] + 1.0j * gains_fit[1, :]
+            gains_fit[:, freq_ind, pol_ind] = gains_fit_single_freq
+
+    return gains_fit

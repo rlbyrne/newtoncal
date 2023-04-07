@@ -1,10 +1,10 @@
-# Run with pytest -m unittest tests.py
-
 import numpy as np
 import calibration
 import pyuvdata
 import os
 import unittest
+
+# Run all tests with pytest -m unittest tests.py
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -32,7 +32,7 @@ class TestStringMethods(unittest.TestCase):
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.calibration_setup(data, model)
+        ) = calibration.uvdata_calibration_setup(data, model)
 
         cost = calibration.cost_function_single_pol(
             gains_init[:, test_freq_ind],
@@ -73,7 +73,7 @@ class TestStringMethods(unittest.TestCase):
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.calibration_setup(data, model)
+        ) = calibration.uvdata_calibration_setup(data, model)
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
@@ -160,7 +160,7 @@ class TestStringMethods(unittest.TestCase):
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.calibration_setup(data, model)
+        ) = calibration.uvdata_calibration_setup(data, model)
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
@@ -247,7 +247,7 @@ class TestStringMethods(unittest.TestCase):
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.calibration_setup(data, model)
+        ) = calibration.uvdata_calibration_setup(data, model)
 
         visibility_weights = np.zeros_like(visibility_weights)  # Don't test data
 
@@ -336,7 +336,7 @@ class TestStringMethods(unittest.TestCase):
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.calibration_setup(data, model)
+        ) = calibration.uvdata_calibration_setup(data, model)
 
         visibility_weights = np.zeros_like(visibility_weights)  # Don't test data
 
@@ -426,7 +426,7 @@ class TestStringMethods(unittest.TestCase):
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.calibration_setup(data, model)
+        ) = calibration.uvdata_calibration_setup(data, model)
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
@@ -524,7 +524,7 @@ class TestStringMethods(unittest.TestCase):
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.calibration_setup(data, model)
+        ) = calibration.uvdata_calibration_setup(data, model)
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
@@ -622,7 +622,7 @@ class TestStringMethods(unittest.TestCase):
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.calibration_setup(data, model)
+        ) = calibration.uvdata_calibration_setup(data, model)
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
@@ -721,7 +721,7 @@ class TestStringMethods(unittest.TestCase):
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.calibration_setup(data, model)
+        ) = calibration.uvdata_calibration_setup(data, model)
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
@@ -822,7 +822,7 @@ class TestStringMethods(unittest.TestCase):
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.calibration_setup(data, model)
+        ) = calibration.uvdata_calibration_setup(data, model)
 
         visibility_weights = np.zeros_like(visibility_weights)  # Don't test data
 
@@ -924,7 +924,7 @@ class TestStringMethods(unittest.TestCase):
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.calibration_setup(data, model)
+        ) = calibration.uvdata_calibration_setup(data, model)
 
         visibility_weights = np.zeros_like(visibility_weights)  # Don't test data
 
@@ -1024,7 +1024,7 @@ class TestStringMethods(unittest.TestCase):
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.calibration_setup(data, model)
+        ) = calibration.uvdata_calibration_setup(data, model)
 
         visibility_weights = np.zeros_like(visibility_weights)  # Don't test data
 
@@ -1125,7 +1125,7 @@ class TestStringMethods(unittest.TestCase):
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.calibration_setup(data, model)
+        ) = calibration.uvdata_calibration_setup(data, model)
 
         visibility_weights = np.zeros_like(visibility_weights)  # Don't test data
 
