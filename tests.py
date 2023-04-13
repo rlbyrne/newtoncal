@@ -1,10 +1,11 @@
 import numpy as np
 import calibration
+import cost_function_calculations
 import pyuvdata
 import os
 import unittest
 
-# Run all tests with pytest -m unittest tests.py
+# Run all tests with pytest tests.py
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -34,7 +35,7 @@ class TestStringMethods(unittest.TestCase):
             gains_exp_mat_2,
         ) = calibration.uvdata_calibration_setup(data, model)
 
-        cost = calibration.cost_function_single_pol(
+        cost = cost_function_calculations.cost_function_single_pol(
             gains_init[:, test_freq_ind],
             Nants,
             Nbls,
@@ -91,7 +92,7 @@ class TestStringMethods(unittest.TestCase):
 
         gains_init0 = np.copy(gains_init[:, test_freq_ind])
         gains_init0[test_ant_ind] -= delta_gain / 2
-        cost0 = calibration.cost_function_single_pol(
+        cost0 = cost_function_calculations.cost_function_single_pol(
             gains_init0,
             Nants,
             Nbls,
@@ -104,7 +105,7 @@ class TestStringMethods(unittest.TestCase):
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_ind] += delta_gain / 2
-        cost1 = calibration.cost_function_single_pol(
+        cost1 = cost_function_calculations.cost_function_single_pol(
             gains_init1,
             Nants,
             Nbls,
@@ -115,7 +116,7 @@ class TestStringMethods(unittest.TestCase):
             gains_exp_mat_2,
             lambda_val,
         )
-        jac = calibration.jacobian_single_pol(
+        jac = cost_function_calculations.jacobian_single_pol(
             gains_init[:, test_freq_ind],
             Nants,
             Nbls,
@@ -178,7 +179,7 @@ class TestStringMethods(unittest.TestCase):
 
         gains_init0 = np.copy(gains_init[:, test_freq_ind])
         gains_init0[test_ant_ind] -= 1j * delta_gain / 2
-        cost0 = calibration.cost_function_single_pol(
+        cost0 = cost_function_calculations.cost_function_single_pol(
             gains_init0,
             Nants,
             Nbls,
@@ -191,7 +192,7 @@ class TestStringMethods(unittest.TestCase):
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_ind] += 1j * delta_gain / 2
-        cost1 = calibration.cost_function_single_pol(
+        cost1 = cost_function_calculations.cost_function_single_pol(
             gains_init1,
             Nants,
             Nbls,
@@ -202,7 +203,7 @@ class TestStringMethods(unittest.TestCase):
             gains_exp_mat_2,
             lambda_val,
         )
-        jac = calibration.jacobian_single_pol(
+        jac = cost_function_calculations.jacobian_single_pol(
             gains_init[:, test_freq_ind],
             Nants,
             Nbls,
@@ -267,7 +268,7 @@ class TestStringMethods(unittest.TestCase):
 
         gains_init0 = np.copy(gains_init[:, test_freq_ind])
         gains_init0[test_ant_ind] -= delta_gain / 2
-        cost0 = calibration.cost_function_single_pol(
+        cost0 = cost_function_calculations.cost_function_single_pol(
             gains_init0,
             Nants,
             Nbls,
@@ -280,7 +281,7 @@ class TestStringMethods(unittest.TestCase):
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_ind] += delta_gain / 2
-        cost1 = calibration.cost_function_single_pol(
+        cost1 = cost_function_calculations.cost_function_single_pol(
             gains_init1,
             Nants,
             Nbls,
@@ -291,7 +292,7 @@ class TestStringMethods(unittest.TestCase):
             gains_exp_mat_2,
             lambda_val,
         )
-        jac = calibration.jacobian_single_pol(
+        jac = cost_function_calculations.jacobian_single_pol(
             gains_init[:, test_freq_ind],
             Nants,
             Nbls,
@@ -356,7 +357,7 @@ class TestStringMethods(unittest.TestCase):
 
         gains_init0 = np.copy(gains_init[:, test_freq_ind])
         gains_init0[test_ant_ind] -= 1j * delta_gain / 2
-        cost0 = calibration.cost_function_single_pol(
+        cost0 = cost_function_calculations.cost_function_single_pol(
             gains_init0,
             Nants,
             Nbls,
@@ -369,7 +370,7 @@ class TestStringMethods(unittest.TestCase):
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_ind] += 1j * delta_gain / 2
-        cost1 = calibration.cost_function_single_pol(
+        cost1 = cost_function_calculations.cost_function_single_pol(
             gains_init1,
             Nants,
             Nbls,
@@ -380,7 +381,7 @@ class TestStringMethods(unittest.TestCase):
             gains_exp_mat_2,
             lambda_val,
         )
-        jac = calibration.jacobian_single_pol(
+        jac = cost_function_calculations.jacobian_single_pol(
             gains_init[:, test_freq_ind],
             Nants,
             Nbls,
@@ -444,7 +445,7 @@ class TestStringMethods(unittest.TestCase):
 
         gains_init0 = np.copy(gains_init[:, test_freq_ind])
         gains_init0[test_ant_1_ind] -= delta_gain / 2
-        jac0 = calibration.jacobian_single_pol(
+        jac0 = cost_function_calculations.jacobian_single_pol(
             gains_init0,
             Nants,
             Nbls,
@@ -457,7 +458,7 @@ class TestStringMethods(unittest.TestCase):
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_1_ind] += delta_gain / 2
-        jac1 = calibration.jacobian_single_pol(
+        jac1 = cost_function_calculations.jacobian_single_pol(
             gains_init1,
             Nants,
             Nbls,
@@ -468,7 +469,11 @@ class TestStringMethods(unittest.TestCase):
             gains_exp_mat_2,
             lambda_val,
         )
-        hess_real_real, hess_real_imag, hess_imag_imag = calibration.hessian_single_pol(
+        (
+            hess_real_real,
+            hess_real_imag,
+            hess_imag_imag,
+        ) = cost_function_calculations.hessian_single_pol(
             gains_init[:, test_freq_ind],
             Nants,
             Nbls,
@@ -542,7 +547,7 @@ class TestStringMethods(unittest.TestCase):
 
         gains_init0 = np.copy(gains_init[:, test_freq_ind])
         gains_init0[test_ant_1_ind] -= 1j * delta_gain / 2
-        jac0 = calibration.jacobian_single_pol(
+        jac0 = cost_function_calculations.jacobian_single_pol(
             gains_init0,
             Nants,
             Nbls,
@@ -555,7 +560,7 @@ class TestStringMethods(unittest.TestCase):
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_1_ind] += 1j * delta_gain / 2
-        jac1 = calibration.jacobian_single_pol(
+        jac1 = cost_function_calculations.jacobian_single_pol(
             gains_init1,
             Nants,
             Nbls,
@@ -566,7 +571,11 @@ class TestStringMethods(unittest.TestCase):
             gains_exp_mat_2,
             lambda_val,
         )
-        hess_real_real, hess_real_imag, hess_imag_imag = calibration.hessian_single_pol(
+        (
+            hess_real_real,
+            hess_real_imag,
+            hess_imag_imag,
+        ) = cost_function_calculations.hessian_single_pol(
             gains_init[:, test_freq_ind],
             Nants,
             Nbls,
@@ -640,7 +649,7 @@ class TestStringMethods(unittest.TestCase):
 
         gains_init0 = np.copy(gains_init[:, test_freq_ind])
         gains_init0[test_ant_1_ind] -= delta_gain / 2
-        jac0 = calibration.jacobian_single_pol(
+        jac0 = cost_function_calculations.jacobian_single_pol(
             gains_init0,
             Nants,
             Nbls,
@@ -653,7 +662,7 @@ class TestStringMethods(unittest.TestCase):
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_1_ind] += delta_gain / 2
-        jac1 = calibration.jacobian_single_pol(
+        jac1 = cost_function_calculations.jacobian_single_pol(
             gains_init1,
             Nants,
             Nbls,
@@ -664,7 +673,11 @@ class TestStringMethods(unittest.TestCase):
             gains_exp_mat_2,
             lambda_val,
         )
-        hess_real_real, hess_real_imag, hess_imag_imag = calibration.hessian_single_pol(
+        (
+            hess_real_real,
+            hess_real_imag,
+            hess_imag_imag,
+        ) = cost_function_calculations.hessian_single_pol(
             gains_init[:, test_freq_ind],
             Nants,
             Nbls,
@@ -739,7 +752,7 @@ class TestStringMethods(unittest.TestCase):
 
         gains_init0 = np.copy(gains_init[:, test_freq_ind])
         gains_init0[test_ant_1_ind] -= 1j * delta_gain / 2
-        jac0 = calibration.jacobian_single_pol(
+        jac0 = cost_function_calculations.jacobian_single_pol(
             gains_init0,
             Nants,
             Nbls,
@@ -752,7 +765,7 @@ class TestStringMethods(unittest.TestCase):
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_1_ind] += 1j * delta_gain / 2
-        jac1 = calibration.jacobian_single_pol(
+        jac1 = cost_function_calculations.jacobian_single_pol(
             gains_init1,
             Nants,
             Nbls,
@@ -763,7 +776,11 @@ class TestStringMethods(unittest.TestCase):
             gains_exp_mat_2,
             lambda_val,
         )
-        hess_real_real, hess_real_imag, hess_imag_imag = calibration.hessian_single_pol(
+        (
+            hess_real_real,
+            hess_real_imag,
+            hess_imag_imag,
+        ) = cost_function_calculations.hessian_single_pol(
             gains_init[:, test_freq_ind],
             Nants,
             Nbls,
@@ -842,7 +859,7 @@ class TestStringMethods(unittest.TestCase):
 
         gains_init0 = np.copy(gains_init[:, test_freq_ind])
         gains_init0[test_ant_1_ind] -= delta_gain / 2
-        jac0 = calibration.jacobian_single_pol(
+        jac0 = cost_function_calculations.jacobian_single_pol(
             gains_init0,
             Nants,
             Nbls,
@@ -855,7 +872,7 @@ class TestStringMethods(unittest.TestCase):
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_1_ind] += delta_gain / 2
-        jac1 = calibration.jacobian_single_pol(
+        jac1 = cost_function_calculations.jacobian_single_pol(
             gains_init1,
             Nants,
             Nbls,
@@ -866,7 +883,11 @@ class TestStringMethods(unittest.TestCase):
             gains_exp_mat_2,
             lambda_val,
         )
-        hess_real_real, hess_real_imag, hess_imag_imag = calibration.hessian_single_pol(
+        (
+            hess_real_real,
+            hess_real_imag,
+            hess_imag_imag,
+        ) = cost_function_calculations.hessian_single_pol(
             gains_init[:, test_freq_ind],
             Nants,
             Nbls,
@@ -944,7 +965,7 @@ class TestStringMethods(unittest.TestCase):
 
         gains_init0 = np.copy(gains_init[:, test_freq_ind])
         gains_init0[test_ant_1_ind] -= 1j * delta_gain / 2
-        jac0 = calibration.jacobian_single_pol(
+        jac0 = cost_function_calculations.jacobian_single_pol(
             gains_init0,
             Nants,
             Nbls,
@@ -957,7 +978,7 @@ class TestStringMethods(unittest.TestCase):
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_1_ind] += 1j * delta_gain / 2
-        jac1 = calibration.jacobian_single_pol(
+        jac1 = cost_function_calculations.jacobian_single_pol(
             gains_init1,
             Nants,
             Nbls,
@@ -968,7 +989,11 @@ class TestStringMethods(unittest.TestCase):
             gains_exp_mat_2,
             lambda_val,
         )
-        hess_real_real, hess_real_imag, hess_imag_imag = calibration.hessian_single_pol(
+        (
+            hess_real_real,
+            hess_real_imag,
+            hess_imag_imag,
+        ) = cost_function_calculations.hessian_single_pol(
             gains_init[:, test_freq_ind],
             Nants,
             Nbls,
@@ -1044,7 +1069,7 @@ class TestStringMethods(unittest.TestCase):
 
         gains_init0 = np.copy(gains_init[:, test_freq_ind])
         gains_init0[test_ant_1_ind] -= delta_gain / 2
-        jac0 = calibration.jacobian_single_pol(
+        jac0 = cost_function_calculations.jacobian_single_pol(
             gains_init0,
             Nants,
             Nbls,
@@ -1057,7 +1082,7 @@ class TestStringMethods(unittest.TestCase):
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_1_ind] += delta_gain / 2
-        jac1 = calibration.jacobian_single_pol(
+        jac1 = cost_function_calculations.jacobian_single_pol(
             gains_init1,
             Nants,
             Nbls,
@@ -1068,7 +1093,11 @@ class TestStringMethods(unittest.TestCase):
             gains_exp_mat_2,
             lambda_val,
         )
-        hess_real_real, hess_real_imag, hess_imag_imag = calibration.hessian_single_pol(
+        (
+            hess_real_real,
+            hess_real_imag,
+            hess_imag_imag,
+        ) = cost_function_calculations.hessian_single_pol(
             gains_init[:, test_freq_ind],
             Nants,
             Nbls,
@@ -1145,7 +1174,7 @@ class TestStringMethods(unittest.TestCase):
 
         gains_init0 = np.copy(gains_init[:, test_freq_ind])
         gains_init0[test_ant_1_ind] -= 1j * delta_gain / 2
-        jac0 = calibration.jacobian_single_pol(
+        jac0 = cost_function_calculations.jacobian_single_pol(
             gains_init0,
             Nants,
             Nbls,
@@ -1158,7 +1187,7 @@ class TestStringMethods(unittest.TestCase):
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_1_ind] += 1j * delta_gain / 2
-        jac1 = calibration.jacobian_single_pol(
+        jac1 = cost_function_calculations.jacobian_single_pol(
             gains_init1,
             Nants,
             Nbls,
@@ -1169,7 +1198,11 @@ class TestStringMethods(unittest.TestCase):
             gains_exp_mat_2,
             lambda_val,
         )
-        hess_real_real, hess_real_imag, hess_imag_imag = calibration.hessian_single_pol(
+        (
+            hess_real_real,
+            hess_real_imag,
+            hess_imag_imag,
+        ) = cost_function_calculations.hessian_single_pol(
             gains_init[:, test_freq_ind],
             Nants,
             Nbls,
