@@ -356,7 +356,7 @@ def set_crosspol_phase(
         visibility_weights[:, :, 1]
         * model_visibilities[:, :, 1]
         * np.conj(gains_expanded_1[:, :, 1])
-        * gains_expanded_2[:, :, 0],
+        * gains_expanded_2[:, :, 0]
         * np.conj(data_visibilities[:, :, 1])
     )
     crosspol_phase = np.angle(term1 + term2)
