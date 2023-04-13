@@ -61,8 +61,6 @@ def cost_function_single_pol_wrapper(
     gains = gains[0, :] + 1.0j * gains[1, :]
     cost = cost_function_calculations.cost_function_single_pol(
         gains,
-        Nants,
-        Nbls,
         model_visibilities,
         data_visibilities,
         visibility_weights,
@@ -130,8 +128,6 @@ def jacobian_single_pol_wrapper(
     gains = gains[0, :] + 1.0j * gains[1, :]
     jac = cost_function_calculations.jacobian_single_pol(
         gains,
-        Nants,
-        Nbls,
         model_visibilities,
         data_visibilities,
         visibility_weights,

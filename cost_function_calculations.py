@@ -3,8 +3,6 @@ import numpy as np
 
 def cost_function_single_pol(
     gains,
-    Nants,
-    Nbls,
     model_visibilities,
     data_visibilities,
     visibility_weights,
@@ -19,10 +17,6 @@ def cost_function_single_pol(
     ----------
     gains : array of complex
         Shape (Nants,).
-    Nants : int
-        Number of antennas.
-    Nbls : int
-        Number of baselines.
     model_visibilities :  array of complex
         Shape (Ntimes, Nbls,).
     data_visibilities : array of complex
@@ -55,8 +49,6 @@ def cost_function_single_pol(
 
 def jacobian_single_pol(
     gains,
-    Nants,
-    Nbls,
     model_visibilities,
     data_visibilities,
     visibility_weights,
@@ -71,10 +63,6 @@ def jacobian_single_pol(
     ----------
     gains : array of complex
         Shape (Nants,).
-    Nants : int
-        Number of antennas.
-    Nbls : int
-        Number of baselines.
     model_visibilities :  array of complex
         Shape (Ntimes, Nbls,).
     data_visibilities : array of complex
@@ -304,3 +292,80 @@ def hessian_single_pol(
     )
 
     return hess_real_real, hess_real_imag, hess_imag_imag
+
+
+def set_crosspol_phase(
+    gains,
+    model_visibilities,
+    data_visibilities,
+    visibility_weights,
+    gains_exp_mat_1,
+    gains_exp_mat_2,
+    inplace=False,
+):
+
+    """
+    Calculate the cross-polarization phase between the P and Q gains. This
+    quantity is not constrained in typical per-polarization calibration but is
+    required for polarized imaging. See Byrne et al. 2022 for details of the
+    calculation.
+
+    Parameters
+    ----------
+    gains : array of complex
+        Shape (Nants, 2,). gains[:, 0] corresponds to the P-polarized gains and
+        gains[:, 1] corresponds to the Q-polarized gains.
+    model_visibilities :  array of complex
+        Shape (Ntimes, Nbls, 2,). Cross-polarized model visibilities.
+        model_visilibities[:, :, 0] corresponds to the PQ-polarized visibilities
+        and model_visilibities[:, :, 1] corresponds to the QP-polarized
+        visibilities.
+    data_visibilities : array of complex
+        Shape (Ntimes, Nbls, 2,). Cross-polarized data visibilities.
+        model_visilibities[:, :, 0] corresponds to the PQ-polarized visibilities
+        and model_visilibities[:, :, 1] corresponds to the QP-polarized
+        visibilities.
+    visibility_weights : array of float
+        Shape (Ntimes, Nbls, 2).
+    gains_exp_mat_1 : array of int
+        Shape (Nbls, Nants,).
+    gains_exp_mat_2 : array of int
+        Shape (Nbls, Nants,).
+    inplace : bool
+        Default False. If True, modifies the gains inplace
+
+    Returns
+    -------
+    crosspol_phase : float
+        Cross-polarization phase, in radians.
+    gains_new : array of complex or None
+        Returns None if inplace=True. Otherwise returns the cross-polarization
+        phase-adjusted gains.
+    """
+
+    gains_expanded_1 = np.matmul(gains_exp_mat_1, gains)[np.newaxis, :, :]
+    gains_expanded_2 = np.matmul(gains_exp_mat_2, gains)[np.newaxis, :, :]
+    term1 = np.sum(
+        visibility_weights[:, :, 0]
+        * np.conj(model_visibilities[:, :, 0])
+        * gains_expanded_1[:, :, 0]
+        * np.conj(gains_expanded_2[:, :, 1])
+        * data_visibilities[:, :, 0]
+    )
+    term2 = np.sum(
+        visibility_weights[:, :, 1]
+        * model_visibilities[:, :, 1]
+        * np.conj(gains_expanded_1[:, :, 1])
+        * gains_expanded_2[:, :, 0],
+        * np.conj(data_visibilities[:, :, 1])
+    )
+    crosspol_phase = np.angle(term1 + term2)
+
+    gains_new = np.copy(gains)
+    gains_new[:, 0] *= np.exp(-1j * crosspol_phase / 2)
+    gains_new[:, 1] *= np.exp(1j * crosspol_phase / 2)
+    if inplace:
+        gains = gains_new
+        return crosspol_phase, None
+    else:
+        return crosspol_phase, gains_new

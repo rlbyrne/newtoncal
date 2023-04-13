@@ -37,8 +37,6 @@ class TestStringMethods(unittest.TestCase):
 
         cost = cost_function_calculations.cost_function_single_pol(
             gains_init[:, test_freq_ind],
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -94,8 +92,6 @@ class TestStringMethods(unittest.TestCase):
         gains_init0[test_ant_ind] -= delta_gain / 2
         cost0 = cost_function_calculations.cost_function_single_pol(
             gains_init0,
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -107,8 +103,6 @@ class TestStringMethods(unittest.TestCase):
         gains_init1[test_ant_ind] += delta_gain / 2
         cost1 = cost_function_calculations.cost_function_single_pol(
             gains_init1,
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -118,8 +112,6 @@ class TestStringMethods(unittest.TestCase):
         )
         jac = cost_function_calculations.jacobian_single_pol(
             gains_init[:, test_freq_ind],
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -181,8 +173,6 @@ class TestStringMethods(unittest.TestCase):
         gains_init0[test_ant_ind] -= 1j * delta_gain / 2
         cost0 = cost_function_calculations.cost_function_single_pol(
             gains_init0,
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -194,8 +184,6 @@ class TestStringMethods(unittest.TestCase):
         gains_init1[test_ant_ind] += 1j * delta_gain / 2
         cost1 = cost_function_calculations.cost_function_single_pol(
             gains_init1,
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -205,8 +193,6 @@ class TestStringMethods(unittest.TestCase):
         )
         jac = cost_function_calculations.jacobian_single_pol(
             gains_init[:, test_freq_ind],
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -270,8 +256,6 @@ class TestStringMethods(unittest.TestCase):
         gains_init0[test_ant_ind] -= delta_gain / 2
         cost0 = cost_function_calculations.cost_function_single_pol(
             gains_init0,
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -283,8 +267,6 @@ class TestStringMethods(unittest.TestCase):
         gains_init1[test_ant_ind] += delta_gain / 2
         cost1 = cost_function_calculations.cost_function_single_pol(
             gains_init1,
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -294,8 +276,6 @@ class TestStringMethods(unittest.TestCase):
         )
         jac = cost_function_calculations.jacobian_single_pol(
             gains_init[:, test_freq_ind],
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -359,8 +339,6 @@ class TestStringMethods(unittest.TestCase):
         gains_init0[test_ant_ind] -= 1j * delta_gain / 2
         cost0 = cost_function_calculations.cost_function_single_pol(
             gains_init0,
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -372,8 +350,6 @@ class TestStringMethods(unittest.TestCase):
         gains_init1[test_ant_ind] += 1j * delta_gain / 2
         cost1 = cost_function_calculations.cost_function_single_pol(
             gains_init1,
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -383,8 +359,6 @@ class TestStringMethods(unittest.TestCase):
         )
         jac = cost_function_calculations.jacobian_single_pol(
             gains_init[:, test_freq_ind],
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -447,8 +421,6 @@ class TestStringMethods(unittest.TestCase):
         gains_init0[test_ant_1_ind] -= delta_gain / 2
         jac0 = cost_function_calculations.jacobian_single_pol(
             gains_init0,
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -460,8 +432,6 @@ class TestStringMethods(unittest.TestCase):
         gains_init1[test_ant_1_ind] += delta_gain / 2
         jac1 = cost_function_calculations.jacobian_single_pol(
             gains_init1,
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -549,8 +519,6 @@ class TestStringMethods(unittest.TestCase):
         gains_init0[test_ant_1_ind] -= 1j * delta_gain / 2
         jac0 = cost_function_calculations.jacobian_single_pol(
             gains_init0,
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -562,8 +530,6 @@ class TestStringMethods(unittest.TestCase):
         gains_init1[test_ant_1_ind] += 1j * delta_gain / 2
         jac1 = cost_function_calculations.jacobian_single_pol(
             gains_init1,
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -651,8 +617,6 @@ class TestStringMethods(unittest.TestCase):
         gains_init0[test_ant_1_ind] -= delta_gain / 2
         jac0 = cost_function_calculations.jacobian_single_pol(
             gains_init0,
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -664,8 +628,6 @@ class TestStringMethods(unittest.TestCase):
         gains_init1[test_ant_1_ind] += delta_gain / 2
         jac1 = cost_function_calculations.jacobian_single_pol(
             gains_init1,
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -754,8 +716,6 @@ class TestStringMethods(unittest.TestCase):
         gains_init0[test_ant_1_ind] -= 1j * delta_gain / 2
         jac0 = cost_function_calculations.jacobian_single_pol(
             gains_init0,
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -767,8 +727,6 @@ class TestStringMethods(unittest.TestCase):
         gains_init1[test_ant_1_ind] += 1j * delta_gain / 2
         jac1 = cost_function_calculations.jacobian_single_pol(
             gains_init1,
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -861,8 +819,6 @@ class TestStringMethods(unittest.TestCase):
         gains_init0[test_ant_1_ind] -= delta_gain / 2
         jac0 = cost_function_calculations.jacobian_single_pol(
             gains_init0,
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -874,8 +830,6 @@ class TestStringMethods(unittest.TestCase):
         gains_init1[test_ant_1_ind] += delta_gain / 2
         jac1 = cost_function_calculations.jacobian_single_pol(
             gains_init1,
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -967,8 +921,6 @@ class TestStringMethods(unittest.TestCase):
         gains_init0[test_ant_1_ind] -= 1j * delta_gain / 2
         jac0 = cost_function_calculations.jacobian_single_pol(
             gains_init0,
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -980,8 +932,6 @@ class TestStringMethods(unittest.TestCase):
         gains_init1[test_ant_1_ind] += 1j * delta_gain / 2
         jac1 = cost_function_calculations.jacobian_single_pol(
             gains_init1,
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -1071,8 +1021,6 @@ class TestStringMethods(unittest.TestCase):
         gains_init0[test_ant_1_ind] -= delta_gain / 2
         jac0 = cost_function_calculations.jacobian_single_pol(
             gains_init0,
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -1084,8 +1032,6 @@ class TestStringMethods(unittest.TestCase):
         gains_init1[test_ant_1_ind] += delta_gain / 2
         jac1 = cost_function_calculations.jacobian_single_pol(
             gains_init1,
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -1176,8 +1122,6 @@ class TestStringMethods(unittest.TestCase):
         gains_init0[test_ant_1_ind] -= 1j * delta_gain / 2
         jac0 = cost_function_calculations.jacobian_single_pol(
             gains_init0,
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -1189,8 +1133,6 @@ class TestStringMethods(unittest.TestCase):
         gains_init1[test_ant_1_ind] += 1j * delta_gain / 2
         jac1 = cost_function_calculations.jacobian_single_pol(
             gains_init1,
-            Nants,
-            Nbls,
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
