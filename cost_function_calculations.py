@@ -296,9 +296,9 @@ def hessian_single_pol(
 
 def set_crosspol_phase(
     gains,
-    model_visibilities,
-    data_visibilities,
-    visibility_weights,
+    crosspol_model_visibilities,
+    crosspol_data_visibilities,
+    crosspol_visibility_weights,
     gains_exp_mat_1,
     gains_exp_mat_2,
     inplace=False,
@@ -315,17 +315,17 @@ def set_crosspol_phase(
     gains : array of complex
         Shape (Nants, 2,). gains[:, 0] corresponds to the P-polarized gains and
         gains[:, 1] corresponds to the Q-polarized gains.
-    model_visibilities :  array of complex
+    crosspol_model_visibilities :  array of complex
         Shape (Ntimes, Nbls, 2,). Cross-polarized model visibilities.
         model_visilibities[:, :, 0] corresponds to the PQ-polarized visibilities
         and model_visilibities[:, :, 1] corresponds to the QP-polarized
         visibilities.
-    data_visibilities : array of complex
+    crosspol_data_visibilities : array of complex
         Shape (Ntimes, Nbls, 2,). Cross-polarized data visibilities.
         model_visilibities[:, :, 0] corresponds to the PQ-polarized visibilities
         and model_visilibities[:, :, 1] corresponds to the QP-polarized
         visibilities.
-    visibility_weights : array of float
+    crosspol_visibility_weights : array of float
         Shape (Ntimes, Nbls, 2).
     gains_exp_mat_1 : array of int
         Shape (Nbls, Nants,).
@@ -346,18 +346,18 @@ def set_crosspol_phase(
     gains_expanded_1 = np.matmul(gains_exp_mat_1, gains)[np.newaxis, :, :]
     gains_expanded_2 = np.matmul(gains_exp_mat_2, gains)[np.newaxis, :, :]
     term1 = np.sum(
-        visibility_weights[:, :, 0]
-        * np.conj(model_visibilities[:, :, 0])
+        crosspol_visibility_weights[:, :, 0]
+        * np.conj(crosspol_model_visibilities[:, :, 0])
         * gains_expanded_1[:, :, 0]
         * np.conj(gains_expanded_2[:, :, 1])
-        * data_visibilities[:, :, 0]
+        * crosspol_data_visibilities[:, :, 0]
     )
     term2 = np.sum(
-        visibility_weights[:, :, 1]
-        * model_visibilities[:, :, 1]
+        crosspol_visibility_weights[:, :, 1]
+        * crosspol_model_visibilities[:, :, 1]
         * np.conj(gains_expanded_1[:, :, 1])
         * gains_expanded_2[:, :, 0]
-        * np.conj(data_visibilities[:, :, 1])
+        * np.conj(crosspol_data_visibilities[:, :, 1])
     )
     crosspol_phase = np.angle(term1 + term2)
 

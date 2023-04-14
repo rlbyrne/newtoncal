@@ -209,7 +209,7 @@ def hessian_single_pol_wrapper(
         gains_exp_mat_2,
         lambda_val,
     )
-    hess_flattened = np.array((2 * Nants, 2 * Nants), dtype=float)
+    hess_flattened = np.full((2 * Nants, 2 * Nants), np.nan, dtype=float)
     hess_flattened[0:Nants, 0:Nants] = hess_real_real
     hess_flattened[Nants:, 0:Nants] = hess_real_imag
     hess_flattened[0:Nants, Nants:] = hess_real_imag
@@ -247,6 +247,7 @@ def uvdata_calibration_setup(
     model,
     gain_init_calfile=None,
     gain_init_stddev=0.0,
+    N_feed_pols=2,
 ):
     """
     Generate the quantities needed for calibration from uvdata objects.
@@ -265,11 +266,13 @@ def uvdata_calibration_setup(
     gain_init_stddev : float
         Default 0.0. Standard deviation of a complex Gaussian perturbation to
         the initial gains.
+    N_feed_pols : int
+        Number of gain polarizations. Default 2.
 
     Returns
     -------
     gains_init : array of complex
-        Shape (Nants, Nfreqs,).
+        Shape (Nants, Nfreqs, 2,).
     Nants : int
         Number of antennas.
     Nbls : int
@@ -279,11 +282,11 @@ def uvdata_calibration_setup(
     Nfreqs : int
         Number of frequency channels.
     model_visibilities : array of complex
-        Shape (Ntimes, Nbls, Nfreqs, Npols,).
+        Shape (Ntimes, Nbls, Nfreqs, N_vis_pols,).
     data_visibilities : array of complex
-        Shape (Ntimes, Nbls, Nfreqs, Npols,).
+        Shape (Ntimes, Nbls, Nfreqs, N_vis_pols,).
     visibility_weights : array of float
-        Shape (Ntimes, Nbls, Nfreqs, Npols,).
+        Shape (Ntimes, Nbls, Nfreqs, N_vis_pols,).
     gains_exp_mat_1 : array of int
         Shape (Nbls, Nants,).
     gains_exp_mat_2 : array of int
@@ -298,7 +301,7 @@ def uvdata_calibration_setup(
     Nbls = data.Nbls
     Ntimes = data.Ntimes
     Nfreqs = data.Nfreqs
-    Npols = data.Npols
+    N_vis_pols = data.Npols
 
     # Format visibilities
     data_visibilities = np.zeros(
@@ -306,7 +309,7 @@ def uvdata_calibration_setup(
             Ntimes,
             Nbls,
             Nfreqs,
-            Npols,
+            N_vis_pols,
         ),
         dtype=complex,
     )
@@ -315,11 +318,11 @@ def uvdata_calibration_setup(
             Ntimes,
             Nbls,
             Nfreqs,
-            Npols,
+            N_vis_pols,
         ),
         dtype=complex,
     )
-    flag_array = np.zeros((Ntimes, Nbls, Nfreqs, Npols), dtype=bool)
+    flag_array = np.zeros((Ntimes, Nbls, Nfreqs, N_vis_pols), dtype=bool)
     for time_ind, time_val in enumerate(np.unique(data.time_array)):
         data_copy = data.copy()
         model_copy = model.copy()
@@ -368,7 +371,14 @@ def uvdata_calibration_setup(
 
     # Initialize gains
     if gain_init_calfile is None:
-        gains_init = np.ones((Nants, Nfreqs), dtype=complex)
+        gains_init = np.ones(
+            (
+                Nants,
+                Nfreqs,
+                N_feed_pols,
+            ),
+            dtype=complex,
+        )
     else:
         gains_init = initialize_gains_from_calfile(
             gain_init_calfile,
@@ -382,11 +392,19 @@ def uvdata_calibration_setup(
         gains_init += np.random.normal(
             0.0,
             gain_init_stddev,
-            size=(Nants, Nfreqs),
+            size=(
+                Nants,
+                Nfreqs,
+                N_feed_pols,
+            ),
         ) + 1.0j * np.random.normal(
             0.0,
             gain_init_stddev,
-            size=(Nants, Nfreqs),
+            size=(
+                Nants,
+                Nfreqs,
+                N_feed_pols,
+            ),
         )
 
     visibility_weights = np.ones(
@@ -394,7 +412,7 @@ def uvdata_calibration_setup(
             Ntimes,
             Nbls,
             Nfreqs,
-            Npols,
+            N_vis_pols,
         ),
         dtype=float,
     )
@@ -415,7 +433,7 @@ def uvdata_calibration_setup(
     )
 
 
-def run_calibration_optimization_unpolarized(
+def run_calibration_optimization_per_pol(
     gains_init,
     Nants,
     Nbls,
@@ -430,8 +448,9 @@ def run_calibration_optimization_unpolarized(
     xtol=1e-8,
 ):
     """
-    Run calibration without full polarization support. Here the XX and YY
-    visibilities are calibrated separately.
+    Run calibration per polarization. Here the XX and YY visibilities are
+    calibrated individually and the cross-polarization phase is applied from the
+    XY and YX visibilities after the fact.
 
     Parameters
     ----------
@@ -446,9 +465,11 @@ def run_calibration_optimization_unpolarized(
     N_feed_pols : int
         Number of feed polarization modes to be fit.
     model_visibilities : array of complex
-        Shape (Ntimes, Nbls, Nfreqs, N_vis_pols,).
+        Shape (Ntimes, Nbls, Nfreqs, N_vis_pols,). Polarizations are ordered in
+        the AIPS convention: XX, YY, XY, YX.
     data_visibilities : array of complex
-        Shape (Ntimes, Nbls, Nfreqs, N_vis_pols,).
+        Shape (Ntimes, Nbls, Nfreqs, N_vis_pols,). Polarizations are ordered in
+        the AIPS convention: XX, YY, XY, YX.
     visibility_weights : array of float
         Shape (Ntimes, Nbls, Nfreqs, N_vis_pols,).
     gains_exp_mat_1 : array of int
@@ -475,8 +496,8 @@ def run_calibration_optimization_unpolarized(
         np.nan,
         dtype=complex,
     )
-    for pol_ind in range(N_feed_pols):
-        for freq_ind in range(Nfreqs):
+    for freq_ind in range(Nfreqs):
+        for pol_ind in range(N_feed_pols):
             gains_init_flattened = np.stack(
                 (
                     np.real(gains_init[:, freq_ind, pol_ind]),
@@ -493,8 +514,6 @@ def run_calibration_optimization_unpolarized(
                 args=(
                     Nants,
                     Nbls,
-                    Ntimes,
-                    Nfreqs,
                     model_visibilities[
                         :,
                         :,
@@ -534,7 +553,21 @@ def run_calibration_optimization_unpolarized(
                     Nants,
                 ),
             )
-            gains_fit_single_freq = gains_fit[0, :] + 1.0j * gains_fit[1, :]
+            gains_fit_single_freq = (
+                gains_fit_single_freq[0, :] + 1.0j * gains_fit_single_freq[1, :]
+            )
             gains_fit[:, freq_ind, pol_ind] = gains_fit_single_freq
+
+        # Constrain crosspol phase
+        crosspol_phase, gains_fit_new = cost_function_calculations.set_crosspol_phase(
+            gains_fit[:, freq_ind, :],
+            model_visibilities[:, :, freq_ind, 2:],
+            data_visibilities[:, :, freq_ind, 2:],
+            visibility_weights[:, :, freq_ind, 2:],
+            gains_exp_mat_1,
+            gains_exp_mat_2,
+            inplace=False,
+        )
+        gains_fit[:, freq_ind, :] = gains_fit_new
 
     return gains_fit

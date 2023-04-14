@@ -36,7 +36,7 @@ class TestStringMethods(unittest.TestCase):
         ) = calibration.uvdata_calibration_setup(data, model)
 
         cost = cost_function_calculations.cost_function_single_pol(
-            gains_init[:, test_freq_ind],
+            gains_init[:, test_freq_ind, 0],
             model_visibilities[:, :, test_freq_ind, test_pol_ind],
             data_visibilities[:, :, test_freq_ind, test_pol_ind],
             visibility_weights[:, :, test_freq_ind, test_pol_ind],
@@ -1174,6 +1174,49 @@ class TestStringMethods(unittest.TestCase):
             print(f"Hessian value: {hess_value}")
 
         np.testing.assert_allclose(grad_approx, hess_value, rtol=1e-5)
+
+    def test_calibration_single_pol_with_identical_data(self):
+
+        lambda_val = 100.0
+
+        model = pyuvdata.UVData()
+        model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
+        data = model.copy()
+
+        (
+            gains_init,
+            Nants,
+            Nbls,
+            Ntimes,
+            Nfreqs,
+            model_visibilities,
+            data_visibilities,
+            visibility_weights,
+            gains_exp_mat_1,
+            gains_exp_mat_2,
+        ) = calibration.uvdata_calibration_setup(
+            data,
+            model,
+            gain_init_stddev=0.1,
+        )
+
+        gains_fit = calibration.run_calibration_optimization_per_pol(
+            gains_init,
+            Nants,
+            Nbls,
+            Nfreqs,
+            2,
+            model_visibilities,
+            data_visibilities,
+            visibility_weights,
+            gains_exp_mat_1,
+            gains_exp_mat_2,
+            lambda_val,
+            xtol=1e-8,
+        )
+
+        np.testing.assert_allclose(np.abs(gains_fit), 1.0)
+        np.testing.assert_allclose(np.angle(gains_fit), 0.0, atol=1e-6)
 
 
 if __name__ == "__main__":
