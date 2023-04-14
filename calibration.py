@@ -446,6 +446,7 @@ def run_calibration_optimization_per_pol(
     gains_exp_mat_2,
     lambda_val,
     xtol=1e-8,
+    verbose=False,
 ):
     """
     Run calibration per polarization. Here the XX and YY visibilities are
@@ -480,6 +481,8 @@ def run_calibration_optimization_per_pol(
         Weight of the phase regularization term; must be positive.
     xtol : float
         Accuracy tolerance for optimizer. Default 1e-8.
+    verbose : bool
+        Set to True to print optimization outputs.
 
     Returns
     -------
@@ -539,7 +542,7 @@ def run_calibration_optimization_per_pol(
                 method="Newton-CG",
                 jac=jacobian_single_pol_wrapper,
                 hess=hessian_single_pol_wrapper,
-                options={"disp": True, "xtol": xtol},
+                options={"disp": verbose, "xtol": xtol},
             )
             end_optimize = time.time()
             print(result.message)
@@ -556,6 +559,16 @@ def run_calibration_optimization_per_pol(
             gains_fit_single_freq = (
                 gains_fit_single_freq[0, :] + 1.0j * gains_fit_single_freq[1, :]
             )
+
+            # Ensure that the phase of the gains is mean-zero
+            # This adds should be handled by the phase regularization term, but
+            # this step removes any optimizer precision effects.
+            avg_angle = np.arctan2(
+                np.mean(np.sin(np.angle(gains_fit_single_freq))),
+                np.mean(np.cos(np.angle(gains_fit_single_freq))),
+            )
+            gains_fit_single_freq *= np.cos(avg_angle) - 1j * np.sin(avg_angle)
+
             gains_fit[:, freq_ind, pol_ind] = gains_fit_single_freq
 
         # Constrain crosspol phase
