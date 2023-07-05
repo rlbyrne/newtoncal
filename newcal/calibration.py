@@ -506,48 +506,53 @@ def run_calibration_optimization_per_pol(
                 axis=0,
             ).flatten()
 
-            # Minimize the cost function
-            start_optimize = time.time()
-            result = scipy.optimize.minimize(
-                cost_function_single_pol_wrapper,
-                gains_init_flattened,
-                args=(
-                    Nants,
-                    Nbls,
-                    model_visibilities[
-                        :,
-                        :,
-                        freq_ind,
-                        pol_ind,
-                    ],
-                    data_visibilities[
-                        :,
-                        :,
-                        freq_ind,
-                        pol_ind,
-                    ],
-                    visibility_weights[
-                        :,
-                        :,
-                        freq_ind,
-                        pol_ind,
-                    ],
-                    gains_exp_mat_1,
-                    gains_exp_mat_2,
-                    lambda_val,
-                ),
-                method="Newton-CG",
-                jac=jacobian_single_pol_wrapper,
-                hess=hessian_single_pol_wrapper,
-                options={"disp": verbose, "xtol": xtol},
-            )
-            end_optimize = time.time()
-            print(result.message)
-            print(f"Optimization time: {(end_optimize - start_optimize)/60.} minutes")
-            sys.stdout.flush()
+            if np.max(visibility_weights[:, :, freq_ind, pol_ind,]) > 0.0:
+                # Minimize the cost function
+                start_optimize = time.time()
+                result = scipy.optimize.minimize(
+                    cost_function_single_pol_wrapper,
+                    gains_init_flattened,
+                    args=(
+                        Nants,
+                        Nbls,
+                        model_visibilities[
+                            :,
+                            :,
+                            freq_ind,
+                            pol_ind,
+                        ],
+                        data_visibilities[
+                            :,
+                            :,
+                            freq_ind,
+                            pol_ind,
+                        ],
+                        visibility_weights[
+                            :,
+                            :,
+                            freq_ind,
+                            pol_ind,
+                        ],
+                        gains_exp_mat_1,
+                        gains_exp_mat_2,
+                        lambda_val,
+                    ),
+                    method="Newton-CG",
+                    jac=jacobian_single_pol_wrapper,
+                    hess=hessian_single_pol_wrapper,
+                    options={"disp": verbose, "xtol": xtol},
+                )
+                end_optimize = time.time()
+                print(result.message)
+                print(f"Optimization time: {(end_optimize - start_optimize)/60.} minutes")
+                sys.stdout.flush()
+                gains_fit_flattened = result.x
+
+            else:  # All flagged
+                gains_fit_flattened = gains_init_flattened
 
             gains_fit_single_freq = np.reshape(
-                result.x,
+                gains_fit_flattened,
                 (
                     2,
                     Nants,
