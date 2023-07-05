@@ -414,7 +414,7 @@ def uvdata_calibration_setup(
         dtype=float,
     )
     if np.max(flag_array):  # Apply flagging
-        visibility_weights[np.where(flag_array)[0]] = 0.0
+        visibility_weights[np.where(flag_array)] = 0.0
 
     return (
         gains_init,
