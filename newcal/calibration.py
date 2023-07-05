@@ -352,9 +352,6 @@ def uvdata_calibration_setup(
             axis=0,
         )
 
-    if not np.max(flag_array):  # Check for flags
-        apply_flags = False
-
     # Create gains expand matrices
     gains_exp_mat_1 = np.zeros((Nbls, Nants), dtype=int)
     gains_exp_mat_2 = np.zeros((Nbls, Nants), dtype=int)
@@ -416,7 +413,7 @@ def uvdata_calibration_setup(
         ),
         dtype=float,
     )
-    if not np.max(flag_array):  # Apply flagging
+    if np.max(flag_array):  # Apply flagging
         visibility_weights[np.where(flag_array)[0]] = 0.0
 
     return (
