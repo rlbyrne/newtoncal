@@ -4,7 +4,7 @@ import scipy
 import scipy.optimize
 import time
 import pyuvdata
-import cost_function_calculations
+from newcal import cost_function_calculations
 
 
 def cost_function_single_pol_wrapper(
