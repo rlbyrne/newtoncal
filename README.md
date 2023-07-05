@@ -1,2 +1,2 @@
-# pycal
+# newcal
 a simple Python-based interferometric calibrator
