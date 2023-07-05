@@ -180,10 +180,7 @@ def hessian_single_pol_wrapper(
     Returns
     -------
     hess_flattened : array of float
-        Jacobian of the cost function, shape (2*Nants, 2*Nants,). jac_flattened[0:Nants]
-        corresponds to the derivatives with respect to the real part of the
-        gains; jac_flattened[Nants:] corresponds to derivatives with respect to
-        the imaginary part of the gains.
+        Hessian of the cost function, shape (2*Nants, 2*Nants,).
     """
 
     gains = np.reshape(
@@ -212,7 +209,7 @@ def hessian_single_pol_wrapper(
     hess_flattened = np.full((2 * Nants, 2 * Nants), np.nan, dtype=float)
     hess_flattened[0:Nants, 0:Nants] = hess_real_real
     hess_flattened[Nants:, 0:Nants] = hess_real_imag
-    hess_flattened[0:Nants, Nants:] = hess_real_imag
+    hess_flattened[0:Nants, Nants:] = np.conj(hess_real_imag).T
     hess_flattened[Nants:, Nants:] = hess_imag_imag
     return hess_flattened
 
@@ -506,7 +503,17 @@ def run_calibration_optimization_per_pol(
                 axis=0,
             ).flatten()
 
-            if np.max(visibility_weights[:, :, freq_ind, pol_ind,]) > 0.0:
+            if (
+                np.max(
+                    visibility_weights[
+                        :,
+                        :,
+                        freq_ind,
+                        pol_ind,
+                    ]
+                )
+                > 0.0
+            ):
                 # Minimize the cost function
                 start_optimize = time.time()
                 result = scipy.optimize.minimize(
@@ -544,7 +551,9 @@ def run_calibration_optimization_per_pol(
                 )
                 end_optimize = time.time()
                 print(result.message)
-                print(f"Optimization time: {(end_optimize - start_optimize)/60.} minutes")
+                print(
+                    f"Optimization time: {(end_optimize - start_optimize)/60.} minutes"
+                )
                 sys.stdout.flush()
                 gains_fit_flattened = result.x
 
