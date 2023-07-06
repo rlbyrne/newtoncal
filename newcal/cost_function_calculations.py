@@ -345,14 +345,14 @@ def set_crosspol_phase(
 
     gains_expanded_1 = np.matmul(gains_exp_mat_1, gains)[np.newaxis, :, :]
     gains_expanded_2 = np.matmul(gains_exp_mat_2, gains)[np.newaxis, :, :]
-    term1 = np.sum(
+    term1 = np.nansum(
         crosspol_visibility_weights[:, :, 0]
         * np.conj(crosspol_model_visibilities[:, :, 0])
         * gains_expanded_1[:, :, 0]
         * np.conj(gains_expanded_2[:, :, 1])
         * crosspol_data_visibilities[:, :, 0]
     )
-    term2 = np.sum(
+    term2 = np.nansum(
         crosspol_visibility_weights[:, :, 1]
         * crosspol_model_visibilities[:, :, 1]
         * np.conj(gains_expanded_1[:, :, 1])
