@@ -68,6 +68,7 @@ def cost_function_single_pol_wrapper(
         gains_exp_mat_2,
         lambda_val,
     )
+    print(cost)
     return cost
 
 
@@ -364,7 +365,7 @@ def uvdata_calibration_setup(
         ] = 1
 
     # Initialize gains
-    if gain_init_calfile is None:
+    if gain_init_calfile is None:  # Use mean ratio of visibility amplitudes
         gains_init = np.ones(
             (
                 Nants,
@@ -373,6 +374,9 @@ def uvdata_calibration_setup(
             ),
             dtype=complex,
         )
+        vis_amp_ratio = np.abs(model_visibilities) / np.abs(data_visibilities)
+        vis_amp_ratio[np.where(data_visibilities == 0.0)] = np.nan
+        gains_init[:, :, :] = np.sqrt(np.nanmean(vis_amp_ratio))
     else:
         gains_init = initialize_gains_from_calfile(
             gain_init_calfile,
