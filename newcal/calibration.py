@@ -580,8 +580,10 @@ def run_calibration_optimization_per_pol(
                 )
                 sys.stdout.flush()
                 gains_fit_reshaped = np.reshape(result.x, (2, Nants_use))
-                gains_fit_single_freq = np.full(Nants, np.nan)
-                gains_fit_single_freq[use_ants] = gains_fit_reshaped
+                gains_fit_single_freq = np.full(Nants, np.nan + 1j * np.nan)
+                gains_fit_single_freq[use_ants] = (
+                    gains_fit_reshaped[0, :] + 1j * gains_fit_reshaped[1, :]
+                )
 
                 # Ensure that the phase of the gains is mean-zero
                 # This adds should be handled by the phase regularization term, but
@@ -595,7 +597,7 @@ def run_calibration_optimization_per_pol(
                 gains_fit[:, freq_ind, pol_ind] = gains_fit_single_freq
 
             else:  # All flagged
-                gains_fit[:, freq_ind, pol_ind] = np.full(Nants, np.nan)
+                gains_fit[:, freq_ind, pol_ind] = np.full(Nants, np.nan + 1j * np.nan)
 
         # Constrain crosspol phase
         crosspol_phase, gains_fit_new = cost_function_calculations.set_crosspol_phase(
