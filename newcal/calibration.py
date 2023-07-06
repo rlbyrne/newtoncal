@@ -68,6 +68,7 @@ def cost_function_single_pol_wrapper(
         gains_exp_mat_2,
         lambda_val,
     )
+    print(cost)
     return cost
 
 
@@ -364,7 +365,7 @@ def uvdata_calibration_setup(
         ] = 1
 
     # Initialize gains
-    if gain_init_calfile is None:
+    if gain_init_calfile is None:  # Use mean ratio of visibility amplitudes
         gains_init = np.ones(
             (
                 Nants,
@@ -373,6 +374,9 @@ def uvdata_calibration_setup(
             ),
             dtype=complex,
         )
+        vis_amp_ratio = np.abs(model_visibilities) / np.abs(data_visibilities)
+        vis_amp_ratio[np.where(data_visibilities == 0.0)] = np.nan
+        gains_init[:, :, :] = np.sqrt(np.nanmean(vis_amp_ratio))
     else:
         gains_init = initialize_gains_from_calfile(
             gain_init_calfile,
@@ -495,14 +499,6 @@ def run_calibration_optimization_per_pol(
     )
     for freq_ind in range(Nfreqs):
         for pol_ind in range(N_feed_pols):
-            gains_init_flattened = np.stack(
-                (
-                    np.real(gains_init[:, freq_ind, pol_ind]),
-                    np.imag(gains_init[:, freq_ind, pol_ind]),
-                ),
-                axis=0,
-            ).flatten()
-
             if (
                 np.max(
                     visibility_weights[
@@ -514,13 +510,45 @@ def run_calibration_optimization_per_pol(
                 )
                 > 0.0
             ):
+                # Check if some antennas are fully flagged
+                antenna_weights = np.sum(
+                    np.matmul(
+                        gains_exp_mat_1.T,
+                        visibility_weights[
+                            :,
+                            :,
+                            freq_ind,
+                            pol_ind,
+                        ].T,
+                    )
+                    + np.matmul(
+                        gains_exp_mat_2.T,
+                        visibility_weights[
+                            :,
+                            :,
+                            freq_ind,
+                            pol_ind,
+                        ].T,
+                    ),
+                    axis=1,
+                )
+                use_ants = np.where(antenna_weights > 0)[0]
+                Nants_use = len(use_ants)
+                gains_init_use = gains_init[use_ants, freq_ind, pol_ind]
+                gains_init_flattened = np.stack(
+                    (np.real(gains_init_use), np.imag(gains_init_use)),
+                    axis=0,
+                ).flatten()
+                gains_exp_mat_1_use = gains_exp_mat_1[:, use_ants]
+                gains_exp_mat_2_use = gains_exp_mat_2[:, use_ants]
+
                 # Minimize the cost function
                 start_optimize = time.time()
                 result = scipy.optimize.minimize(
                     cost_function_single_pol_wrapper,
                     gains_init_flattened,
                     args=(
-                        Nants,
+                        Nants_use,
                         Nbls,
                         model_visibilities[
                             :,
@@ -540,8 +568,8 @@ def run_calibration_optimization_per_pol(
                             freq_ind,
                             pol_ind,
                         ],
-                        gains_exp_mat_1,
-                        gains_exp_mat_2,
+                        gains_exp_mat_1_use,
+                        gains_exp_mat_2_use,
                         lambda_val,
                     ),
                     method="Newton-CG",
@@ -555,32 +583,25 @@ def run_calibration_optimization_per_pol(
                     f"Optimization time: {(end_optimize - start_optimize)/60.} minutes"
                 )
                 sys.stdout.flush()
-                gains_fit_flattened = result.x
+                gains_fit_reshaped = np.reshape(result.x, (2, Nants_use))
+                gains_fit_single_freq = np.full(Nants, np.nan + 1j * np.nan)
+                gains_fit_single_freq[use_ants] = (
+                    gains_fit_reshaped[0, :] + 1j * gains_fit_reshaped[1, :]
+                )
+
+                # Ensure that the phase of the gains is mean-zero
+                # This adds should be handled by the phase regularization term, but
+                # this step removes any optimizer precision effects.
+                avg_angle = np.arctan2(
+                    np.nanmean(np.sin(np.angle(gains_fit_single_freq))),
+                    np.nanmean(np.cos(np.angle(gains_fit_single_freq))),
+                )
+                gains_fit_single_freq *= np.cos(avg_angle) - 1j * np.sin(avg_angle)
+
+                gains_fit[:, freq_ind, pol_ind] = gains_fit_single_freq
 
             else:  # All flagged
-                gains_fit_flattened = gains_init_flattened
-
-            gains_fit_single_freq = np.reshape(
-                gains_fit_flattened,
-                (
-                    2,
-                    Nants,
-                ),
-            )
-            gains_fit_single_freq = (
-                gains_fit_single_freq[0, :] + 1.0j * gains_fit_single_freq[1, :]
-            )
-
-            # Ensure that the phase of the gains is mean-zero
-            # This adds should be handled by the phase regularization term, but
-            # this step removes any optimizer precision effects.
-            avg_angle = np.arctan2(
-                np.mean(np.sin(np.angle(gains_fit_single_freq))),
-                np.mean(np.cos(np.angle(gains_fit_single_freq))),
-            )
-            gains_fit_single_freq *= np.cos(avg_angle) - 1j * np.sin(avg_angle)
-
-            gains_fit[:, freq_ind, pol_ind] = gains_fit_single_freq
+                gains_fit[:, freq_ind, pol_ind] = np.full(Nants, np.nan + 1j * np.nan)
 
         # Constrain crosspol phase
         crosspol_phase, gains_fit_new = cost_function_calculations.set_crosspol_phase(
