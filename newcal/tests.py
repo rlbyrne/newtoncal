@@ -1,5 +1,6 @@
 import numpy as np
 import calibration
+import calibration_wrappers
 import cost_function_calculations
 import pyuvdata
 import os
@@ -29,12 +30,14 @@ class TestStringMethods(unittest.TestCase):
             Nbls,
             Ntimes,
             Nfreqs,
+            N_feed_pols,
             model_visibilities,
             data_visibilities,
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.uvdata_calibration_setup(data, model)
+            antenna_names,
+        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
 
         cost = cost_function_calculations.cost_function_single_pol(
             gains_init[:, test_freq_ind, 0],
@@ -68,12 +71,14 @@ class TestStringMethods(unittest.TestCase):
             Nbls,
             Ntimes,
             Nfreqs,
+            N_feed_pols,
             model_visibilities,
             data_visibilities,
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.uvdata_calibration_setup(data, model)
+            antenna_names,
+        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
@@ -149,12 +154,14 @@ class TestStringMethods(unittest.TestCase):
             Nbls,
             Ntimes,
             Nfreqs,
+            N_feed_pols,
             model_visibilities,
             data_visibilities,
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.uvdata_calibration_setup(data, model)
+            antenna_names,
+        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
@@ -230,12 +237,14 @@ class TestStringMethods(unittest.TestCase):
             Nbls,
             Ntimes,
             Nfreqs,
+            N_feed_pols,
             model_visibilities,
             data_visibilities,
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.uvdata_calibration_setup(data, model)
+            antenna_names,
+        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
 
         visibility_weights = np.zeros_like(visibility_weights)  # Don't test data
 
@@ -313,12 +322,14 @@ class TestStringMethods(unittest.TestCase):
             Nbls,
             Ntimes,
             Nfreqs,
+            N_feed_pols,
             model_visibilities,
             data_visibilities,
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.uvdata_calibration_setup(data, model)
+            antenna_names,
+        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
 
         visibility_weights = np.zeros_like(visibility_weights)  # Don't test data
 
@@ -397,12 +408,14 @@ class TestStringMethods(unittest.TestCase):
             Nbls,
             Ntimes,
             Nfreqs,
+            N_feed_pols,
             model_visibilities,
             data_visibilities,
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.uvdata_calibration_setup(data, model)
+            antenna_names,
+        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
@@ -495,12 +508,14 @@ class TestStringMethods(unittest.TestCase):
             Nbls,
             Ntimes,
             Nfreqs,
+            N_feed_pols,
             model_visibilities,
             data_visibilities,
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.uvdata_calibration_setup(data, model)
+            antenna_names,
+        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
@@ -593,12 +608,14 @@ class TestStringMethods(unittest.TestCase):
             Nbls,
             Ntimes,
             Nfreqs,
+            N_feed_pols,
             model_visibilities,
             data_visibilities,
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.uvdata_calibration_setup(data, model)
+            antenna_names,
+        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
@@ -692,12 +709,14 @@ class TestStringMethods(unittest.TestCase):
             Nbls,
             Ntimes,
             Nfreqs,
+            N_feed_pols,
             model_visibilities,
             data_visibilities,
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.uvdata_calibration_setup(data, model)
+            antenna_names,
+        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
@@ -793,12 +812,14 @@ class TestStringMethods(unittest.TestCase):
             Nbls,
             Ntimes,
             Nfreqs,
+            N_feed_pols,
             model_visibilities,
             data_visibilities,
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.uvdata_calibration_setup(data, model)
+            antenna_names,
+        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
 
         visibility_weights = np.zeros_like(visibility_weights)  # Don't test data
 
@@ -895,12 +916,14 @@ class TestStringMethods(unittest.TestCase):
             Nbls,
             Ntimes,
             Nfreqs,
+            N_feed_pols,
             model_visibilities,
             data_visibilities,
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.uvdata_calibration_setup(data, model)
+            antenna_names,
+        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
 
         visibility_weights = np.zeros_like(visibility_weights)  # Don't test data
 
@@ -995,12 +1018,14 @@ class TestStringMethods(unittest.TestCase):
             Nbls,
             Ntimes,
             Nfreqs,
+            N_feed_pols,
             model_visibilities,
             data_visibilities,
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.uvdata_calibration_setup(data, model)
+            antenna_names,
+        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
 
         visibility_weights = np.zeros_like(visibility_weights)  # Don't test data
 
@@ -1096,12 +1121,14 @@ class TestStringMethods(unittest.TestCase):
             Nbls,
             Ntimes,
             Nfreqs,
+            N_feed_pols,
             model_visibilities,
             data_visibilities,
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.uvdata_calibration_setup(data, model)
+            antenna_names,
+        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
 
         visibility_weights = np.zeros_like(visibility_weights)  # Don't test data
 
@@ -1194,12 +1221,14 @@ class TestStringMethods(unittest.TestCase):
             Nbls,
             Ntimes,
             Nfreqs,
+            N_feed_pols,
             model_visibilities,
             data_visibilities,
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.uvdata_calibration_setup(data, model)
+            antenna_names,
+        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
@@ -1250,12 +1279,14 @@ class TestStringMethods(unittest.TestCase):
             Nbls,
             Ntimes,
             Nfreqs,
+            N_feed_pols,
             model_visibilities,
             data_visibilities,
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.uvdata_calibration_setup(
+            antenna_names,
+        ) = calibration_wrappers.uvdata_calibration_setup(
             data,
             model,
             gain_init_stddev=0.1,
@@ -1272,7 +1303,7 @@ class TestStringMethods(unittest.TestCase):
             dtype=float,
         )
 
-        gains_fit = calibration.run_calibration_optimization_per_pol(
+        gains_fit = calibration_wrappers.calibration_per_pol(
             gains_init,
             Nants,
             Nbls,
@@ -1285,6 +1316,7 @@ class TestStringMethods(unittest.TestCase):
             gains_exp_mat_2,
             lambda_val,
             xtol=1e-8,
+            parallel=False,
         )
 
         np.testing.assert_allclose(np.abs(gains_fit), 1.0)
@@ -1304,12 +1336,14 @@ class TestStringMethods(unittest.TestCase):
             Nbls,
             Ntimes,
             Nfreqs,
+            N_feed_pols,
             model_visibilities,
             data_visibilities,
             visibility_weights,
             gains_exp_mat_1,
             gains_exp_mat_2,
-        ) = calibration.uvdata_calibration_setup(
+            antenna_names,
+        ) = calibration_wrappers.uvdata_calibration_setup(
             data,
             model,
             gain_init_stddev=0.1,
@@ -1329,7 +1363,7 @@ class TestStringMethods(unittest.TestCase):
         visibility_weights[2, 10, 0, :] = 0.0
         visibility_weights[1, 20, 0, :] = 0.0
 
-        gains_fit = calibration.run_calibration_optimization_per_pol(
+        gains_fit = calibration_wrappers.calibration_per_pol(
             gains_init,
             Nants,
             Nbls,
@@ -1342,6 +1376,7 @@ class TestStringMethods(unittest.TestCase):
             gains_exp_mat_2,
             lambda_val,
             xtol=1e-8,
+            parallel=False,
         )
 
         np.testing.assert_allclose(np.abs(gains_fit), 1.0)

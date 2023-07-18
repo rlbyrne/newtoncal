@@ -68,7 +68,6 @@ def cost_function_single_pol_wrapper(
         gains_exp_mat_2,
         lambda_val,
     )
-    print(cost)
     return cost
 
 
@@ -219,223 +218,125 @@ def initialize_gains_from_calfile(
     gain_init_calfile,
     Nants,
     Nfreqs,
-    antenna_list,
+    N_feed_pols,
     antenna_names,
-    time_ind=0,
-    pol_ind=0,
 ):
     """
-    Need to edit this file to include all polarizations
-    """
-
-    uvcal = pyuvdata.UVCal()
-    uvcal.read_calfits(gain_init_calfile)
-    gains_init = np.ones((Nants, Nfreqs), dtype=complex)
-    cal_ant_names = np.array([uvcal.antenna_names[ant] for ant in uvcal.ant_array])
-    for ind, ant in enumerate(antenna_list):
-        ant_name = antenna_names[ant]
-        cal_ant_ind = np.where(cal_ant_names == ant_name)[0][0]
-        gains_init[ind, :] = uvcal.gain_array[cal_ant_ind, 0, :, time_ind, pol_ind]
-
-    return gains_init
-
-
-def uvdata_calibration_setup(
-    data,
-    model,
-    gain_init_calfile=None,
-    gain_init_stddev=0.0,
-    N_feed_pols=2,
-):
-    """
-    Generate the quantities needed for calibration from uvdata objects.
+    Extract an array of gains from a pyuvdata-formatted calfits files.
 
     Parameters
     ----------
-    data : pyuvdata UVData object
-        Data visibilities to be calibrated.
-    model : pyuvdata UVData object
-        Model visibilities to be used in calibration. Must have the same
-        parameters at data.
-    gain_init_calfile : str or None
-        Default None. If not None, provides a path to a pyuvdata-formatted
-        calfits file containing gains values for calibration initialization. If
-        None, all gains are initialized to 1.0.
-    gain_init_stddev : float
-        Default 0.0. Standard deviation of a complex Gaussian perturbation to
-        the initial gains.
+    gain_init_calfile : str
+        Path to a pyuvdata-formatted calfits file.
+    Nants : int
+        Number of antennas.
+    Nfreqs : int
+        Number of frequency channels.
     N_feed_pols : int
-        Number of gain polarizations. Default 2.
+        Number of gain polarizations.
+    antenna_names : array of str
+        Shape (Nants,). Ordering matches the ordering of the gains.
 
     Returns
     -------
     gains_init : array of complex
-        Shape (Nants, Nfreqs, 2,).
-    Nants : int
-        Number of antennas.
-    Nbls : int
-        Number of baselines.
-    Ntimes : int
-        Number of time intervals.
-    Nfreqs : int
-        Number of frequency channels.
-    model_visibilities : array of complex
-        Shape (Ntimes, Nbls, Nfreqs, N_vis_pols,).
-    data_visibilities : array of complex
-        Shape (Ntimes, Nbls, Nfreqs, N_vis_pols,).
-    visibility_weights : array of float
-        Shape (Ntimes, Nbls, Nfreqs, N_vis_pols,).
-    gains_exp_mat_1 : array of int
-        Shape (Nbls, Nants,).
-    gains_exp_mat_2 : array of int
-        Shape (Nbls, Nants,).
+        Shape (Nants, Nfreqs, N_feed_pols,).
     """
 
-    # Autocorrelations are not currently supported
-    data.select(ant_str="cross")
-    model.select(ant_str="cross")
+    uvcal = pyuvdata.UVCal()
+    uvcal.read_calfits(gain_init_calfile)
 
-    Nants = data.Nants_data
-    Nbls = data.Nbls
-    Ntimes = data.Ntimes
-    Nfreqs = data.Nfreqs
-    N_vis_pols = data.Npols
+    uvcal.reorder_freqs(channel_order="freq")
+    uvcal.reorder_jones()
+    use_gains = np.mean(uvcal.gain_array[:, 0, :, :, :], axis=3)  # Average over times
 
-    # Format visibilities
-    data_visibilities = np.zeros(
-        (
-            Ntimes,
-            Nbls,
-            Nfreqs,
-            N_vis_pols,
-        ),
-        dtype=complex,
+    gains_init = np.full(
+        (Nants, Nfreqs, N_feed_pols), np.nan + 1j * np.nan, dtype=complex
     )
-    model_visibilities = np.zeros(
-        (
-            Ntimes,
-            Nbls,
-            Nfreqs,
-            N_vis_pols,
-        ),
-        dtype=complex,
-    )
-    flag_array = np.zeros((Ntimes, Nbls, Nfreqs, N_vis_pols), dtype=bool)
-    for time_ind, time_val in enumerate(np.unique(data.time_array)):
-        data_copy = data.copy()
-        model_copy = model.copy()
-        data_copy.select(times=time_val)
-        model_copy.select(times=time_val)
-        data_copy.reorder_blts()
-        model_copy.reorder_blts()
-        data_copy.reorder_pols(order="AIPS")
-        model_copy.reorder_pols(order="AIPS")
-        data_copy.reorder_freqs(channel_order="freq")
-        model_copy.reorder_freqs(channel_order="freq")
-        if time_ind == 0:
-            metadata_reference = data_copy.copy(metadata_only=True)
-        model_visibilities[time_ind, :, :, :] = np.squeeze(
-            model_copy.data_array, axis=(1,)
-        )
-        data_visibilities[time_ind, :, :, :] = np.squeeze(
-            data_copy.data_array, axis=(1,)
-        )
-        flag_array[time_ind, :, :, :] = np.max(
-            np.stack(
-                [
-                    np.squeeze(model_copy.flag_array, axis=(1,)),
-                    np.squeeze(data_copy.flag_array, axis=(1,)),
-                ]
-            ),
-            axis=0,
-        )
+    cal_ant_names = np.array([uvcal.antenna_names[ant] for ant in uvcal.ant_array])
+    cal_ant_inds = np.array([cal_ant_names.index(name) for name in antenna_names])
 
-    # Create gains expand matrices
-    gains_exp_mat_1 = np.zeros((Nbls, Nants), dtype=int)
-    gains_exp_mat_2 = np.zeros((Nbls, Nants), dtype=int)
-    antenna_list = np.unique(
-        [metadata_reference.ant_1_array, metadata_reference.ant_2_array]
-    )
-    for baseline in range(metadata_reference.Nbls):
-        gains_exp_mat_1[
-            baseline, np.where(antenna_list == metadata_reference.ant_1_array[baseline])
-        ] = 1
-        gains_exp_mat_2[
-            baseline, np.where(antenna_list == metadata_reference.ant_2_array[baseline])
-        ] = 1
+    gains_init = use_gains[cal_ant_inds, :, : N_feed_pols + 1]
 
-    # Initialize gains
-    if gain_init_calfile is None:  # Use mean ratio of visibility amplitudes
-        gains_init = np.ones(
-            (
-                Nants,
-                Nfreqs,
-                N_feed_pols,
-            ),
+    return gains_init
+
+
+def create_uvcal_obj(uvdata, antenna_names, gains=None):
+    """
+    Generate a pyuvdata UVCal object from gain solutions.
+
+    Parameters
+    ----------
+    uvdata : pyuvdata UVData object
+        Used for metadata reference.
+    antenna_names : array of str
+        Shape (Nants,). Ordering matches the ordering of the gains.
+    gains : array of complex or None
+        Fit gain values. Shape (Nants, Nfreqs, N_feed_pols,). If None, gains will
+        all be set to 1.
+
+    Returns
+    -------
+    uvcal : pyuvdata UVCal object
+    """
+
+    uvcal = pyuvdata.UVCal()
+    uvcal.Nants_data = len(antenna_names)
+    uvcal.Nants_telescope = uvdata.Nants_telescope
+    uvcal.Nfreqs = uvdata.Nfreqs
+    uvcal.Njones = N_feed_pols
+    uvcal.Nspws = 1
+    uvcal.Ntimes = 1
+    uvcal.ant_array = np.arange(uvcal.Nants_data)
+    uvcal.antenna_names = antenna_names
+    uvdata_antenna_inds = np.array(
+        [(uvdata.antenna_names).index(name) for name in antenna_names]
+    )
+    uvcal.antenna_numbers = uvdata.antenna_numbers[uvdata_antenna_inds]
+    uvcal.cal_style = "sky"
+    uvcal.cal_type = "gain"
+    uvcal.channel_width = uvdata.channel_width
+    uvcal.freq_array = uvdata.freq_array
+    uvcal.gain_convention = "multiply"
+    uvcal.history = "calibrated with newcal"
+    uvcal.integration_time = np.mean(uvdata.integration_time)
+    uvcal.jones_array = np.array([-5])
+    uvcal.spw_array = uvdata.spw_array
+    uvcal.telescope_name = uvdata.telescope_name
+    uvcal.time_array = np.array([np.mean(uvdata.time_array)])
+    uvcal.time_range = np.array([np.min(uvdata.time_array), np.max(uvdata.time_array)])
+    uvcal.x_orientation = "east"
+    if gains is None:  # Set all gains to 1
+        uvcal.gain_array = np.full(
+            (uvcal.Nants_data, uvcal.Nspws, uvcal.Nfreqs, uvcal.Ntimes, uvcal.Njones),
+            1,
             dtype=complex,
         )
-        vis_amp_ratio = np.abs(model_visibilities) / np.abs(data_visibilities)
-        vis_amp_ratio[np.where(data_visibilities == 0.0)] = np.nan
-        gains_init[:, :, :] = np.sqrt(np.nanmean(vis_amp_ratio))
     else:
-        gains_init = initialize_gains_from_calfile(
-            gain_init_calfile,
-            Nants,
-            Nfreqs,
-            antenna_list,
-            metadata_reference.antenna_names,
-        )
-
-    if gain_init_stddev != 0.0:
-        gains_init += np.random.normal(
-            0.0,
-            gain_init_stddev,
-            size=(
-                Nants,
-                Nfreqs,
-                N_feed_pols,
-            ),
-        ) + 1.0j * np.random.normal(
-            0.0,
-            gain_init_stddev,
-            size=(
-                Nants,
-                Nfreqs,
-                N_feed_pols,
-            ),
-        )
-
-    visibility_weights = np.ones(
-        (
-            Ntimes,
-            Nbls,
-            Nfreqs,
-            N_vis_pols,
-        ),
+        uvcal.gain_array = gains[:, np.newaxis, :, np.newaxis, :]
+    uvcal.flag_array = np.isnan(uvcal.gain_array)
+    uvcal.quality_array = np.full(
+        (uvcal.Nants_data, uvcal.Nspws, uvcal.Nfreqs, uvcal.Ntimes, uvcal.Njones),
+        1.0,
         dtype=float,
-    )
-    if np.max(flag_array):  # Apply flagging
-        visibility_weights[np.where(flag_array)] = 0.0
-
-    return (
-        gains_init,
-        Nants,
-        Nbls,
-        Ntimes,
-        Nfreqs,
-        model_visibilities,
-        data_visibilities,
-        visibility_weights,
-        gains_exp_mat_1,
-        gains_exp_mat_2,
+    )  # Not supported
+    uvcal.ref_antenna_name = "none"
+    uvcal.sky_catalog = ""
+    uvcal.sky_field = "phase center (RA, Dec): ({}, {})".format(
+        np.degrees(np.mean(uvdata.phase_center_app_ra)),
+        np.degrees(np.mean(uvdata.phase_center_app_dec)),
     )
 
+    if not uvcal.check():
+        print("ERROR: UVCal check failed.")
 
-def run_calibration_optimization_per_pol(
+    return uvcal
+
+
+def run_calibration_optimization_per_pol_single_freq(
     gains_init,
     Nants,
     Nbls,
-    Nfreqs,
     N_feed_pols,
     model_visibilities,
     data_visibilities,
@@ -443,8 +344,8 @@ def run_calibration_optimization_per_pol(
     gains_exp_mat_1,
     gains_exp_mat_2,
     lambda_val,
-    xtol=1e-8,
-    verbose=False,
+    xtol,
+    verbose,
 ):
     """
     Run calibration per polarization. Here the XX and YY visibilities are
@@ -454,23 +355,21 @@ def run_calibration_optimization_per_pol(
     Parameters
     ----------
     gains_init : array of complex
-        Initial guess for the gains. Shape (Nants, Nfreqs, N_feed_pols,).
+        Initial guess for the gains. Shape (Nants, N_feed_pols,).
     Nants : int
         Number of antennas.
     Nbls : int
         Number of baselines.
-    Nfreqs : int
-        Number of frequency channels.
     N_feed_pols : int
         Number of feed polarization modes to be fit.
     model_visibilities : array of complex
-        Shape (Ntimes, Nbls, Nfreqs, N_vis_pols,). Polarizations are ordered in
-        the AIPS convention: XX, YY, XY, YX.
+        Shape (Ntimes, Nbls, N_vis_pols,). Polarizations are ordered in the AIPS
+        convention: XX, YY, XY, YX.
     data_visibilities : array of complex
-        Shape (Ntimes, Nbls, Nfreqs, N_vis_pols,). Polarizations are ordered in
-        the AIPS convention: XX, YY, XY, YX.
+        Shape (Ntimes, Nbls, N_vis_pols,). Polarizations are ordered in the AIPS
+        convention: XX, YY, XY, YX.
     visibility_weights : array of float
-        Shape (Ntimes, Nbls, Nfreqs, N_vis_pols,).
+        Shape (Ntimes, Nbls, N_vis_pols,).
     gains_exp_mat_1 : array of int
         Shape (Nbls, Nants,).
     gains_exp_mat_2 : array of int
@@ -485,134 +384,95 @@ def run_calibration_optimization_per_pol(
     Returns
     -------
     gains_fit : array of complex
-        Fit gain values. Shape (Nants, Nfreqs, N_feed_pols,).
+        Fit gain values. Shape (Nants, N_feed_pols,).
     """
 
     gains_fit = np.full(
         (
             Nants,
-            Nfreqs,
             N_feed_pols,
         ),
         np.nan,
         dtype=complex,
     )
-    for freq_ind in range(Nfreqs):
-        for pol_ind in range(N_feed_pols):
-            if (
-                np.max(
-                    visibility_weights[
-                        :,
-                        :,
-                        freq_ind,
-                        pol_ind,
-                    ]
+    for pol_ind in range(N_feed_pols):
+        if (
+            np.max(visibility_weights[:, :, pol_ind]) > 0.0
+        ):  # Check if some antennas are fully flagged
+            antenna_weights = np.sum(
+                np.matmul(
+                    gains_exp_mat_1.T,
+                    visibility_weights[:, :, pol_ind].T,
                 )
-                > 0.0
-            ):
-                # Check if some antennas are fully flagged
-                antenna_weights = np.sum(
-                    np.matmul(
-                        gains_exp_mat_1.T,
-                        visibility_weights[
-                            :,
-                            :,
-                            freq_ind,
-                            pol_ind,
-                        ].T,
-                    )
-                    + np.matmul(
-                        gains_exp_mat_2.T,
-                        visibility_weights[
-                            :,
-                            :,
-                            freq_ind,
-                            pol_ind,
-                        ].T,
-                    ),
-                    axis=1,
-                )
-                use_ants = np.where(antenna_weights > 0)[0]
-                Nants_use = len(use_ants)
-                gains_init_use = gains_init[use_ants, freq_ind, pol_ind]
-                gains_init_flattened = np.stack(
-                    (np.real(gains_init_use), np.imag(gains_init_use)),
-                    axis=0,
-                ).flatten()
-                gains_exp_mat_1_use = gains_exp_mat_1[:, use_ants]
-                gains_exp_mat_2_use = gains_exp_mat_2[:, use_ants]
+                + np.matmul(
+                    gains_exp_mat_2.T,
+                    visibility_weights[:, :, pol_ind].T,
+                ),
+                axis=1,
+            )
+            use_ants = np.where(antenna_weights > 0)[0]
+            Nants_use = len(use_ants)
+            gains_init_use = gains_init[use_ants, pol_ind]
+            gains_init_flattened = np.stack(
+                (np.real(gains_init_use), np.imag(gains_init_use)),
+                axis=0,
+            ).flatten()
+            gains_exp_mat_1_use = gains_exp_mat_1[:, use_ants]
+            gains_exp_mat_2_use = gains_exp_mat_2[:, use_ants]
 
-                # Minimize the cost function
-                start_optimize = time.time()
-                result = scipy.optimize.minimize(
-                    cost_function_single_pol_wrapper,
-                    gains_init_flattened,
-                    args=(
-                        Nants_use,
-                        Nbls,
-                        model_visibilities[
-                            :,
-                            :,
-                            freq_ind,
-                            pol_ind,
-                        ],
-                        data_visibilities[
-                            :,
-                            :,
-                            freq_ind,
-                            pol_ind,
-                        ],
-                        visibility_weights[
-                            :,
-                            :,
-                            freq_ind,
-                            pol_ind,
-                        ],
-                        gains_exp_mat_1_use,
-                        gains_exp_mat_2_use,
-                        lambda_val,
-                    ),
-                    method="Newton-CG",
-                    jac=jacobian_single_pol_wrapper,
-                    hess=hessian_single_pol_wrapper,
-                    options={"disp": verbose, "xtol": xtol},
-                )
-                end_optimize = time.time()
-                print(result.message)
-                print(
-                    f"Optimization time: {(end_optimize - start_optimize)/60.} minutes"
-                )
-                sys.stdout.flush()
-                gains_fit_reshaped = np.reshape(result.x, (2, Nants_use))
-                gains_fit_single_freq = np.full(Nants, np.nan + 1j * np.nan)
-                gains_fit_single_freq[use_ants] = (
-                    gains_fit_reshaped[0, :] + 1j * gains_fit_reshaped[1, :]
-                )
+            # Minimize the cost function
+            start_optimize = time.time()
+            result = scipy.optimize.minimize(
+                cost_function_single_pol_wrapper,
+                gains_init_flattened,
+                args=(
+                    Nants_use,
+                    Nbls,
+                    model_visibilities[:, :, pol_ind],
+                    data_visibilities[:, :, pol_ind],
+                    visibility_weights[:, :, pol_ind],
+                    gains_exp_mat_1_use,
+                    gains_exp_mat_2_use,
+                    lambda_val,
+                ),
+                method="Newton-CG",
+                jac=jacobian_single_pol_wrapper,
+                hess=hessian_single_pol_wrapper,
+                options={"disp": verbose, "xtol": xtol},
+            )
+            end_optimize = time.time()
+            print(result.message)
+            print(f"Optimization time: {(end_optimize - start_optimize)/60.} minutes")
+            sys.stdout.flush()
+            gains_fit_reshaped = np.reshape(result.x, (2, Nants_use))
+            gains_fit_single_pol = np.full(Nants, np.nan + 1j * np.nan)
+            gains_fit_single_pol[use_ants] = (
+                gains_fit_reshaped[0, :] + 1j * gains_fit_reshaped[1, :]
+            )
 
-                # Ensure that the phase of the gains is mean-zero
-                # This adds should be handled by the phase regularization term, but
-                # this step removes any optimizer precision effects.
-                avg_angle = np.arctan2(
-                    np.nanmean(np.sin(np.angle(gains_fit_single_freq))),
-                    np.nanmean(np.cos(np.angle(gains_fit_single_freq))),
-                )
-                gains_fit_single_freq *= np.cos(avg_angle) - 1j * np.sin(avg_angle)
+            # Ensure that the phase of the gains is mean-zero
+            # This adds should be handled by the phase regularization term, but
+            # this step removes any optimizer precision effects.
+            avg_angle = np.arctan2(
+                np.nanmean(np.sin(np.angle(gains_fit_single_pol))),
+                np.nanmean(np.cos(np.angle(gains_fit_single_pol))),
+            )
+            gains_fit_single_pol *= np.cos(avg_angle) - 1j * np.sin(avg_angle)
 
-                gains_fit[:, freq_ind, pol_ind] = gains_fit_single_freq
+            gains_fit[:, pol_ind] = gains_fit_single_pol
 
-            else:  # All flagged
-                gains_fit[:, freq_ind, pol_ind] = np.full(Nants, np.nan + 1j * np.nan)
+        else:  # All flagged
+            gains_fit[:, pol_ind] = np.full(Nants, np.nan + 1j * np.nan)
 
-        # Constrain crosspol phase
-        crosspol_phase, gains_fit_new = cost_function_calculations.set_crosspol_phase(
-            gains_fit[:, freq_ind, :],
-            model_visibilities[:, :, freq_ind, 2:],
-            data_visibilities[:, :, freq_ind, 2:],
-            visibility_weights[:, :, freq_ind, 2:],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            inplace=False,
-        )
-        gains_fit[:, freq_ind, :] = gains_fit_new
+    # Constrain crosspol phase
+    crosspol_phase, gains_fit = cost_function_calculations.set_crosspol_phase(
+        gains_fit,
+        model_visibilities[:, :, 2:],
+        data_visibilities[:, :, 2:],
+        visibility_weights[:, :, 2:],
+        gains_exp_mat_1,
+        gains_exp_mat_2,
+        inplace=False,
+    )
 
     return gains_fit
