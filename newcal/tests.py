@@ -1,5 +1,5 @@
 import numpy as np
-import calibration
+import calibration_optimization
 import calibration_wrappers
 import cost_function_calculations
 import pyuvdata
@@ -1251,7 +1251,7 @@ class TestStringMethods(unittest.TestCase):
             axis=0,
         ).flatten()
 
-        hess = calibration.hessian_single_pol_wrapper(
+        hess = calibration_optimization.hessian_single_pol_wrapper(
             gains_flattened,
             Nants,
             Nbls,

@@ -4,7 +4,7 @@ import time
 import pyuvdata
 import multiprocessing
 from newcal import cost_function_calculations
-from newcal import calibration
+from newcal import calibration_optimization
 
 
 def uvdata_calibration_setup(
@@ -13,6 +13,8 @@ def uvdata_calibration_setup(
     gain_init_calfile=None,
     gain_init_stddev=0.0,
     N_feed_pols=2,
+    min_cal_baseline=None,
+    max_cal_baseline=None,
 ):
     """
     Generate the quantities needed for calibration from uvdata objects.
@@ -33,6 +35,12 @@ def uvdata_calibration_setup(
         the initial gains.
     N_feed_pols : int
         Number of gain polarizations. Default 2.
+    min_cal_baseline : float or None
+        Minimum baseline length, in meters, to use in calibration. If None,
+        arbitrarily short baselines are used. Default None.
+    max_cal_baseline : float or None
+        Maximum baseline length, in meters, to use in calibration. If None,
+        arbitrarily long baselines are used. Default None.
 
     Returns
     -------
@@ -65,6 +73,25 @@ def uvdata_calibration_setup(
     # Autocorrelations are not currently supported
     data.select(ant_str="cross")
     model.select(ant_str="cross")
+
+    # Downselect baselines
+    if (min_cal_baseline is not None) or (max_cal_baseline is not None):
+        if min_cal_baseline is None:
+            min_cal_baseline = 0.0
+        if max_cal_baseline is None:
+            max_cal_baseline = np.inf
+        data_baseline_lengths = np.sqrt(np.sum(data.uvw_array**2.0, axis=1))
+        data_use_baselines = np.where(
+            (data_baseline_lengths >= min_cal_baseline)
+            & (data_baseline_lengths <= max_cal_baseline)
+        )
+        data.select(blt_inds=data_use_baselines)
+        model_baseline_lengths = np.sqrt(np.sum(model.uvw_array**2.0, axis=1))
+        model_use_baselines = np.where(
+            (model_baseline_lengths >= min_cal_baseline)
+            & (model_baseline_lengths <= max_cal_baseline)
+        )
+        model.select(blt_inds=model_use_baselines)
 
     Nants = data.Nants_data
     Nbls = data.Nbls
@@ -127,7 +154,6 @@ def uvdata_calibration_setup(
     antenna_list = np.unique(
         [metadata_reference.ant_1_array, metadata_reference.ant_2_array]
     )
-    antenna_names = metadata_reference.antenna_names[antenna_list]
     for baseline in range(metadata_reference.Nbls):
         gains_exp_mat_1[
             baseline, np.where(antenna_list == metadata_reference.ant_1_array[baseline])
@@ -135,6 +161,16 @@ def uvdata_calibration_setup(
         gains_exp_mat_2[
             baseline, np.where(antenna_list == metadata_reference.ant_2_array[baseline])
         ] = 1
+
+    # Get ordered list of antenna names
+    antenna_names = np.array(
+        [
+            np.array(metadata_reference.antenna_names)[
+                np.where(metadata_reference.antenna_numbers == ant_num)[0]
+            ]
+            for ant_num in antenna_list
+        ]
+    )
 
     # Initialize gains
     if gain_init_calfile is None:  # Use mean ratio of visibility amplitudes
@@ -150,7 +186,7 @@ def uvdata_calibration_setup(
         vis_amp_ratio[np.where(data_visibilities == 0.0)] = np.nan
         gains_init[:, :, :] = np.sqrt(np.nanmean(vis_amp_ratio))
     else:
-        gains_init = calibration.initialize_gains_from_calfile(
+        gains_init = calibration_optimization.initialize_gains_from_calfile(
             gain_init_calfile,
             Nants,
             Nfreqs,
@@ -224,7 +260,8 @@ def calibration_per_pol(
     """
     Run calibration per polarization. Here the XX and YY visibilities are
     calibrated individually and the cross-polarization phase is applied from the
-    XY and YX visibilities after the fact.
+    XY and YX visibilities after the fact. Option to parallelize calibration
+    across frequency.
 
     Parameters
     ----------
@@ -265,6 +302,7 @@ def calibration_per_pol(
         Fit gain values. Shape (Nants, Nfreqs, N_feed_pols,).
     """
 
+    start_time = time.time()
     gains_fit = np.full(
         (
             Nants,
@@ -294,28 +332,32 @@ def calibration_per_pol(
             args_list.append(args)
         pool = multiprocessing.Pool()
         result = pool.starmap(
-            calibration.run_calibration_optimization_per_pol_single_freq, args_list
+            calibration_optimization.run_calibration_optimization_per_pol_single_freq,
+            args_list,
         )
+        pool.close()
         for freq_ind in range(Nfreqs):
             gains_fit[:, freq_ind, :] = result[freq_ind]
+        pool.join()
     else:
         for freq_ind in range(Nfreqs):
-            gains_fit_single_freq = (
-                calibration.run_calibration_optimization_per_pol_single_freq(
-                    gains_init[:, freq_ind, :],
-                    Nants,
-                    Nbls,
-                    N_feed_pols,
-                    model_visibilities[:, :, freq_ind, :],
-                    data_visibilities[:, :, freq_ind, :],
-                    visibility_weights[:, :, freq_ind, :],
-                    gains_exp_mat_1,
-                    gains_exp_mat_2,
-                    lambda_val,
-                    xtol,
-                    verbose,
-                )
+            gains_fit_single_freq = calibration_optimization.run_calibration_optimization_per_pol_single_freq(
+                gains_init[:, freq_ind, :],
+                Nants,
+                Nbls,
+                N_feed_pols,
+                model_visibilities[:, :, freq_ind, :],
+                data_visibilities[:, :, freq_ind, :],
+                visibility_weights[:, :, freq_ind, :],
+                gains_exp_mat_1,
+                gains_exp_mat_2,
+                lambda_val,
+                xtol,
+                verbose,
             )
             gains_fit[:, freq_ind, :] = gains_fit_single_freq
 
+    print(
+        f"Optimization time: {Nfreqs} frequency channels in {(time.time() - start_time)/60.} minutes"
+    )
     return gains_fit
