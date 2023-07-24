@@ -166,7 +166,7 @@ def uvdata_calibration_setup(
     antenna_names = np.array(
         [
             np.array(metadata_reference.antenna_names)[
-                np.where(metadata_reference.antenna_numbers == ant_num)[0]
+                np.where(metadata_reference.antenna_numbers == ant_num)[0][0]
             ]
             for ant_num in antenna_list
         ]

@@ -441,7 +441,7 @@ def run_calibration_optimization_per_pol_single_freq(
                 method="Newton-CG",
                 jac=jacobian_single_pol_wrapper,
                 hess=hessian_single_pol_wrapper,
-                options={"disp": verbose, "xtol": xtol, "maxiter:": 100},
+                options={"disp": verbose, "xtol": xtol, "maxiter": 100},
             )
             end_optimize = time.time()
             if verbose:
