@@ -252,10 +252,11 @@ def calibration_per_pol(
     visibility_weights,
     gains_exp_mat_1,
     gains_exp_mat_2,
-    lambda_val,
-    xtol=1e-8,
+    lambda_val=100,
+    xtol=1e-4,
     parallel=True,
     verbose=False,
+    log_file_path=None,
 ):
     """
     Run calibration per polarization. Here the XX and YY visibilities are
@@ -288,19 +289,26 @@ def calibration_per_pol(
     gains_exp_mat_2 : array of int
         Shape (Nbls, Nants,).
     lambda_val : float
-        Weight of the phase regularization term; must be positive.
+        Weight of the phase regularization term; must be positive. Default 100.
     xtol : float
         Accuracy tolerance for optimizer. Default 1e-8.
     parallel : bool
         Set to True to parallelize across frequency with multiprocessing.
     verbose : bool
         Set to True to print optimization outputs.
+    log_file_path : str or None
+        Path to the log file.
 
     Returns
     -------
     gains_fit : array of complex
         Fit gain values. Shape (Nants, Nfreqs, N_feed_pols,).
     """
+
+    if log_file_path is not None:
+        stdout_orig = sys.stdout
+        stderr_orig = sys.stderr
+        sys.stdout = sys.stderr = log_file_new = open(log_file_path, "w")
 
     start_time = time.time()
     gains_fit = np.full(
@@ -357,7 +365,9 @@ def calibration_per_pol(
             )
             gains_fit[:, freq_ind, :] = gains_fit_single_freq
 
-    print(
-        f"Optimization time: {Nfreqs} frequency channels in {(time.time() - start_time)/60.} minutes"
-    )
+    if verbose:
+        print(
+            f"Optimization time: {Nfreqs} frequency channels in {(time.time() - start_time)/60.} minutes"
+        )
+        sys.stdout.flush()
     return gains_fit

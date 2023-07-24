@@ -284,7 +284,10 @@ def create_uvcal_obj(uvdata, antenna_names, gains=None):
     uvcal.Nants_data = len(antenna_names)
     uvcal.Nants_telescope = uvdata.Nants_telescope
     uvcal.Nfreqs = uvdata.Nfreqs
-    uvcal.Njones = N_feed_pols
+    if gains is None:
+        uvcal.Njones = 2
+    else:
+        uvcal.Njones = np.shape(gains)[2]
     uvcal.Nspws = 1
     uvcal.Ntimes = 1
     uvcal.ant_array = np.arange(uvcal.Nants_data)
@@ -377,7 +380,7 @@ def run_calibration_optimization_per_pol_single_freq(
     lambda_val : float
         Weight of the phase regularization term; must be positive.
     xtol : float
-        Accuracy tolerance for optimizer. Default 1e-8.
+        Accuracy tolerance for optimizer.
     verbose : bool
         Set to True to print optimization outputs.
 
@@ -438,11 +441,12 @@ def run_calibration_optimization_per_pol_single_freq(
                 method="Newton-CG",
                 jac=jacobian_single_pol_wrapper,
                 hess=hessian_single_pol_wrapper,
-                options={"disp": verbose, "xtol": xtol},
+                options={"disp": verbose, "xtol": xtol, "maxiter:": 100},
             )
             end_optimize = time.time()
-            print(result.message)
-            print(f"Optimization time: {(end_optimize - start_optimize)/60.} minutes")
+            if verbose:
+                print(result.message)
+                print(f"Optimization time: {(end_optimize - start_optimize)/60.} minutes")
             sys.stdout.flush()
             gains_fit_reshaped = np.reshape(result.x, (2, Nants_use))
             gains_fit_single_pol = np.full(Nants, np.nan + 1j * np.nan)
