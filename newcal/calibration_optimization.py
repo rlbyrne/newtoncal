@@ -296,6 +296,7 @@ def create_uvcal_obj(uvdata, antenna_names, gains=None):
         [(uvdata.antenna_names).index(name) for name in antenna_names]
     )
     uvcal.antenna_numbers = uvdata.antenna_numbers[uvdata_antenna_inds]
+    uvcal.antenna_positions = uvdata.antenna_positions[uvdata_antenna_inds, :]
     uvcal.cal_style = "sky"
     uvcal.cal_type = "gain"
     uvcal.channel_width = uvdata.channel_width
