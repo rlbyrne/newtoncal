@@ -370,4 +370,9 @@ def calibration_per_pol(
             f"Optimization time: {Nfreqs} frequency channels in {(time.time() - start_time)/60.} minutes"
         )
         sys.stdout.flush()
+    if log_file_path is not None:
+        sys.stdout = stdout_orig
+        sys.stderr = stderr_orig
+        log_file_new.close()
+
     return gains_fit
