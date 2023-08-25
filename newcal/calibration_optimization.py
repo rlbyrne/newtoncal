@@ -470,14 +470,28 @@ def run_calibration_optimization_per_pol_single_freq(
             gains_fit[:, pol_ind] = np.full(Nants, np.nan + 1j * np.nan)
 
     # Constrain crosspol phase
-    crosspol_phase, gains_fit = cost_function_calculations.set_crosspol_phase(
-        gains_fit,
-        model_visibilities[:, :, 2:],
-        data_visibilities[:, :, 2:],
-        visibility_weights[:, :, 2:],
-        gains_exp_mat_1,
-        gains_exp_mat_2,
-        inplace=False,
-    )
+    if N_feed_pols == 2:
+        crosspol_phase, gains_fit = cost_function_calculations.set_crosspol_phase(
+            gains_fit,
+            model_visibilities[:, :, 2:],
+            data_visibilities[:, :, 2:],
+            visibility_weights[:, :, 2:],
+            gains_exp_mat_1,
+            gains_exp_mat_2,
+            inplace=False,
+        )
 
     return gains_fit
+
+
+#def plot_gains(cal, plot_output_dir, plot_prefix):
+    """
+    Generate a pyuvdata UVCal object from gain solutions.
+
+    Parameters
+    ----------
+    cal : pyuvdata UVCal object
+    plot_output_dir : str
+        Path to the directory where the plots will be saved.
+    plot_prefix : str
+    """
