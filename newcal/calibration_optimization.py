@@ -304,7 +304,7 @@ def create_uvcal_obj(uvdata, antenna_names, gains=None):
     uvcal.gain_convention = "multiply"
     uvcal.history = "calibrated with newcal"
     uvcal.integration_time = np.mean(uvdata.integration_time)
-    uvcal.jones_array = np.array([-5, -6, -7, -8])[:uvcal.Njones]
+    uvcal.jones_array = np.array([-5, -6, -7, -8])[: uvcal.Njones]
     uvcal.spw_array = uvdata.spw_array
     uvcal.telescope_name = uvdata.telescope_name
     uvcal.time_array = np.array([np.mean(uvdata.time_array)])
@@ -447,7 +447,9 @@ def run_calibration_optimization_per_pol_single_freq(
             end_optimize = time.time()
             if verbose:
                 print(result.message)
-                print(f"Optimization time: {(end_optimize - start_optimize)/60.} minutes")
+                print(
+                    f"Optimization time: {(end_optimize - start_optimize)/60.} minutes"
+                )
             sys.stdout.flush()
             gains_fit_reshaped = np.reshape(result.x, (2, Nants_use))
             gains_fit_single_pol = np.full(Nants, np.nan + 1j * np.nan)
@@ -484,7 +486,7 @@ def run_calibration_optimization_per_pol_single_freq(
     return gains_fit
 
 
-#def plot_gains(cal, plot_output_dir, plot_prefix):
+def plot_gains(cal, plot_output_dir, plot_prefix):
     """
     Generate a pyuvdata UVCal object from gain solutions.
 
@@ -495,3 +497,78 @@ def run_calibration_optimization_per_pol_single_freq(
         Path to the directory where the plots will be saved.
     plot_prefix : str
     """
+
+    use_plot_prefix = np.copy(plot_prefix)
+    if len(use_plot_prefix) > 0:
+        if not use_plot_prefix.endswith("_"):
+            use_plot_prefix = f"{use_plot_prefix}_"
+
+    freq_axis_mhz = cal.freq_array[0, :] / 1e6
+
+    # Plot amplitudes
+    subplot_ind = 0
+    plot_ind = 1
+    for name in ant_names:
+        if subplot_ind == 0:
+            fig, ax = plt.subplots(
+                nrows=3, ncols=4, figsize=(10, 8), sharex=True, sharey=True
+            )
+        ant_ind = np.where(cal.antenna_names == name)[0][0]
+        for pol_ind in range(cal.Njones):
+            ax.flat[subplot_ind].plot(
+                freq_axis_mhz,
+                np.abs(cal.gain_array[ant_ind, 0, :, 0, pol_ind]),
+                "-o",
+                linewidth=0.2,
+                markersize=0.5,
+                label=(["X", "Y"])[pol_ind],
+            )
+        ax.flat[subplot_ind].set_ylim([0, np.nanmax(np.abs(cal.gain_array))])
+        ax.flat[subplot_ind].set_xlim([np.min(freq_axis_mhz), np.max(freq_axis_mhz)])
+        ax.flat[subplot_ind].set_title(name)
+        subplot_ind += 1
+        if subplot_ind == len(ax.flat) or name == ant_names[-1]:
+            fig.supxlabel("Frequency (MHz)")
+            fig.supylabel("Gain Amplitude")
+            plt.legend(bbox_to_anchor=(1.04, 0), loc="lower left", frameon=False)
+            plt.tight_layout()
+            plt.savefig(
+                f"{plot_output_dir}/{use_plot_prefix}gain_amp_{plot_ind:02d}.png",
+                dpi=600,
+            )
+            subplot_ind = 0
+            plot_ind += 1
+
+    # Plot phases
+    subplot_ind = 0
+    plot_ind = 1
+    for name in ant_names:
+        if subplot_ind == 0:
+            fig, ax = plt.subplots(
+                nrows=3, ncols=4, figsize=(10, 8), sharex=True, sharey=True
+            )
+        ant_ind = np.where(cal.antenna_names == name)[0][0]
+        for pol_ind in range(cal.Njones):
+            ax.flat[subplot_ind].plot(
+                freq_axis_mhz,
+                np.angle(cal.gain_array[ant_ind, 0, :, 0, pol_ind]),
+                "-o",
+                linewidth=0.2,
+                markersize=0.5,
+                label=(["X", "Y"])[pol_ind],
+            )
+        ax.flat[subplot_ind].set_ylim([-np.pi, np.pi])
+        ax.flat[subplot_ind].set_xlim([np.min(freq_axis_mhz), np.max(freq_axis_mhz)])
+        ax.flat[subplot_ind].set_title(name)
+        subplot_ind += 1
+        if subplot_ind == len(ax.flat) or name == ant_names[-1]:
+            fig.supxlabel("Frequency (MHz)")
+            fig.supylabel("Gain Amplitude")
+            plt.legend(bbox_to_anchor=(1.04, 0), loc="lower left", frameon=False)
+            plt.tight_layout()
+            plt.savefig(
+                f"{plot_output_dir}/{use_plot_prefix}gain_phase_{plot_ind:02d}.png",
+                dpi=600,
+            )
+            subplot_ind = 0
+            plot_ind += 1
