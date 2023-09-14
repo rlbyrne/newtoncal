@@ -5,6 +5,8 @@ import scipy.optimize
 import time
 import pyuvdata
 from newcal import cost_function_calculations
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 
 
 def cost_function_single_pol_wrapper(
@@ -486,7 +488,7 @@ def run_calibration_optimization_per_pol_single_freq(
     return gains_fit
 
 
-def plot_gains(cal, plot_output_dir, plot_prefix):
+def plot_gains(cal, plot_output_dir, plot_prefix=""):
     """
     Generate a pyuvdata UVCal object from gain solutions.
 
@@ -499,10 +501,36 @@ def plot_gains(cal, plot_output_dir, plot_prefix):
     """
 
     use_plot_prefix = np.copy(plot_prefix)
-    if len(use_plot_prefix) > 0:
+    if len(plot_prefix) > 0:
         if not use_plot_prefix.endswith("_"):
             use_plot_prefix = f"{use_plot_prefix}_"
 
+    # Plot style parameters
+    colors = ["tab:blue", "tab:orange"]
+    linewidth = 0.2
+    markersize = 0.5
+    legend_elements = [
+        Line2D(
+            [0],
+            [0],
+            color=colors[0],
+            marker="o",
+            lw=linewidth,
+            markersize=markersize,
+            label="X",
+        ),
+        Line2D(
+            [0],
+            [0],
+            color=colors[1],
+            marker="o",
+            lw=linewidth,
+            markersize=markersize,
+            label="Y",
+        ),
+    ]
+
+    ant_names = np.sort(cal.antenna_names)
     freq_axis_mhz = cal.freq_array[0, :] / 1e6
 
     # Plot amplitudes
@@ -519,9 +547,10 @@ def plot_gains(cal, plot_output_dir, plot_prefix):
                 freq_axis_mhz,
                 np.abs(cal.gain_array[ant_ind, 0, :, 0, pol_ind]),
                 "-o",
-                linewidth=0.2,
-                markersize=0.5,
+                linewidth=linewidth,
+                markersize=markersize,
                 label=(["X", "Y"])[pol_ind],
+                color=colors[pol_ind],
             )
         ax.flat[subplot_ind].set_ylim([0, np.nanmax(np.abs(cal.gain_array))])
         ax.flat[subplot_ind].set_xlim([np.min(freq_axis_mhz), np.max(freq_axis_mhz)])
@@ -530,12 +559,18 @@ def plot_gains(cal, plot_output_dir, plot_prefix):
         if subplot_ind == len(ax.flat) or name == ant_names[-1]:
             fig.supxlabel("Frequency (MHz)")
             fig.supylabel("Gain Amplitude")
-            plt.legend(bbox_to_anchor=(1.04, 0), loc="lower left", frameon=False)
+            plt.legend(
+                handles=legend_elements,
+                bbox_to_anchor=(1.04, 0),
+                loc="lower left",
+                frameon=False,
+            )
             plt.tight_layout()
             plt.savefig(
                 f"{plot_output_dir}/{use_plot_prefix}gain_amp_{plot_ind:02d}.png",
                 dpi=600,
             )
+            plt.close()
             subplot_ind = 0
             plot_ind += 1
 
@@ -553,9 +588,10 @@ def plot_gains(cal, plot_output_dir, plot_prefix):
                 freq_axis_mhz,
                 np.angle(cal.gain_array[ant_ind, 0, :, 0, pol_ind]),
                 "-o",
-                linewidth=0.2,
-                markersize=0.5,
+                linewidth=linewidth,
+                markersize=markersize,
                 label=(["X", "Y"])[pol_ind],
+                color=colors[pol_ind],
             )
         ax.flat[subplot_ind].set_ylim([-np.pi, np.pi])
         ax.flat[subplot_ind].set_xlim([np.min(freq_axis_mhz), np.max(freq_axis_mhz)])
@@ -564,11 +600,17 @@ def plot_gains(cal, plot_output_dir, plot_prefix):
         if subplot_ind == len(ax.flat) or name == ant_names[-1]:
             fig.supxlabel("Frequency (MHz)")
             fig.supylabel("Gain Amplitude")
-            plt.legend(bbox_to_anchor=(1.04, 0), loc="lower left", frameon=False)
+            plt.legend(
+                handles=legend_elements,
+                bbox_to_anchor=(1.04, 0),
+                loc="lower left",
+                frameon=False,
+            )
             plt.tight_layout()
             plt.savefig(
                 f"{plot_output_dir}/{use_plot_prefix}gain_phase_{plot_ind:02d}.png",
                 dpi=600,
             )
+            plt.close()
             subplot_ind = 0
             plot_ind += 1
