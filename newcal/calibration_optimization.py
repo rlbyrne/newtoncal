@@ -590,11 +590,11 @@ def plot_gains(cal, plot_output_dir, plot_prefix=""):
     """
 
     # Parse strings
-    use_plot_prefix = plot_prefix.copy()
+    use_plot_prefix = plot_prefix
     if len(plot_prefix) > 0:
         if not use_plot_prefix.endswith("_"):
             use_plot_prefix = f"{use_plot_prefix}_"
-    use_plot_output_dir = plot_output_dir.copy()
+    use_plot_output_dir = plot_output_dir
     if plot_output_dir.endswith("/"):
         use_plot_output_dir = use_plot_output_dir[:-1]
 
