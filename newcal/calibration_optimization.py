@@ -488,6 +488,94 @@ def run_calibration_optimization_per_pol_single_freq(
     return gains_fit
 
 
+def calculate_per_antenna_cost(
+    gains,
+    Nants,
+    Nbls,
+    Nfreqs,
+    N_feed_pols,
+    model_visibilities,
+    data_visibilities,
+    visibility_weights,
+    gains_exp_mat_1,
+    gains_exp_mat_2,
+):
+    """
+    Parameters
+    ----------
+    gains : array of complex
+        Shape (Nants, Nfreqs, N_feed_pols,).
+    Nants : int
+        Number of antennas.
+    Nbls : int
+        Number of baselines.
+    Nfreqs : int
+        Number of frequency channels.
+    N_feed_pols : int
+        Number of feed polarization modes to be fit.
+    model_visibilities : array of complex
+        Shape (Ntimes, Nbls, Nfreqs, N_vis_pols,). Polarizations are ordered in
+        the AIPS convention: XX, YY, XY, YX.
+    data_visibilities : array of complex
+        Shape (Ntimes, Nbls, Nfreqs, N_vis_pols,). Polarizations are ordered in
+        the AIPS convention: XX, YY, XY, YX.
+    visibility_weights : array of float
+        Shape (Ntimes, Nbls, Nfreqs, N_vis_pols,).
+    gains_exp_mat_1 : array of int
+        Shape (Nbls, Nants,).
+    gains_exp_mat_2 : array of int
+        Shape (Nbls, Nants,).
+
+    Returns
+    -------
+    per_ant_cost_normalized : array of float
+        Shape (Nants, N_feed_pols). Encodes the contribution to the cost from
+        each antenna and feed, normalized by the number of unflagged baselines.
+    """
+
+    per_ant_cost = np.zeros((Nants, N_feed_pols), dtype=float)
+    per_ant_baselines = np.zeros((Nants, N_feed_pols), dtype=int)
+    for pol_ind in range(N_feed_pols):
+        total_visibilities = np.count_nonzero(visibility_weights[:, :, :, pol_ind])
+        total_cost = 0.0
+        for freq_ind in range(Nfreqs):
+            total_cost += cost_function_calculations.cost_function_single_pol(
+                gains[:, freq_ind, pol_ind],
+                model_visibilities[:, :, freq_ind, pol_ind],
+                data_visibilities[:, :, freq_ind, pol_ind],
+                visibility_weights[:, :, freq_ind, pol_ind],
+                gains_exp_mat_1,
+                gains_exp_mat_2,
+                0.0,
+            )
+        for ant_ind in range(Nants):
+            bl_inds = np.logical_or(
+                gains_exp_mat_1[:, ant_ind],
+                gains_exp_mat_2[:, ant_ind],
+            )
+            ant_excluded_weights = np.copy(visibility_weights[:, :, :, pol_ind])
+            ant_excluded_weights[:, bl_inds, :] = 0
+            per_ant_baselines[ant_ind, pol_ind] = total_visibilities - np.count_nonzero(
+                ant_excluded_weights
+            )
+            per_ant_cost[ant_ind, pol_ind] = total_cost
+            for freq_ind in range(Nfreqs):
+                per_ant_cost[
+                    ant_ind, pol_ind
+                ] -= cost_function_calculations.cost_function_single_pol(
+                    gains[:, freq_ind, pol_ind],
+                    model_visibilities[:, :, freq_ind, pol_ind],
+                    data_visibilities[:, :, freq_ind, pol_ind],
+                    ant_excluded_weights[:, :, freq_ind],
+                    gains_exp_mat_1,
+                    gains_exp_mat_2,
+                    0.0,
+                )
+
+    per_ant_cost_normalized = per_ant_cost / per_ant_baselines
+    return per_ant_cost_normalized
+
+
 def plot_gains(cal, plot_output_dir, plot_prefix=""):
     """
     Generate a pyuvdata UVCal object from gain solutions.
@@ -498,6 +586,7 @@ def plot_gains(cal, plot_output_dir, plot_prefix=""):
     plot_output_dir : str
         Path to the directory where the plots will be saved.
     plot_prefix : str
+        Optional string to be appended to the start of the file names.
     """
 
     use_plot_prefix = np.copy(plot_prefix)
