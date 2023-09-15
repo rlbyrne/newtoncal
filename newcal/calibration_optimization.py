@@ -589,10 +589,14 @@ def plot_gains(cal, plot_output_dir, plot_prefix=""):
         Optional string to be appended to the start of the file names.
     """
 
+    # Parse strings
     use_plot_prefix = np.copy(plot_prefix)
     if len(plot_prefix) > 0:
         if not use_plot_prefix.endswith("_"):
             use_plot_prefix = f"{use_plot_prefix}_"
+    use_plot_output_dir = np.copy(plot_output_dir)
+    if plot_output_dir.endswith("/"):
+        use_plot_output_dir = use_plot_output_dir[:-1]
 
     # Plot style parameters
     colors = ["tab:blue", "tab:orange"]
@@ -656,7 +660,7 @@ def plot_gains(cal, plot_output_dir, plot_prefix=""):
             )
             plt.tight_layout()
             plt.savefig(
-                f"{plot_output_dir}/{use_plot_prefix}gain_amp_{plot_ind:02d}.png",
+                f"{use_plot_output_dir}/{use_plot_prefix}gain_amp_{plot_ind:02d}.png",
                 dpi=600,
             )
             plt.close()
@@ -697,7 +701,7 @@ def plot_gains(cal, plot_output_dir, plot_prefix=""):
             )
             plt.tight_layout()
             plt.savefig(
-                f"{plot_output_dir}/{use_plot_prefix}gain_phase_{plot_ind:02d}.png",
+                f"{use_plot_output_dir}/{use_plot_prefix}gain_phase_{plot_ind:02d}.png",
                 dpi=600,
             )
             plt.close()
