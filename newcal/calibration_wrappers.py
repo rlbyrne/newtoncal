@@ -22,7 +22,7 @@ def uvdata_calibration_setup(
     Parameters
     ----------
     data : pyuvdata UVData object
-        Data visibilities to be calibrated.
+        Data to be calibrated.
     model : pyuvdata UVData object
         Model visibilities to be used in calibration. Must have the same
         parameters at data.
@@ -148,6 +148,9 @@ def uvdata_calibration_setup(
             axis=0,
         )
 
+    # Free memory
+    data = model = data_copy = model_copy = None
+
     # Create gains expand matrices
     gains_exp_mat_1 = np.zeros((Nbls, Nants), dtype=int)
     gains_exp_mat_2 = np.zeros((Nbls, Nants), dtype=int)
@@ -171,6 +174,9 @@ def uvdata_calibration_setup(
             for ant_num in antenna_list
         ]
     )
+
+    # Free memory
+    metadata_reference = None
 
     # Initialize gains
     if gain_init_calfile is None:  # Use mean ratio of visibility amplitudes
