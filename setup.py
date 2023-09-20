@@ -9,5 +9,6 @@ setup(
         "newcal/calibration_wrappers.py",
         "newcal/calibration_optimization.py",
         "newcal/cost_function_calculations.py"
+        "newcal/calibration_qa.py"
     ],
 )

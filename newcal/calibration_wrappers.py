@@ -11,6 +11,7 @@ def uvdata_calibration_setup(
     data,
     model,
     gain_init_calfile=None,
+    gain_init_to_vis_ratio=True,
     gain_init_stddev=0.0,
     N_feed_pols=2,
     min_cal_baseline=None,
@@ -28,8 +29,11 @@ def uvdata_calibration_setup(
         parameters at data.
     gain_init_calfile : str or None
         Default None. If not None, provides a path to a pyuvdata-formatted
-        calfits file containing gains values for calibration initialization. If
-        None, all gains are initialized to 1.0.
+        calfits file containing gains values for calibration initialization.
+    gain_init_to_vis_ratio : bool
+        Used only if gain_init_calfile is None. If True, initializes gains to
+        the median ratio between the amplitudes of the model and data
+        visibilities. If False, the gains are initialized to 1. Default True.
     gain_init_stddev : float
         Default 0.0. Standard deviation of a complex Gaussian perturbation to
         the initial gains.
@@ -190,7 +194,7 @@ def uvdata_calibration_setup(
         )
         vis_amp_ratio = np.abs(model_visibilities) / np.abs(data_visibilities)
         vis_amp_ratio[np.where(data_visibilities == 0.0)] = np.nan
-        gains_init[:, :, :] = np.sqrt(np.nanmean(vis_amp_ratio))
+        gains_init[:, :, :] = np.sqrt(np.nanmedian(vis_amp_ratio))
     else:
         gains_init = calibration_optimization.initialize_gains_from_calfile(
             gain_init_calfile,
