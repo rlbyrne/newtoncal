@@ -304,10 +304,11 @@ def calibration_per_pol(
         Accuracy tolerance for optimizer. Default 1e-8.
     parallel : bool
         Set to True to parallelize across frequency with multiprocessing.
+        Default True.
     verbose : bool
-        Set to True to print optimization outputs.
+        Set to True to print optimization outputs. Default False.
     log_file_path : str or None
-        Path to the log file.
+        Path to the log file. Default None.
 
     Returns
     -------

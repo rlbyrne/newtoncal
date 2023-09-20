@@ -18,6 +18,7 @@ def calculate_per_antenna_cost(
     visibility_weights,
     gains_exp_mat_1,
     gains_exp_mat_2,
+    parallel=True,
 ):
     """
     Calculate the contribution of each antenna to the cost function.
@@ -46,6 +47,9 @@ def calculate_per_antenna_cost(
         Shape (Nbls, Nants,).
     gains_exp_mat_2 : array of int
         Shape (Nbls, Nants,).
+    parallel : bool
+        Set to True to parallelize with multiprocessing.
+        Default True.
 
     Returns
     -------
@@ -165,7 +169,7 @@ def plot_per_ant_cost(per_ant_cost, antenna_names, plot_output_dir, plot_prefix=
             label=(["X", "Y"])[pol_ind],
             color=colors[pol_ind],
         )
-    ax.set_ylim([0, np.nanmax(per_ant_cost_sorted)])
+    ax.set_ylim([0, np.nanmax(per_ant_cost_sorted[np.isfinite(per_ant_cost_sorted)])])
     ax.set_xlim([0, np.max(ant_nums)])
     ax.set_xlabel("Antenna Name")
     ax.set_ylabel("Per Antenna Cost Contribution")
@@ -179,6 +183,99 @@ def plot_per_ant_cost(per_ant_cost, antenna_names, plot_output_dir, plot_prefix=
         dpi=600,
     )
     plt.close()
+
+
+def get_antenna_flags_from_per_ant_cost(
+    per_ant_cost,
+    antenna_names,
+    flagging_threshold=2.5,
+    visibility_weights=None,
+    gains_exp_mat_1=None,
+    gains_exp_mat_2=None,
+    feed_pols=["X", "Y"],
+    vis_pols=["XX", "YY", "XY", "YX"],
+):
+    """
+    Create a list of antennas to flag based on the per-antenna cost function.
+    Option to update visibility_weights according to the flags.
+
+    Parameters
+    ----------
+    per_ant_cost : array of float
+        Shape (Nants, N_feed_pols). Encodes the contribution to the cost from
+        each antenna and feed, normalized by the number of unflagged baselines.
+    antenna_names : array of str
+        Shape (Nants,). Ordering matches the ordering of the per_ant_cost.
+    flagging_threshold : float
+        Flagging threshold. Per antenna cost values equal to flagging_threshold
+        times the mean value will be flagged. Default 2.5.
+    visibility_weights : None or array of float
+        If not None, shape (Ntimes, Nbls, Nfreqs, N_vis_pols,). If
+        visibility_weights, gains_exp_mat_1, and gains_exp_mat_2 are all not
+        None, visibility_weights will be updated with the antenna flags. Default
+        None.
+    gains_exp_mat_1 : None or array of int
+        If not None, shape (Nbls, Nants,). If visibility_weights,
+        gains_exp_mat_1, and gains_exp_mat_2 are all not None,
+        visibility_weights will be updated with the antenna flags. Default None.
+    gains_exp_mat_2 : None or array of int
+        If not None, shape (Nbls, Nants,). If visibility_weights,
+        gains_exp_mat_1, and gains_exp_mat_2 are all not None,
+        visibility_weights will be updated with the antenna flags. Default None.
+    feed_pols : array of str
+        Shape (N_feed_pols). Default ["X", "Y"]. Used only if visibility_weights
+        is not None.
+    vis_pols : array of str
+        Shape (N_vis_pols). Default ["XX", "YY", "XY", "YX"]. Used only if
+        visibility_weights is not None.
+
+    Returns
+    -------
+    flag_antenna_list : list of arrays of str
+        Length N_feed_pols. flag_antenna_list[pol_ind] provides an array of
+        antenna names identified for flagging.
+    visibility_weights : None or array of float
+        If not None, shape (Ntimes, Nbls, Nfreqs, N_vis_pols,). If not None,
+        updated visibility_weights that reflect the flagged antennas.
+    """
+
+    N_feed_pols = np.shape(per_ant_cost)[1]
+    where_finite = np.isfinite(per_ant_cost)
+    if np.sum(where_finite) > 0:
+        mean_per_ant_cost = np.mean(per_ant_cost[where_finite])
+        flag_antenna_list = []
+        for pol_ind in range(N_feed_pols):
+            flag_antenna_inds = np.where(
+                np.logical_or(
+                    per_ant_cost[:, pol_ind] > flagging_threshold * mean_per_ant_cost,
+                    ~np.isfinite(per_ant_cost[:, pol_ind]),
+                )
+            )[0]
+            flag_antenna_list.append(antenna_names[flag_antenna_inds])
+            if (
+                visibility_weights is not None
+                and gains_exp_mat_1 is not None
+                and gains_exp_mat_2 is not None
+            ):
+                use_vis_pol_inds = np.where(
+                    np.array([pol_name[pol_ind] for pol_ind in vis_pols])
+                    == feed_pols[pol_ind]
+                )[0]
+                for ant_ind in flag_antenna_inds:
+                    bl_inds = np.logical_or(
+                        gains_exp_mat_1[:, ant_ind],
+                        gains_exp_mat_2[:, ant_ind],
+                    )
+                    visibility_weights[:, bl_inds, :, use_vis_pol_inds] = 0
+
+    else:  # Flag everything
+        flag_antenna_list = []
+        for pol_ind in range(N_feed_pols):
+            flag_antenna_list.append(antenna_names)
+        if visibility_weights is not None:
+            visibility_weights[:, :, :, :] = 0
+
+    return flag_antenna_list, visibility_weights
 
 
 def plot_gains(cal, plot_output_dir, plot_prefix=""):
