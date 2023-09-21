@@ -304,7 +304,8 @@ def get_antenna_flags_from_per_ant_cost(
                         gains_exp_mat_1[:, ant_ind],
                         gains_exp_mat_2[:, ant_ind],
                     )
-                    visibility_weights[:, bl_inds, :, use_vis_pol_inds] = 0
+                    for vis_pol_ind in use_vis_pol_inds:
+                        visibility_weights[:, bl_inds, :, vis_pol_ind] = 0
 
     else:  # Flag everything
         flag_antenna_list = []
