@@ -5,6 +5,7 @@ import pyuvdata
 from newcal import cost_function_calculations
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+import multiprocessing
 
 
 def calculate_per_antenna_cost(
@@ -48,8 +49,7 @@ def calculate_per_antenna_cost(
     gains_exp_mat_2 : array of int
         Shape (Nbls, Nants,).
     parallel : bool
-        Set to True to parallelize with multiprocessing.
-        Default True.
+        Set to True to parallelize with multiprocessing. Default True.
 
     Returns
     -------
@@ -60,19 +60,33 @@ def calculate_per_antenna_cost(
 
     per_ant_cost = np.zeros((Nants, N_feed_pols), dtype=float)
     per_ant_baselines = np.zeros((Nants, N_feed_pols), dtype=int)
+    if parallel:
+        args_list = []
     for pol_ind in range(N_feed_pols):
         total_visibilities = np.count_nonzero(visibility_weights[:, :, :, pol_ind])
         total_cost = 0.0
         for freq_ind in range(Nfreqs):
-            total_cost += cost_function_calculations.cost_function_single_pol(
-                gains[:, freq_ind, pol_ind],
-                model_visibilities[:, :, freq_ind, pol_ind],
-                data_visibilities[:, :, freq_ind, pol_ind],
-                visibility_weights[:, :, freq_ind, pol_ind],
-                gains_exp_mat_1,
-                gains_exp_mat_2,
-                0.0,
-            )
+            if parallel:
+                args = (
+                    gains[:, freq_ind, pol_ind],
+                    model_visibilities[:, :, freq_ind, pol_ind],
+                    data_visibilities[:, :, freq_ind, pol_ind],
+                    visibility_weights[:, :, freq_ind, pol_ind],
+                    gains_exp_mat_1,
+                    gains_exp_mat_2,
+                    0.0,
+                )
+                args_list.append(args)
+            else:
+                total_cost += cost_function_calculations.cost_function_single_pol(
+                    gains[:, freq_ind, pol_ind],
+                    model_visibilities[:, :, freq_ind, pol_ind],
+                    data_visibilities[:, :, freq_ind, pol_ind],
+                    visibility_weights[:, :, freq_ind, pol_ind],
+                    gains_exp_mat_1,
+                    gains_exp_mat_2,
+                    0.0,
+                )
         for ant_ind in range(Nants):
             bl_inds = np.logical_or(
                 gains_exp_mat_1[:, ant_ind],
@@ -83,11 +97,8 @@ def calculate_per_antenna_cost(
             per_ant_baselines[ant_ind, pol_ind] = total_visibilities - np.count_nonzero(
                 ant_excluded_weights
             )
-            per_ant_cost[ant_ind, pol_ind] = total_cost
-            for freq_ind in range(Nfreqs):
-                per_ant_cost[
-                    ant_ind, pol_ind
-                ] -= cost_function_calculations.cost_function_single_pol(
+            if parallel:
+                args = (
                     gains[:, freq_ind, pol_ind],
                     model_visibilities[:, :, freq_ind, pol_ind],
                     data_visibilities[:, :, freq_ind, pol_ind],
@@ -96,6 +107,33 @@ def calculate_per_antenna_cost(
                     gains_exp_mat_2,
                     0.0,
                 )
+                args_list.append(args)
+            else:
+                per_ant_cost[ant_ind, pol_ind] = total_cost
+                for freq_ind in range(Nfreqs):
+                    per_ant_cost[
+                        ant_ind, pol_ind
+                    ] -= cost_function_calculations.cost_function_single_pol(
+                        gains[:, freq_ind, pol_ind],
+                        model_visibilities[:, :, freq_ind, pol_ind],
+                        data_visibilities[:, :, freq_ind, pol_ind],
+                        ant_excluded_weights[:, :, freq_ind],
+                        gains_exp_mat_1,
+                        gains_exp_mat_2,
+                        0.0,
+                    )
+
+    if parallel:
+        pool = multiprocessing.Pool()
+        result = pool.starmap(
+            calibration_optimization.run_calibration_optimization_per_pol_single_freq,
+            args_list,
+        )
+        pool.close()
+        pool.join()
+        result = result.reshape((N_feed_pols, Nants+1, Nfreqs))
+        total_cost = np.sum(result[:, 0, :], axis=1)
+        per_ant_cost = np.transpose(total_cost[:, np.newaxis] - np.sum(result[:, 1:, :], axis=2))
 
     per_ant_cost_normalized = np.abs(per_ant_cost / per_ant_baselines)
     return per_ant_cost_normalized
@@ -258,7 +296,7 @@ def get_antenna_flags_from_per_ant_cost(
                 and gains_exp_mat_2 is not None
             ):
                 use_vis_pol_inds = np.where(
-                    np.array([pol_name[pol_ind] for pol_ind in vis_pols])
+                    np.array([pol_name[pol_ind] for pol_name in vis_pols])
                     == feed_pols[pol_ind]
                 )[0]
                 for ant_ind in flag_antenna_inds:
