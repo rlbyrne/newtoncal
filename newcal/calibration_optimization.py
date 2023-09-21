@@ -254,7 +254,7 @@ def initialize_gains_from_calfile(
         (Nants, Nfreqs, N_feed_pols), np.nan + 1j * np.nan, dtype=complex
     )
     cal_ant_names = np.array([uvcal.antenna_names[ant] for ant in uvcal.ant_array])
-    cal_ant_inds = np.array([cal_ant_names.index(name) for name in antenna_names])
+    cal_ant_inds = np.array([list(cal_ant_names).index(name) for name in antenna_names])
 
     gains_init = use_gains[cal_ant_inds, :, : N_feed_pols + 1]
 
