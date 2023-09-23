@@ -248,11 +248,8 @@ def initialize_gains_from_calfile(
 
     uvcal.reorder_freqs(channel_order="freq")
     uvcal.reorder_jones()
-    use_gains = np.mean(uvcal.gain_array[:, 0, :, :, :], axis=3)  # Average over times
+    use_gains = np.mean(uvcal.gain_array[:, 0, :, :, :], axis=2)  # Average over times
 
-    gains_init = np.full(
-        (Nants, Nfreqs, N_feed_pols), np.nan + 1j * np.nan, dtype=complex
-    )
     cal_ant_names = np.array([uvcal.antenna_names[ant] for ant in uvcal.ant_array])
     cal_ant_inds = np.array([list(cal_ant_names).index(name) for name in antenna_names])
 
