@@ -234,8 +234,8 @@ def uvdata_calibration_setup(
                         flag_array[
                             :,
                             flag_bls,
-                            np.repeat(flag_freq, len(flag_bls)),
-                            np.repeat(flag_pol, len(flag_bls)),
+                            flag_freq,
+                            flag_pol,
                         ] = True
                 gains_init[
                     nan_gains, feed_pol_ind
