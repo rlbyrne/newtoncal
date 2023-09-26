@@ -13,7 +13,7 @@ def uvdata_calibration_setup(
     gain_init_calfile=None,
     gain_init_to_vis_ratio=True,
     gain_init_stddev=0.0,
-    N_feed_pols=2,
+    feed_pols=["X", "Y"],
     min_cal_baseline=None,
     max_cal_baseline=None,
 ):
@@ -37,8 +37,9 @@ def uvdata_calibration_setup(
     gain_init_stddev : float
         Default 0.0. Standard deviation of a complex Gaussian perturbation to
         the initial gains.
-    N_feed_pols : int
-        Number of gain polarizations. Default 2.
+    feed_pols : array of str
+        Shape (N_feed_pols). Default ["X", "Y"]. Defines the polarizations
+        represented by gains_init.
     min_cal_baseline : float or None
         Minimum baseline length, in meters, to use in calibration. If None,
         arbitrarily short baselines are used. Default None.
@@ -179,11 +180,9 @@ def uvdata_calibration_setup(
         ]
     )
 
-    # Free memory
-    metadata_reference = None
-
     # Initialize gains
-    if gain_init_calfile is None:  # Use mean ratio of visibility amplitudes
+    N_feed_pols = len(feed_pols)
+    if gain_init_calfile is None:
         gains_init = np.ones(
             (
                 Nants,
@@ -192,10 +191,11 @@ def uvdata_calibration_setup(
             ),
             dtype=complex,
         )
-        vis_amp_ratio = np.abs(model_visibilities) / np.abs(data_visibilities)
-        vis_amp_ratio[np.where(data_visibilities == 0.0)] = np.nan
-        gains_init[:, :, :] = np.sqrt(np.nanmedian(vis_amp_ratio))
-    else:
+        if gain_init_to_vis_ratio:  # Use mean ratio of visibility amplitudes
+            vis_amp_ratio = np.abs(model_visibilities) / np.abs(data_visibilities)
+            vis_amp_ratio[np.where(data_visibilities == 0.0)] = np.nan
+            gains_init[:, :, :] = np.sqrt(np.nanmedian(vis_amp_ratio))
+    else:  # Initialize from file
         gains_init = calibration_optimization.initialize_gains_from_calfile(
             gain_init_calfile,
             Nants,
@@ -203,6 +203,46 @@ def uvdata_calibration_setup(
             N_feed_pols,
             antenna_names,
         )
+        # Capture nan-ed gains as flags
+        for feed_pol_ind, feed_pol in enumerate(feed_pols):
+            nan_gains = np.where(~np.isfinite(gains_init[:, :, feed_pol_ind]))
+            if len(nan_gains[0]) > 0:
+                if feed_pol == "X":
+                    flag_pols = np.where(
+                        (metadata_reference.polarization_array == -5)
+                        | (metadata_reference.polarization_array == -7)
+                        | (metadata_reference.polarization_array == -8)
+                    )[0]
+                elif feed_pol == "Y":
+                    flag_pols = np.where(
+                        (metadata_reference.polarization_array == -6)
+                        | (metadata_reference.polarization_array == -7)
+                        | (metadata_reference.polarization_array == -8)
+                    )[0]
+                else:
+                    print(
+                        f"WARNING: Unknown feed_pol option {feed_pol}. Options are 'X' and 'Y'. Skipping applying flags."
+                    )
+                    continue
+                for flag_ind in range(len(nan_gains[0])):
+                    flag_bls = np.logical_or(
+                        gains_exp_mat_1[:, nan_gains[0][flag_ind]],
+                        gains_exp_mat_2[:, nan_gains[0][flag_ind]],
+                    )
+                    flag_freq = nan_gains[1][flag_ind]
+                    for flag_pol in flag_pols:
+                        flag_array[
+                            :,
+                            flag_bls,
+                            np.repeat(flag_freq, len(flag_bls)),
+                            np.repeat(flag_pol, len(flag_bls)),
+                        ] = True
+                gains_init[
+                    nan_gains, feed_pol_ind
+                ] = 0.0  # Nans in the gains produce matrix multiplication errors, set to zero
+
+    # Free memory
+    metadata_reference = None
 
     if gain_init_stddev != 0.0:
         gains_init += np.random.normal(

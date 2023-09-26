@@ -131,9 +131,11 @@ def calculate_per_antenna_cost(
         )
         pool.close()
         pool.join()
-        result = result.reshape((N_feed_pols, Nants+1, Nfreqs))
+        result = result.reshape((N_feed_pols, Nants + 1, Nfreqs))
         total_cost = np.sum(result[:, 0, :], axis=1)
-        per_ant_cost = np.transpose(total_cost[:, np.newaxis] - np.sum(result[:, 1:, :], axis=2))
+        per_ant_cost = np.transpose(
+            total_cost[:, np.newaxis] - np.sum(result[:, 1:, :], axis=2)
+        )
 
     per_ant_cost_normalized = np.abs(per_ant_cost / per_ant_baselines)
     return per_ant_cost_normalized
