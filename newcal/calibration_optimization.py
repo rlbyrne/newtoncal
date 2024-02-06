@@ -4,19 +4,13 @@ import scipy
 import scipy.optimize
 import time
 import pyuvdata
+from newcal import calibration_wrappers
 from newcal import cost_function_calculations
 
 
 def cost_function_single_pol_wrapper(
     gains_flattened,
-    Nants,
-    Nbls,
-    model_visibilities,
-    data_visibilities,
-    visibility_weights,
-    gains_exp_mat_1,
-    gains_exp_mat_2,
-    lambda_val,
+    caldata_obj,
 ):
     """
     Wrapper for function cost_function_single_pol. Reformats the input gains to
@@ -28,22 +22,7 @@ def cost_function_single_pol_wrapper(
         Array of gain values. gains_flattened[0:Nants] corresponds to the real
         components of the gains and gains_flattened[Nants:] correponds to the
         imaginary components. Shape (2*Nants,).
-    Nants : int
-        Number of antennas.
-    Nbls : int
-        Number of baselines.
-    model_visibilities :  array of complex
-        Shape (Ntimes, Nbls,).
-    data_visibilities : array of complex
-        Shape (Ntimes, Nbls,).
-    visibility_weights : array of float
-        Shape (Ntimes, Nbls,).
-    gains_exp_mat_1 : array of int
-        Shape (Nbls, Nants,).
-    gains_exp_mat_2 : array of int
-        Shape (Nbls, Nants,).
-    lambda_val : float
-        Weight of the phase regularization term; must be positive.
+    caldata_obj : CalData
 
     Returns
     -------
@@ -55,32 +34,25 @@ def cost_function_single_pol_wrapper(
         gains_flattened,
         (
             2,
-            Nants,
+            caldata_obj.Nants,
         ),
     )
     gains = gains[0, :] + 1.0j * gains[1, :]
     cost = cost_function_calculations.cost_function_single_pol(
         gains,
-        model_visibilities,
-        data_visibilities,
-        visibility_weights,
-        gains_exp_mat_1,
-        gains_exp_mat_2,
-        lambda_val,
+        caldata_obj.model_visibilities[:, :, 0, 0],
+        caldata_obj.data_visibilities[:, :, 0, 0],
+        caldata_obj.visibility_weights[:, :, 0, 0],
+        caldata_obj.gains_exp_mat_1,
+        caldata_obj.gains_exp_mat_2,
+        caldata_obj.lambda_val,
     )
     return cost
 
 
 def jacobian_single_pol_wrapper(
     gains_flattened,
-    Nants,
-    Nbls,
-    model_visibilities,
-    data_visibilities,
-    visibility_weights,
-    gains_exp_mat_1,
-    gains_exp_mat_2,
-    lambda_val,
+    caldata_obj,
 ):
     """
     Wrapper for function jacobian_single_pol. Reformats the input gains and
@@ -92,22 +64,7 @@ def jacobian_single_pol_wrapper(
         Array of gain values. gains_flattened[0:Nants] corresponds to the real
         components of the gains and gains_flattened[Nants:] correponds to the
         imaginary components. Shape (2*Nants,).
-    Nants : int
-        Number of antennas.
-    Nbls : int
-        Number of baselines.
-    model_visibilities :  array of complex
-        Shape (Ntimes, Nbls,).
-    data_visibilities : array of complex
-        Shape (Ntimes, Nbls,).
-    visibility_weights : array of float
-        Shape (Ntimes, Nbls,).
-    gains_exp_mat_1 : array of int
-        Shape (Nbls, Nants,).
-    gains_exp_mat_2 : array of int
-        Shape (Nbls, Nants,).
-    lambda_val : float
-        Weight of the phase regularization term; must be positive.
+    caldata_obj : CalData
 
     Returns
     -------
@@ -122,18 +79,18 @@ def jacobian_single_pol_wrapper(
         gains_flattened,
         (
             2,
-            Nants,
+            caldata_obj.Nants,
         ),
     )
     gains = gains[0, :] + 1.0j * gains[1, :]
     jac = cost_function_calculations.jacobian_single_pol(
         gains,
-        model_visibilities,
-        data_visibilities,
-        visibility_weights,
-        gains_exp_mat_1,
-        gains_exp_mat_2,
-        lambda_val,
+        caldata_obj.model_visibilities[:, :, 0, 0],
+        caldata_obj.data_visibilities[:, :, 0, 0],
+        caldata_obj.visibility_weights[:, :, 0, 0],
+        caldata_obj.gains_exp_mat_1,
+        caldata_obj.gains_exp_mat_2,
+        caldata_obj.lambda_val,
     )
     jac_flattened = np.stack((np.real(jac), np.imag(jac)), axis=0).flatten()
     return jac_flattened
@@ -141,14 +98,7 @@ def jacobian_single_pol_wrapper(
 
 def hessian_single_pol_wrapper(
     gains_flattened,
-    Nants,
-    Nbls,
-    model_visibilities,
-    data_visibilities,
-    visibility_weights,
-    gains_exp_mat_1,
-    gains_exp_mat_2,
-    lambda_val,
+    caldata_obj,
 ):
     """
     Wrapper for function hessian_single_pol. Reformats the input gains and
@@ -160,22 +110,7 @@ def hessian_single_pol_wrapper(
         Array of gain values. gains_flattened[0:Nants] corresponds to the real
         components of the gains and gains_flattened[Nants:] correponds to the
         imaginary components. Shape (2*Nants,).
-    Nants : int
-        Number of antennas.
-    Nbls : int
-        Number of baselines.
-    model_visibilities :  array of complex
-        Shape (Ntimes, Nbls,).
-    data_visibilities : array of complex
-        Shape (Ntimes, Nbls,).
-    visibility_weights : array of float
-        Shape (Ntimes, Nbls,).
-    gains_exp_mat_1 : array of int
-        Shape (Nbls, Nants,).
-    gains_exp_mat_2 : array of int
-        Shape (Nbls, Nants,).
-    lambda_val : float
-        Weight of the phase regularization term; must be positive.
+    caldata_obj : CalData
 
     Returns
     -------
@@ -187,7 +122,7 @@ def hessian_single_pol_wrapper(
         gains_flattened,
         (
             2,
-            Nants,
+            caldata_obj.Nants,
         ),
     )
     gains = gains[0, :] + 1.0j * gains[1, :]
@@ -197,154 +132,29 @@ def hessian_single_pol_wrapper(
         hess_imag_imag,
     ) = cost_function_calculations.hessian_single_pol(
         gains,
-        Nants,
-        Nbls,
-        model_visibilities,
-        data_visibilities,
-        visibility_weights,
-        gains_exp_mat_1,
-        gains_exp_mat_2,
-        lambda_val,
+        caldata_obj.Nants,
+        caldata_obj.Nbls,
+        caldata_obj.model_visibilities[:, :, 0, 0],
+        caldata_obj.data_visibilities[:, :, 0, 0],
+        caldata_obj.visibility_weights[:, :, 0, 0],
+        caldata_obj.gains_exp_mat_1,
+        caldata_obj.gains_exp_mat_2,
+        caldata_obj.lambda_val,
     )
-    hess_flattened = np.full((2 * Nants, 2 * Nants), np.nan, dtype=float)
-    hess_flattened[0:Nants, 0:Nants] = hess_real_real
-    hess_flattened[Nants:, 0:Nants] = hess_real_imag
-    hess_flattened[0:Nants, Nants:] = np.conj(hess_real_imag).T
-    hess_flattened[Nants:, Nants:] = hess_imag_imag
+    hess_flattened = np.full(
+        (2 * caldata_obj.Nants, 2 * caldata_obj.Nants), np.nan, dtype=float
+    )
+    hess_flattened[0 : caldata_obj.Nants, 0 : caldata_obj.Nants] = hess_real_real
+    hess_flattened[caldata_obj.Nants :, 0 : caldata_obj.Nants] = hess_real_imag
+    hess_flattened[0 : caldata_obj.Nants, caldata_obj.Nants :] = np.conj(
+        hess_real_imag
+    ).T
+    hess_flattened[caldata_obj.Nants :, caldata_obj.Nants :] = hess_imag_imag
     return hess_flattened
 
 
-def initialize_gains_from_calfile(
-    gain_init_calfile,
-    Nants,
-    Nfreqs,
-    N_feed_pols,
-    antenna_names,
-):
-    """
-    Extract an array of gains from a pyuvdata-formatted calfits files.
-
-    Parameters
-    ----------
-    gain_init_calfile : str
-        Path to a pyuvdata-formatted calfits file.
-    Nants : int
-        Number of antennas.
-    Nfreqs : int
-        Number of frequency channels.
-    N_feed_pols : int
-        Number of gain polarizations.
-    antenna_names : array of str
-        Shape (Nants,). Ordering matches the ordering of the gains.
-
-    Returns
-    -------
-    gains_init : array of complex
-        Shape (Nants, Nfreqs, N_feed_pols,).
-    """
-
-    uvcal = pyuvdata.UVCal()
-    uvcal.read_calfits(gain_init_calfile)
-
-    uvcal.reorder_freqs(channel_order="freq")
-    uvcal.reorder_jones()
-    use_gains = np.mean(uvcal.gain_array[:, 0, :, :, :], axis=2)  # Average over times
-
-    cal_ant_names = np.array([uvcal.antenna_names[ant] for ant in uvcal.ant_array])
-    cal_ant_inds = np.array([list(cal_ant_names).index(name) for name in antenna_names])
-
-    gains_init = use_gains[cal_ant_inds, :, : N_feed_pols + 1]
-
-    return gains_init
-
-
-def create_uvcal_obj(uvdata, antenna_names, gains=None):
-    """
-    Generate a pyuvdata UVCal object from gain solutions.
-
-    Parameters
-    ----------
-    uvdata : pyuvdata UVData object
-        Used for metadata reference.
-    antenna_names : array of str
-        Shape (Nants,). Ordering matches the ordering of the gains.
-    gains : array of complex or None
-        Fit gain values. Shape (Nants, Nfreqs, N_feed_pols,). If None, gains will
-        all be set to 1.
-
-    Returns
-    -------
-    uvcal : pyuvdata UVCal object
-    """
-
-    uvcal = pyuvdata.UVCal()
-    uvcal.Nants_data = len(antenna_names)
-    uvcal.Nants_telescope = uvdata.Nants_telescope
-    uvcal.Nfreqs = uvdata.Nfreqs
-    if gains is None:
-        uvcal.Njones = 2
-    else:
-        uvcal.Njones = np.shape(gains)[2]
-    uvcal.Nspws = 1
-    uvcal.Ntimes = 1
-    uvcal.ant_array = np.arange(uvcal.Nants_data)
-    uvcal.antenna_names = antenna_names
-    uvdata_antenna_inds = np.array(
-        [(uvdata.antenna_names).index(name) for name in antenna_names]
-    )
-    uvcal.antenna_numbers = uvdata.antenna_numbers[uvdata_antenna_inds]
-    uvcal.antenna_positions = uvdata.antenna_positions[uvdata_antenna_inds, :]
-    uvcal.cal_style = "sky"
-    uvcal.cal_type = "gain"
-    uvcal.channel_width = uvdata.channel_width
-    uvcal.freq_array = uvdata.freq_array
-    uvcal.gain_convention = "multiply"
-    uvcal.history = "calibrated with newcal"
-    uvcal.integration_time = np.mean(uvdata.integration_time)
-    uvcal.jones_array = np.array([-5, -6, -7, -8])[: uvcal.Njones]
-    uvcal.spw_array = uvdata.spw_array
-    uvcal.telescope_name = uvdata.telescope_name
-    uvcal.time_array = np.array([np.mean(uvdata.time_array)])
-    uvcal.time_range = np.array([np.min(uvdata.time_array), np.max(uvdata.time_array)])
-    uvcal.x_orientation = "east"
-    if gains is None:  # Set all gains to 1
-        uvcal.gain_array = np.full(
-            (uvcal.Nants_data, uvcal.Nspws, uvcal.Nfreqs, uvcal.Ntimes, uvcal.Njones),
-            1,
-            dtype=complex,
-        )
-    else:
-        uvcal.gain_array = gains[:, np.newaxis, :, np.newaxis, :]
-    uvcal.flag_array = np.isnan(uvcal.gain_array)
-    uvcal.quality_array = np.full(
-        (uvcal.Nants_data, uvcal.Nspws, uvcal.Nfreqs, uvcal.Ntimes, uvcal.Njones),
-        1.0,
-        dtype=float,
-    )  # Not supported
-    uvcal.ref_antenna_name = "none"
-    uvcal.sky_catalog = ""
-    uvcal.sky_field = "phase center (RA, Dec): ({}, {})".format(
-        np.degrees(np.mean(uvdata.phase_center_app_ra)),
-        np.degrees(np.mean(uvdata.phase_center_app_dec)),
-    )
-
-    if not uvcal.check():
-        print("ERROR: UVCal check failed.")
-
-    return uvcal
-
-
 def run_calibration_optimization_per_pol_single_freq(
-    gains_init,
-    Nants,
-    Nbls,
-    N_feed_pols,
-    model_visibilities,
-    data_visibilities,
-    visibility_weights,
-    gains_exp_mat_1,
-    gains_exp_mat_2,
-    lambda_val,
+    caldata_obj,
     xtol,
     verbose,
 ):
@@ -355,28 +165,7 @@ def run_calibration_optimization_per_pol_single_freq(
 
     Parameters
     ----------
-    gains_init : array of complex
-        Initial guess for the gains. Shape (Nants, N_feed_pols,).
-    Nants : int
-        Number of antennas.
-    Nbls : int
-        Number of baselines.
-    N_feed_pols : int
-        Number of feed polarization modes to be fit.
-    model_visibilities : array of complex
-        Shape (Ntimes, Nbls, N_vis_pols,). Polarizations are ordered in the AIPS
-        convention: XX, YY, XY, YX.
-    data_visibilities : array of complex
-        Shape (Ntimes, Nbls, N_vis_pols,). Polarizations are ordered in the AIPS
-        convention: XX, YY, XY, YX.
-    visibility_weights : array of float
-        Shape (Ntimes, Nbls, N_vis_pols,).
-    gains_exp_mat_1 : array of int
-        Shape (Nbls, Nants,).
-    gains_exp_mat_2 : array of int
-        Shape (Nbls, Nants,).
-    lambda_val : float
-        Weight of the phase regularization term; must be positive.
+    caldata_obj : CalData
     xtol : float
         Accuracy tolerance for optimizer.
     verbose : bool
@@ -388,54 +177,76 @@ def run_calibration_optimization_per_pol_single_freq(
         Fit gain values. Shape (Nants, N_feed_pols,).
     """
 
-    gains_fit = np.full(
-        (
-            Nants,
-            N_feed_pols,
-        ),
-        np.nan,
-        dtype=complex,
-    )
-    for pol_ind in range(N_feed_pols):
-        if (
-            np.max(visibility_weights[:, :, pol_ind]) > 0.0
-        ):  # Check if some antennas are fully flagged
+    # Expand CalData object into per-pol objects
+    for feed_pol_ind, pol in enumerate(caldata_obj.feed_polarization_array):
+        sky_pol_ind = np.where(caldata_obj.vis_polarization_array == pol)[0][0]
+        caldata_per_pol = calibration_wrappers.CalData()
+        caldata_per_pol.gains = caldata_obj.gains[:, :, [feed_pol_ind]]
+        caldata_per_pol.Nants = caldata_obj.Nants
+        caldata_per_pol.Nbls = caldata_obj.Nbls
+        caldata_per_pol.Ntimes = caldata_obj.Ntimes
+        caldata_per_pol.Nfreqs = caldata_obj.Nfreqs
+        caldata_per_pol.N_feed_pols = 1
+        caldata_per_pol.N_vis_pols = 1
+        caldata_per_pol.feed_polarization_array = caldata_obj.feed_polarization_array[
+            [feed_pol_ind]
+        ]
+        caldata_per_pol.vis_polarization_array = caldata_obj.vis_polarization_array[
+            [sky_pol_ind]
+        ]
+        caldata_per_pol.model_visibilities = caldata_obj.model_visibilities[
+            :, :, :, [sky_pol_ind]
+        ]
+        caldata_per_pol.data_visibilities = caldata_obj.data_visibilities[
+            :, :, :, [sky_pol_ind]
+        ]
+        caldata_per_pol.visibility_weights = caldata_obj.visibility_weights[
+            :, :, :, [sky_pol_ind]
+        ]
+        caldata_per_pol.gains_exp_mat_1 = caldata_obj.gains_exp_mat_1
+        caldata_per_pol.gains_exp_mat_2 = caldata_obj.gains_exp_mat_2
+        caldata_per_pol.antenna_names = caldata_obj.antenna_names
+        caldata_per_pol.lambda_val = caldata_obj.lambda_val
+
+        if np.max(caldata_per_pol.visibility_weights) > 0.0:
+            # Check if some antennas are fully flagged
             antenna_weights = np.sum(
                 np.matmul(
-                    gains_exp_mat_1.T,
-                    visibility_weights[:, :, pol_ind].T,
+                    caldata_per_pol.gains_exp_mat_1.T,
+                    caldata_per_pol.visibility_weights[:, :, 0, 0].T,
                 )
                 + np.matmul(
-                    gains_exp_mat_2.T,
-                    visibility_weights[:, :, pol_ind].T,
+                    caldata_per_pol.gains_exp_mat_2.T,
+                    caldata_per_pol.visibility_weights[:, :, 0, 0].T,
                 ),
                 axis=1,
             )
             use_ants = np.where(antenna_weights > 0)[0]
-            Nants_use = len(use_ants)
-            gains_init_use = gains_init[use_ants, pol_ind]
+            if len(use_ants) != caldata_per_pol.Nants:
+                caldata_per_pol.gains = caldata_per_pol.gains[use_ants, :, :]
+                caldata_per_pol.Nants = len(use_ants)
+                caldata_per_pol.gains_exp_mat_1 = caldata_per_pol.gains_exp_mat_1[
+                    :, use_ants
+                ]
+                caldata_per_pol.gains_exp_mat_2 = caldata_per_pol.gains_exp_mat_2[
+                    :, use_ants
+                ]
+                caldata_per_pol.antenna_names = caldata_per_pol.antenna_names[use_ants]
+
             gains_init_flattened = np.stack(
-                (np.real(gains_init_use), np.imag(gains_init_use)),
+                (
+                    np.real(caldata_per_pol.gains[:, 0, 0]),
+                    np.imag(caldata_per_pol.gains[:, 0, 0]),
+                ),
                 axis=0,
             ).flatten()
-            gains_exp_mat_1_use = gains_exp_mat_1[:, use_ants]
-            gains_exp_mat_2_use = gains_exp_mat_2[:, use_ants]
 
             # Minimize the cost function
             start_optimize = time.time()
             result = scipy.optimize.minimize(
                 cost_function_single_pol_wrapper,
                 gains_init_flattened,
-                args=(
-                    Nants_use,
-                    Nbls,
-                    model_visibilities[:, :, pol_ind],
-                    data_visibilities[:, :, pol_ind],
-                    visibility_weights[:, :, pol_ind],
-                    gains_exp_mat_1_use,
-                    gains_exp_mat_2_use,
-                    lambda_val,
-                ),
+                args=(caldata_per_pol),
                 method="Newton-CG",
                 jac=jacobian_single_pol_wrapper,
                 hess=hessian_single_pol_wrapper,
@@ -448,36 +259,59 @@ def run_calibration_optimization_per_pol_single_freq(
                     f"Optimization time: {(end_optimize - start_optimize)/60.} minutes"
                 )
             sys.stdout.flush()
-            gains_fit_reshaped = np.reshape(result.x, (2, Nants_use))
-            gains_fit_single_pol = np.full(Nants, np.nan + 1j * np.nan)
-            gains_fit_single_pol[use_ants] = (
-                gains_fit_reshaped[0, :] + 1j * gains_fit_reshaped[1, :]
-            )
+            gains_fit = np.reshape(result.x, (2, caldata_per_pol.Nants))
+            gains_fit = gains_fit[0, :] + 1j * gains_fit[1, :]
 
             # Ensure that the phase of the gains is mean-zero
             # This adds should be handled by the phase regularization term, but
             # this step removes any optimizer precision effects.
             avg_angle = np.arctan2(
-                np.nanmean(np.sin(np.angle(gains_fit_single_pol))),
-                np.nanmean(np.cos(np.angle(gains_fit_single_pol))),
+                np.nanmean(np.sin(np.angle(gains_fit))),
+                np.nanmean(np.cos(np.angle(gains_fit))),
             )
-            gains_fit_single_pol *= np.cos(avg_angle) - 1j * np.sin(avg_angle)
-
-            gains_fit[:, pol_ind] = gains_fit_single_pol
+            gains_fit *= np.cos(avg_angle) - 1j * np.sin(avg_angle)
+            caldata_per_pol.gains = gains_fit[:, np.newaxis, np.newaxis]
 
         else:  # All flagged
-            gains_fit[:, pol_ind] = np.full(Nants, np.nan + 1j * np.nan)
+            caldata_per_pol.gains[:, :, :] = np.nan + 1j * np.nan
+
+        if caldata_per_pol.Nants == caldata_obj.Nants:
+            caldata_obj.gains[:, :, feed_pol_ind] = caldata_per_pol.gains[:, :, 0]
+        else:
+            ant_inds = np.array(
+                [
+                    np.where(caldata_obj.antenna_names == ant_name)[0]
+                    for ant_name in caldata_per_pol.antenna_names
+                ]
+            )
+            caldata_obj.gains[ant_inds, :, feed_pol_ind] = caldata_per_pol.gains
 
     # Constrain crosspol phase
-    if N_feed_pols == 2:
-        crosspol_phase, gains_fit = cost_function_calculations.set_crosspol_phase(
-            gains_fit,
-            model_visibilities[:, :, 2:],
-            data_visibilities[:, :, 2:],
-            visibility_weights[:, :, 2:],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            inplace=False,
+    if caldata_obj.N_feed_pols == 2 and caldata_obj.N_vis_pols == 4:
+        if (
+            caldata_obj.feed_polarization_array[0] == -5
+            and caldata_obj.feed_polarization_array[1] == -6
+        ):
+            crosspol_polarizations = [-7, -8]
+        elif (
+            caldata_obj.feed_polarization_array[0] == -6
+            and caldata_obj.feed_polarization_array[1] == -5
+        ):
+            crosspol_polarizations = [-8, -7]
+        crosspol_indices = np.array(
+            [
+                np.where(caldata_obj.vis_polarization_array == pol)[0]
+                for pol in crosspol_polarizations
+            ]
+        )
+        crosspol_phase = cost_function_calculations.set_crosspol_phase(
+            caldata_obj.gains[:, 0, :],
+            caldata_obj.model_visibilities[:, :, 0, crosspol_indices],
+            caldata_obj.data_visibilities[:, :, 0, crosspol_indices],
+            caldata_obj.visibility_weights[:, :, 0, crosspol_indices],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
         )
 
-    return gains_fit
+        caldata_obj.gains[:, :, 0] *= np.exp(-1j * crosspol_phase / 2)
+        caldata_obj.gains[:, :, 1] *= np.exp(1j * crosspol_phase / 2)

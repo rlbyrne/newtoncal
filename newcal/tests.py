@@ -24,29 +24,17 @@ class TestStringMethods(unittest.TestCase):
         model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
         data = model.copy()
 
-        (
-            gains_init,
-            Nants,
-            Nbls,
-            Ntimes,
-            Nfreqs,
-            N_feed_pols,
-            model_visibilities,
-            data_visibilities,
-            visibility_weights,
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            antenna_names,
-        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
+        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj.load_data(data, model)
 
         cost = cost_function_calculations.cost_function_single_pol(
-            gains_init[:, test_freq_ind, 0],
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.gains[:, test_freq_ind, 0],
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
 
         np.testing.assert_allclose(cost, 0.0)
@@ -65,32 +53,20 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        (
-            gains_init,
-            Nants,
-            Nbls,
-            Ntimes,
-            Nfreqs,
-            N_feed_pols,
-            model_visibilities,
-            data_visibilities,
-            visibility_weights,
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            antenna_names,
-        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
+        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj.load_data(data, model, lambda_val=lambda_val)
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
             1.0,
             gain_stddev,
-            size=(Nants, Nfreqs),
+            size=(caldata_obj.Nants, caldata_obj.Nfreqs),
         )
         np.random.seed(0)
         gains_init_imag = 1.0j * np.random.normal(
             0.0,
             gain_stddev,
-            size=(Nants, Nfreqs),
+            size=(caldata_obj.Nants, caldata_obj.Nfreqs),
         )
         gains_init = gains_init_real + gains_init_imag
 
@@ -98,32 +74,32 @@ class TestStringMethods(unittest.TestCase):
         gains_init0[test_ant_ind] -= delta_gain / 2
         cost0 = cost_function_calculations.cost_function_single_pol(
             gains_init0,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_ind] += delta_gain / 2
         cost1 = cost_function_calculations.cost_function_single_pol(
             gains_init1,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
         jac = cost_function_calculations.jacobian_single_pol(
             gains_init[:, test_freq_ind],
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
 
         grad_approx = (cost1 - cost0) / delta_gain
@@ -148,32 +124,20 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        (
-            gains_init,
-            Nants,
-            Nbls,
-            Ntimes,
-            Nfreqs,
-            N_feed_pols,
-            model_visibilities,
-            data_visibilities,
-            visibility_weights,
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            antenna_names,
-        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
+        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj.load_data(data, model, lambda_val=lambda_val)
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
             1.0,
             gain_stddev,
-            size=(Nants, Nfreqs),
+            size=(caldata_obj.Nants, caldata_obj.Nfreqs),
         )
         np.random.seed(0)
         gains_init_imag = 1.0j * np.random.normal(
             0.0,
             gain_stddev,
-            size=(Nants, Nfreqs),
+            size=(caldata_obj.Nants, caldata_obj.Nfreqs),
         )
         gains_init = gains_init_real + gains_init_imag
 
@@ -181,32 +145,32 @@ class TestStringMethods(unittest.TestCase):
         gains_init0[test_ant_ind] -= 1j * delta_gain / 2
         cost0 = cost_function_calculations.cost_function_single_pol(
             gains_init0,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_ind] += 1j * delta_gain / 2
         cost1 = cost_function_calculations.cost_function_single_pol(
             gains_init1,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
         jac = cost_function_calculations.jacobian_single_pol(
             gains_init[:, test_freq_ind],
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
 
         grad_approx = (cost1 - cost0) / delta_gain
@@ -231,34 +195,24 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        (
-            gains_init,
-            Nants,
-            Nbls,
-            Ntimes,
-            Nfreqs,
-            N_feed_pols,
-            model_visibilities,
-            data_visibilities,
-            visibility_weights,
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            antenna_names,
-        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
+        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj.load_data(data, model, lambda_val=lambda_val)
 
-        visibility_weights = np.zeros_like(visibility_weights)  # Don't test data
+        caldata_obj.visibility_weights = np.zeros_like(
+            caldata_obj.visibility_weights
+        )  # Don't test data
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
             1.0,
             gain_stddev,
-            size=(Nants, Nfreqs),
+            size=(caldata_obj.Nants, caldata_obj.Nfreqs),
         )
         np.random.seed(0)
         gains_init_imag = 1.0j * np.random.normal(
             0.0,
             gain_stddev,
-            size=(Nants, Nfreqs),
+            size=(caldata_obj.Nants, caldata_obj.Nfreqs),
         )
         gains_init = gains_init_real + gains_init_imag
 
@@ -266,32 +220,32 @@ class TestStringMethods(unittest.TestCase):
         gains_init0[test_ant_ind] -= delta_gain / 2
         cost0 = cost_function_calculations.cost_function_single_pol(
             gains_init0,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_ind] += delta_gain / 2
         cost1 = cost_function_calculations.cost_function_single_pol(
             gains_init1,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
         jac = cost_function_calculations.jacobian_single_pol(
             gains_init[:, test_freq_ind],
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
 
         grad_approx = (cost1 - cost0) / delta_gain
@@ -316,34 +270,24 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        (
-            gains_init,
-            Nants,
-            Nbls,
-            Ntimes,
-            Nfreqs,
-            N_feed_pols,
-            model_visibilities,
-            data_visibilities,
-            visibility_weights,
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            antenna_names,
-        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
+        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj.load_data(data, model, lambda_val=lambda_val)
 
-        visibility_weights = np.zeros_like(visibility_weights)  # Don't test data
+        caldata_obj.visibility_weights = np.zeros_like(
+            caldata_obj.visibility_weights
+        )  # Don't test data
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
             1.0,
             gain_stddev,
-            size=(Nants, Nfreqs),
+            size=(caldata_obj.Nants, caldata_obj.Nfreqs),
         )
         np.random.seed(0)
         gains_init_imag = 1.0j * np.random.normal(
             0.0,
             gain_stddev,
-            size=(Nants, Nfreqs),
+            size=(caldata_obj.Nants, caldata_obj.Nfreqs),
         )
         gains_init = gains_init_real + gains_init_imag
 
@@ -351,32 +295,32 @@ class TestStringMethods(unittest.TestCase):
         gains_init0[test_ant_ind] -= 1j * delta_gain / 2
         cost0 = cost_function_calculations.cost_function_single_pol(
             gains_init0,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_ind] += 1j * delta_gain / 2
         cost1 = cost_function_calculations.cost_function_single_pol(
             gains_init1,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
         jac = cost_function_calculations.jacobian_single_pol(
             gains_init[:, test_freq_ind],
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
 
         grad_approx = (cost1 - cost0) / delta_gain
@@ -402,32 +346,20 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        (
-            gains_init,
-            Nants,
-            Nbls,
-            Ntimes,
-            Nfreqs,
-            N_feed_pols,
-            model_visibilities,
-            data_visibilities,
-            visibility_weights,
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            antenna_names,
-        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
+        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj.load_data(data, model, lambda_val=lambda_val)
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
             1.0,
             gain_stddev,
-            size=(Nants, Nfreqs),
+            size=(caldata_obj.Nants, caldata_obj.Nfreqs),
         )
         np.random.seed(0)
         gains_init_imag = 1.0j * np.random.normal(
             0.0,
             gain_stddev,
-            size=(Nants, Nfreqs),
+            size=(caldata_obj.Nants, caldata_obj.Nfreqs),
         )
         gains_init = gains_init_real + gains_init_imag
 
@@ -435,23 +367,23 @@ class TestStringMethods(unittest.TestCase):
         gains_init0[test_ant_1_ind] -= delta_gain / 2
         jac0 = cost_function_calculations.jacobian_single_pol(
             gains_init0,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_1_ind] += delta_gain / 2
         jac1 = cost_function_calculations.jacobian_single_pol(
             gains_init1,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
         (
             hess_real_real,
@@ -459,14 +391,14 @@ class TestStringMethods(unittest.TestCase):
             hess_imag_imag,
         ) = cost_function_calculations.hessian_single_pol(
             gains_init[:, test_freq_ind],
-            Nants,
-            Nbls,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.Nants,
+            caldata_obj.Nbls,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
 
         # Test Hessian real-real component
@@ -502,32 +434,20 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        (
-            gains_init,
-            Nants,
-            Nbls,
-            Ntimes,
-            Nfreqs,
-            N_feed_pols,
-            model_visibilities,
-            data_visibilities,
-            visibility_weights,
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            antenna_names,
-        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
+        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj.load_data(data, model, lambda_val=lambda_val)
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
             1.0,
             gain_stddev,
-            size=(Nants, Nfreqs),
+            size=(caldata_obj.Nants, caldata_obj.Nfreqs),
         )
         np.random.seed(0)
         gains_init_imag = 1.0j * np.random.normal(
             0.0,
             gain_stddev,
-            size=(Nants, Nfreqs),
+            size=(caldata_obj.Nants, caldata_obj.Nfreqs),
         )
         gains_init = gains_init_real + gains_init_imag
 
@@ -535,23 +455,23 @@ class TestStringMethods(unittest.TestCase):
         gains_init0[test_ant_1_ind] -= 1j * delta_gain / 2
         jac0 = cost_function_calculations.jacobian_single_pol(
             gains_init0,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_1_ind] += 1j * delta_gain / 2
         jac1 = cost_function_calculations.jacobian_single_pol(
             gains_init1,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
         (
             hess_real_real,
@@ -559,14 +479,14 @@ class TestStringMethods(unittest.TestCase):
             hess_imag_imag,
         ) = cost_function_calculations.hessian_single_pol(
             gains_init[:, test_freq_ind],
-            Nants,
-            Nbls,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.Nants,
+            caldata_obj.Nbls,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
 
         # Test Hessian imaginary-real component
@@ -602,32 +522,20 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        (
-            gains_init,
-            Nants,
-            Nbls,
-            Ntimes,
-            Nfreqs,
-            N_feed_pols,
-            model_visibilities,
-            data_visibilities,
-            visibility_weights,
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            antenna_names,
-        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
+        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj.load_data(data, model, lambda_val=lambda_val)
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
             1.0,
             gain_stddev,
-            size=(Nants, Nfreqs),
+            size=(caldata_obj.Nants, caldata_obj.Nfreqs),
         )
         np.random.seed(0)
         gains_init_imag = 1.0j * np.random.normal(
             0.0,
             gain_stddev,
-            size=(Nants, Nfreqs),
+            size=(caldata_obj.Nants, caldata_obj.Nfreqs),
         )
         gains_init = gains_init_real + gains_init_imag
 
@@ -635,23 +543,23 @@ class TestStringMethods(unittest.TestCase):
         gains_init0[test_ant_1_ind] -= delta_gain / 2
         jac0 = cost_function_calculations.jacobian_single_pol(
             gains_init0,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_1_ind] += delta_gain / 2
         jac1 = cost_function_calculations.jacobian_single_pol(
             gains_init1,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
         (
             hess_real_real,
@@ -659,14 +567,14 @@ class TestStringMethods(unittest.TestCase):
             hess_imag_imag,
         ) = cost_function_calculations.hessian_single_pol(
             gains_init[:, test_freq_ind],
-            Nants,
-            Nbls,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.Nants,
+            caldata_obj.Nbls,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
 
         # Test Hessian real-real component
@@ -703,32 +611,20 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        (
-            gains_init,
-            Nants,
-            Nbls,
-            Ntimes,
-            Nfreqs,
-            N_feed_pols,
-            model_visibilities,
-            data_visibilities,
-            visibility_weights,
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            antenna_names,
-        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
+        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj.load_data(data, model, lambda_val=lambda_val)
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
             1.0,
             gain_stddev,
-            size=(Nants, Nfreqs),
+            size=(caldata_obj.Nants, caldata_obj.Nfreqs),
         )
         np.random.seed(0)
         gains_init_imag = 1.0j * np.random.normal(
             0.0,
             gain_stddev,
-            size=(Nants, Nfreqs),
+            size=(caldata_obj.Nants, caldata_obj.Nfreqs),
         )
         gains_init = gains_init_real + gains_init_imag
 
@@ -736,23 +632,23 @@ class TestStringMethods(unittest.TestCase):
         gains_init0[test_ant_1_ind] -= 1j * delta_gain / 2
         jac0 = cost_function_calculations.jacobian_single_pol(
             gains_init0,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_1_ind] += 1j * delta_gain / 2
         jac1 = cost_function_calculations.jacobian_single_pol(
             gains_init1,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
         (
             hess_real_real,
@@ -760,14 +656,14 @@ class TestStringMethods(unittest.TestCase):
             hess_imag_imag,
         ) = cost_function_calculations.hessian_single_pol(
             gains_init[:, test_freq_ind],
-            Nants,
-            Nbls,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.Nants,
+            caldata_obj.Nbls,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
 
         # Test Hessian imaginary-real component
@@ -806,34 +702,24 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        (
-            gains_init,
-            Nants,
-            Nbls,
-            Ntimes,
-            Nfreqs,
-            N_feed_pols,
-            model_visibilities,
-            data_visibilities,
-            visibility_weights,
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            antenna_names,
-        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
+        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj.load_data(data, model, lambda_val=lambda_val)
 
-        visibility_weights = np.zeros_like(visibility_weights)  # Don't test data
+        caldata_obj.visibility_weights = np.zeros_like(
+            caldata_obj.visibility_weights
+        )  # Don't test data
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
             1.0,
             gain_stddev,
-            size=(Nants, Nfreqs),
+            size=(caldata_obj.Nants, caldata_obj.Nfreqs),
         )
         np.random.seed(0)
         gains_init_imag = 1.0j * np.random.normal(
             0.0,
             gain_stddev,
-            size=(Nants, Nfreqs),
+            size=(caldata_obj.Nants, caldata_obj.Nfreqs),
         )
         gains_init = gains_init_real + gains_init_imag
 
@@ -841,23 +727,23 @@ class TestStringMethods(unittest.TestCase):
         gains_init0[test_ant_1_ind] -= delta_gain / 2
         jac0 = cost_function_calculations.jacobian_single_pol(
             gains_init0,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_1_ind] += delta_gain / 2
         jac1 = cost_function_calculations.jacobian_single_pol(
             gains_init1,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
         (
             hess_real_real,
@@ -865,14 +751,14 @@ class TestStringMethods(unittest.TestCase):
             hess_imag_imag,
         ) = cost_function_calculations.hessian_single_pol(
             gains_init[:, test_freq_ind],
-            Nants,
-            Nbls,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.Nants,
+            caldata_obj.Nbls,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
 
         # Test Hessian real-real component
@@ -910,34 +796,24 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        (
-            gains_init,
-            Nants,
-            Nbls,
-            Ntimes,
-            Nfreqs,
-            N_feed_pols,
-            model_visibilities,
-            data_visibilities,
-            visibility_weights,
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            antenna_names,
-        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
+        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj.load_data(data, model, lambda_val=lambda_val)
 
-        visibility_weights = np.zeros_like(visibility_weights)  # Don't test data
+        caldata_obj.visibility_weights = np.zeros_like(
+            caldata_obj.visibility_weights
+        )  # Don't test data
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
             1.0,
             gain_stddev,
-            size=(Nants, Nfreqs),
+            size=(caldata_obj.Nants, caldata_obj.Nfreqs),
         )
         np.random.seed(0)
         gains_init_imag = 1.0j * np.random.normal(
             0.0,
             gain_stddev,
-            size=(Nants, Nfreqs),
+            size=(caldata_obj.Nants, caldata_obj.Nfreqs),
         )
         gains_init = gains_init_real + gains_init_imag
 
@@ -945,23 +821,23 @@ class TestStringMethods(unittest.TestCase):
         gains_init0[test_ant_1_ind] -= 1j * delta_gain / 2
         jac0 = cost_function_calculations.jacobian_single_pol(
             gains_init0,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_1_ind] += 1j * delta_gain / 2
         jac1 = cost_function_calculations.jacobian_single_pol(
             gains_init1,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
         (
             hess_real_real,
@@ -969,14 +845,14 @@ class TestStringMethods(unittest.TestCase):
             hess_imag_imag,
         ) = cost_function_calculations.hessian_single_pol(
             gains_init[:, test_freq_ind],
-            Nants,
-            Nbls,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.Nants,
+            caldata_obj.Nbls,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
 
         # Test Hessian imaginary-real component
@@ -1012,34 +888,24 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        (
-            gains_init,
-            Nants,
-            Nbls,
-            Ntimes,
-            Nfreqs,
-            N_feed_pols,
-            model_visibilities,
-            data_visibilities,
-            visibility_weights,
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            antenna_names,
-        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
+        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj.load_data(data, model, lambda_val=lambda_val)
 
-        visibility_weights = np.zeros_like(visibility_weights)  # Don't test data
+        caldata_obj.visibility_weights = np.zeros_like(
+            caldata_obj.visibility_weights
+        )  # Don't test data
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
             1.0,
             gain_stddev,
-            size=(Nants, Nfreqs),
+            size=(caldata_obj.Nants, caldata_obj.Nfreqs),
         )
         np.random.seed(0)
         gains_init_imag = 1.0j * np.random.normal(
             0.0,
             gain_stddev,
-            size=(Nants, Nfreqs),
+            size=(caldata_obj.Nants, caldata_obj.Nfreqs),
         )
         gains_init = gains_init_real + gains_init_imag
 
@@ -1047,23 +913,23 @@ class TestStringMethods(unittest.TestCase):
         gains_init0[test_ant_1_ind] -= delta_gain / 2
         jac0 = cost_function_calculations.jacobian_single_pol(
             gains_init0,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_1_ind] += delta_gain / 2
         jac1 = cost_function_calculations.jacobian_single_pol(
             gains_init1,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
         (
             hess_real_real,
@@ -1071,14 +937,14 @@ class TestStringMethods(unittest.TestCase):
             hess_imag_imag,
         ) = cost_function_calculations.hessian_single_pol(
             gains_init[:, test_freq_ind],
-            Nants,
-            Nbls,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.Nants,
+            caldata_obj.Nbls,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
 
         # Test Hessian real-real component
@@ -1115,34 +981,24 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        (
-            gains_init,
-            Nants,
-            Nbls,
-            Ntimes,
-            Nfreqs,
-            N_feed_pols,
-            model_visibilities,
-            data_visibilities,
-            visibility_weights,
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            antenna_names,
-        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
+        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj.load_data(data, model, lambda_val=lambda_val)
 
-        visibility_weights = np.zeros_like(visibility_weights)  # Don't test data
+        caldata_obj.visibility_weights = np.zeros_like(
+            caldata_obj.visibility_weights
+        )  # Don't test data
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
             1.0,
             gain_stddev,
-            size=(Nants, Nfreqs),
+            size=(caldata_obj.Nants, caldata_obj.Nfreqs),
         )
         np.random.seed(0)
         gains_init_imag = 1.0j * np.random.normal(
             0.0,
             gain_stddev,
-            size=(Nants, Nfreqs),
+            size=(caldata_obj.Nants, caldata_obj.Nfreqs),
         )
         gains_init = gains_init_real + gains_init_imag
 
@@ -1150,23 +1006,23 @@ class TestStringMethods(unittest.TestCase):
         gains_init0[test_ant_1_ind] -= 1j * delta_gain / 2
         jac0 = cost_function_calculations.jacobian_single_pol(
             gains_init0,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_1_ind] += 1j * delta_gain / 2
         jac1 = cost_function_calculations.jacobian_single_pol(
             gains_init1,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
         (
             hess_real_real,
@@ -1174,14 +1030,14 @@ class TestStringMethods(unittest.TestCase):
             hess_imag_imag,
         ) = cost_function_calculations.hessian_single_pol(
             gains_init[:, test_freq_ind],
-            Nants,
-            Nbls,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            caldata_obj.Nants,
+            caldata_obj.Nbls,
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
         )
 
         # Test Hessian imaginary-real component
@@ -1215,32 +1071,20 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        (
-            gains_init,
-            Nants,
-            Nbls,
-            Ntimes,
-            Nfreqs,
-            N_feed_pols,
-            model_visibilities,
-            data_visibilities,
-            visibility_weights,
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            antenna_names,
-        ) = calibration_wrappers.uvdata_calibration_setup(data, model)
+        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj.load_data(data, model, lambda_val=lambda_val)
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
             1.0,
             gain_stddev,
-            size=(Nants, Nfreqs),
+            size=(caldata_obj.Nants, caldata_obj.Nfreqs),
         )
         np.random.seed(0)
         gains_init_imag = 1.0j * np.random.normal(
             0.0,
             gain_stddev,
-            size=(Nants, Nfreqs),
+            size=(caldata_obj.Nants, caldata_obj.Nfreqs),
         )
         gains_init = gains_init_real + gains_init_imag
         gains_flattened = np.stack(
@@ -1252,75 +1096,39 @@ class TestStringMethods(unittest.TestCase):
         ).flatten()
 
         hess = calibration_optimization.hessian_single_pol_wrapper(
-            gains_flattened,
-            Nants,
-            Nbls,
-            model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            visibility_weights[:, :, test_freq_ind, test_pol_ind],
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+            gains_flattened, caldata_obj
         )
 
         np.testing.assert_allclose(hess - np.conj(hess.T), 0.0 + 1j * 0.0)
 
     def test_calibration_single_pol_identical_data_no_flags(self):
 
-        lambda_val = 100.0
-
         model = pyuvdata.UVData()
         model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
         data = model.copy()
 
-        (
-            gains_init,
-            Nants,
-            Nbls,
-            Ntimes,
-            Nfreqs,
-            N_feed_pols,
-            model_visibilities,
-            data_visibilities,
-            visibility_weights,
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            antenna_names,
-        ) = calibration_wrappers.uvdata_calibration_setup(
-            data,
-            model,
-            gain_init_stddev=0.1,
-        )
+        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj.load_data(data, model, gain_init_stddev=0.1, lambda_val=100.0)
 
         # Unflag all
-        visibility_weights = np.ones(
+        caldata_obj.visibility_weights = np.ones(
             (
-                Ntimes,
-                Nbls,
-                Nfreqs,
+                caldata_obj.Ntimes,
+                caldata_obj.Nbls,
+                caldata_obj.Nfreqs,
                 4,
             ),
             dtype=float,
         )
 
-        gains_fit = calibration_wrappers.calibration_per_pol(
-            gains_init,
-            Nants,
-            Nbls,
-            Nfreqs,
-            2,
-            model_visibilities,
-            data_visibilities,
-            visibility_weights,
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+        calibration_wrappers.calibration_per_pol(
+            caldata_obj,
             xtol=1e-8,
             parallel=False,
         )
 
-        np.testing.assert_allclose(np.abs(gains_fit), 1.0)
-        np.testing.assert_allclose(np.angle(gains_fit), 0.0, atol=1e-6)
+        np.testing.assert_allclose(np.abs(caldata_obj.gains), 1.0)
+        np.testing.assert_allclose(np.angle(caldata_obj.gains), 0.0, atol=1e-6)
 
     def test_calibration_single_pol_identical_data_with_flags(self):
 
@@ -1330,57 +1138,31 @@ class TestStringMethods(unittest.TestCase):
         model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
         data = model.copy()
 
-        (
-            gains_init,
-            Nants,
-            Nbls,
-            Ntimes,
-            Nfreqs,
-            N_feed_pols,
-            model_visibilities,
-            data_visibilities,
-            visibility_weights,
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            antenna_names,
-        ) = calibration_wrappers.uvdata_calibration_setup(
-            data,
-            model,
-            gain_init_stddev=0.1,
-        )
+        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj.load_data(data, model, gain_init_stddev=0.1, lambda_val=100.0)
 
         # Unflag all
-        visibility_weights = np.ones(
+        caldata_obj.visibility_weights = np.ones(
             (
-                Ntimes,
-                Nbls,
-                Nfreqs,
+                caldata_obj.Ntimes,
+                caldata_obj.Nbls,
+                caldata_obj.Nfreqs,
                 4,
             ),
             dtype=float,
         )
         # Set flags
-        visibility_weights[2, 10, 0, :] = 0.0
-        visibility_weights[1, 20, 0, :] = 0.0
+        caldata_obj.visibility_weights[2, 10, 0, :] = 0.0
+        caldata_obj.visibility_weights[1, 20, 0, :] = 0.0
 
-        gains_fit = calibration_wrappers.calibration_per_pol(
-            gains_init,
-            Nants,
-            Nbls,
-            Nfreqs,
-            2,
-            model_visibilities,
-            data_visibilities,
-            visibility_weights,
-            gains_exp_mat_1,
-            gains_exp_mat_2,
-            lambda_val,
+        calibration_wrappers.calibration_per_pol(
+            caldata_obj,
             xtol=1e-8,
             parallel=False,
         )
 
-        np.testing.assert_allclose(np.abs(gains_fit), 1.0)
-        np.testing.assert_allclose(np.angle(gains_fit), 0.0, atol=1e-6)
+        np.testing.assert_allclose(np.abs(caldata_obj.gains), 1.0)
+        np.testing.assert_allclose(np.angle(caldata_obj.gains), 0.0, atol=1e-6)
 
 
 if __name__ == "__main__":
