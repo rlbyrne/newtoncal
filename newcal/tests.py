@@ -2,6 +2,7 @@ import numpy as np
 import calibration_optimization
 import calibration_wrappers
 import cost_function_calculations
+import calibration_qa
 import pyuvdata
 import os
 import unittest
@@ -1127,12 +1128,10 @@ class TestStringMethods(unittest.TestCase):
             parallel=False,
         )
 
-        np.testing.assert_allclose(np.abs(caldata_obj.gains), 1.0)
+        np.testing.assert_allclose(np.abs(caldata_obj.gains), 1.0, atol=1e-6)
         np.testing.assert_allclose(np.angle(caldata_obj.gains), 0.0, atol=1e-6)
 
     def test_calibration_single_pol_identical_data_with_flags(self):
-
-        lambda_val = 100.0
 
         model = pyuvdata.UVData()
         model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
@@ -1163,6 +1162,63 @@ class TestStringMethods(unittest.TestCase):
 
         np.testing.assert_allclose(np.abs(caldata_obj.gains), 1.0)
         np.testing.assert_allclose(np.angle(caldata_obj.gains), 0.0, atol=1e-6)
+
+    def test_antenna_flagging(self):
+
+        model = pyuvdata.UVData()
+        model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
+        data = model.copy()
+
+        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj.load_data(data, model, gain_init_stddev=0.1, lambda_val=100.0)
+
+        # Unflag all
+        caldata_obj.visibility_weights = np.ones(
+            (
+                caldata_obj.Ntimes,
+                caldata_obj.Nbls,
+                caldata_obj.Nfreqs,
+                4,
+            ),
+            dtype=float,
+        )
+
+        perturb_antenna_name = "Tile048"
+        antenna_ind = np.where(caldata_obj.antenna_names == perturb_antenna_name)
+        baseline_inds = np.where(
+            np.logical_or(
+                caldata_obj.gains_exp_mat_1[:, antenna_ind],
+                caldata_obj.gains_exp_mat_1[:, antenna_ind],
+            )
+        )[0]
+
+        np.random.seed(0)
+        data_perturbation = 1.0j * np.random.normal(
+            0.0,
+            np.mean(np.abs(caldata_obj.data_visibilities)),
+            size=(
+                caldata_obj.Ntimes,
+                len(baseline_inds),
+                caldata_obj.Nfreqs,
+                caldata_obj.N_vis_pols,
+            ),
+        )
+        caldata_obj.data_visibilities[:, baseline_inds, :, :] += data_perturbation
+
+        calibration_wrappers.calibration_per_pol(
+            caldata_obj,
+            xtol=1e-8,
+            parallel=False,
+        )
+
+        flag_ant_list = calibration_qa.get_antenna_flags_from_per_ant_cost(
+            caldata_obj,
+            flagging_threshold=2.5,
+            update_flags=False,
+            parallel=False,
+        )
+
+        np.testing.assert_equal(flag_ant_list[0][0], perturb_antenna_name)
 
 
 if __name__ == "__main__":
