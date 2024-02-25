@@ -535,7 +535,7 @@ def calibration_per_pol(
         )
         if parallel:
             args_list = []
-            for freq_ind in range(Nfreqs):
+            for freq_ind in range(caldata_obj.Nfreqs):
                 args = (
                     caldata_list[freq_ind],
                     xtol,
