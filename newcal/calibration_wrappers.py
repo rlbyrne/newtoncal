@@ -566,7 +566,7 @@ def calibration_per_pol(
 
         if verbose:
             print(
-                f"Optimization time: {Nfreqs} frequency channels in {(time.time() - start_time)/60.} minutes"
+                f"Optimization time: {caldata_obj.Nfreqs} frequency channels in {(time.time() - start_time)/60.} minutes"
             )
             sys.stdout.flush()
     if log_file_path is not None:
