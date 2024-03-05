@@ -138,8 +138,10 @@ class CalData:
         gain_init_stddev=0.0,
         N_feed_pols=2,
         feed_polarization_array=None,
-        min_cal_baseline=None,
-        max_cal_baseline=None,
+        min_cal_baseline_m=None,
+        max_cal_baseline_m=None,
+        min_cal_baseline_lambda=None,
+        max_cal_baseline_lambda=None,
         lambda_val=100,
     ):
         """
@@ -171,11 +173,21 @@ class CalData:
             Feed polarizations to calibrate. Shape (N_feed_pols,). Options are
             -5 for X or -6 for Y. Default None. If None, feed_polarization_array
             is set to ([-5, -6])[:N_feed_pols].
-        min_cal_baseline : float or None
-            Minimum baseline length, in meters, to use in calibration. If None,
+        min_cal_baseline_m : float or None
+            Minimum baseline length, in meters, to use in calibration. If both
+            min_cal_baseline_m and min_cal_baseline_lambda are None, arbitrarily
+            short baselines are used. Default None.
+        max_cal_baseline_m : float or None
+            Maximum baseline length, in meters, to use in calibration. If both
+            max_cal_baseline_m and max_cal_baseline_lambda are None, arbitrarily
+            long baselines are used. Default None.
+        min_cal_baseline_lambda : float or None
+            Minimum baseline length, in wavelengths, to use in calibration. If
+            both min_cal_baseline_m and min_cal_baseline_lambda are None,
             arbitrarily short baselines are used. Default None.
-        max_cal_baseline : float or None
-            Maximum baseline length, in meters, to use in calibration. If None,
+        max_cal_baseline_lambda : float or None
+            Maximum baseline length, in wavelengths, to use in calibration. If
+            both max_cal_baseline_m and max_cal_baseline_lambda are None,
             arbitrarily long baselines are used. Default None.
         lambda_val : float
             Weight of the phase regularization term; must be positive. Default
@@ -186,22 +198,48 @@ class CalData:
         data.select(ant_str="cross")
         model.select(ant_str="cross")
 
+        # Add check to make sure data and model frequencies and times align
+
         # Downselect baselines
-        if (min_cal_baseline is not None) or (max_cal_baseline is not None):
-            if min_cal_baseline is None:
-                min_cal_baseline = 0.0
-            if max_cal_baseline is None:
-                max_cal_baseline = np.inf
-            data_baseline_lengths = np.sqrt(np.sum(data.uvw_array**2.0, axis=1))
+        if (
+            (min_cal_baseline_m is not None)
+            or (max_cal_baseline_m is not None)
+            or (min_cal_baseline_lambda is not None)
+            or (max_cal_baseline_lambda is not None)
+        ):
+            if min_cal_baseline_m is None:
+                min_cal_baseline_m = 0.0
+            if max_cal_baseline_m is None:
+                max_cal_baseline_m = np.inf
+            if min_cal_baseline_lambda is None:
+                min_cal_baseline_lambda = 0.0
+            if max_cal_baseline_lambda is None:
+                max_cal_baseline_lambda = np.inf
+
+            max_cal_baseline_m = np.min(
+                [
+                    max_baseline_lambda * 3e8 / np.min(data.freq_array),
+                    max_cal_baseline_m,
+                ]
+            )
+            min_cal_baseline_m = np.max(
+                [
+                    min_baseline_lambda * 3e8 / np.max(data.freq_array),
+                    min_cal_baseline_m,
+                ]
+            )
+
+            data_baseline_lengths_m = np.sqrt(np.sum(data.uvw_array**2.0, axis=1))
             data_use_baselines = np.where(
-                (data_baseline_lengths >= min_cal_baseline)
-                & (data_baseline_lengths <= max_cal_baseline)
+                (data_baseline_lengths_m >= min_cal_baseline_m)
+                & (data_baseline_lengths_m <= max_cal_baseline_m)
             )
             data.select(blt_inds=data_use_baselines)
-            model_baseline_lengths = np.sqrt(np.sum(model.uvw_array**2.0, axis=1))
+
+            model_baseline_lengths_m = np.sqrt(np.sum(model.uvw_array**2.0, axis=1))
             model_use_baselines = np.where(
-                (model_baseline_lengths >= min_cal_baseline)
-                & (model_baseline_lengths <= max_cal_baseline)
+                (model_baseline_lengths_m >= min_cal_baseline_m)
+                & (model_baseline_lengths_m <= max_cal_baseline_m)
             )
             model.select(blt_inds=model_use_baselines)
 
@@ -264,6 +302,26 @@ class CalData:
 
         # Free memory
         data = model = data_copy = model_copy = None
+
+        if (min_cal_baseline_lambda is not None) or (
+            max_cal_baseline_lambda is not None
+        ):
+            baseline_lengths_m = np.sqrt(
+                np.sum(metadata_reference.uvw_array**2.0, axis=1)
+            )
+            baseline_lengths_lambda = (
+                baseline_lengths_m[:, np.newaxis]
+                * metadata_reference.freq_array[0, np.newaxis, :]
+                / 3e8
+            )
+            flag_array[
+                :,
+                np.where(
+                    (baseline_lengths_lambda < min_cal_baseline_lambda)
+                    & (baseline_lengths_lambda > max_cal_baseline_lambda)
+                ),
+                :,
+            ] = True
 
         # Create gains expand matrices
         self.gains_exp_mat_1 = np.zeros((self.Nbls, self.Nants), dtype=int)
