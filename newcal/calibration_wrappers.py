@@ -218,13 +218,13 @@ class CalData:
 
             max_cal_baseline_m = np.min(
                 [
-                    max_baseline_lambda * 3e8 / np.min(data.freq_array),
+                    max_cal_baseline_lambda * 3e8 / np.min(data.freq_array),
                     max_cal_baseline_m,
                 ]
             )
             min_cal_baseline_m = np.max(
                 [
-                    min_baseline_lambda * 3e8 / np.max(data.freq_array),
+                    min_cal_baseline_lambda * 3e8 / np.max(data.freq_array),
                     min_cal_baseline_m,
                 ]
             )
