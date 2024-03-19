@@ -301,7 +301,6 @@ def set_crosspol_phase(
     crosspol_visibility_weights,
     gains_exp_mat_1,
     gains_exp_mat_2,
-    inplace=False,
 ):
 
     """
@@ -331,16 +330,11 @@ def set_crosspol_phase(
         Shape (Nbls, Nants,).
     gains_exp_mat_2 : array of int
         Shape (Nbls, Nants,).
-    inplace : bool
-        Default False. If True, modifies the gains inplace
 
     Returns
     -------
     crosspol_phase : float
         Cross-polarization phase, in radians.
-    gains_new : array of complex or None
-        Returns None if inplace=True. Otherwise returns the cross-polarization
-        phase-adjusted gains.
     """
 
     gains_expanded_1 = np.matmul(gains_exp_mat_1, gains)[np.newaxis, :, :]
@@ -361,11 +355,4 @@ def set_crosspol_phase(
     )
     crosspol_phase = np.angle(term1 + term2)
 
-    gains_new = np.copy(gains)
-    gains_new[:, 0] *= np.exp(-1j * crosspol_phase / 2)
-    gains_new[:, 1] *= np.exp(1j * crosspol_phase / 2)
-    if inplace:
-        gains = gains_new
-        return crosspol_phase, None
-    else:
-        return crosspol_phase, gains_new
+    return crosspol_phase
