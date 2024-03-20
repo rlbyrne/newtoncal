@@ -515,6 +515,7 @@ class CalData:
 def calibration_per_pol(
     caldata_obj,
     xtol=1e-4,
+    maxiter=100,
     parallel=True,
     verbose=False,
     log_file_path=None,
@@ -531,6 +532,8 @@ def calibration_per_pol(
     caldata_obj : CalData
     xtol : float
         Accuracy tolerance for optimizer. Default 1e-8.
+    maxiter : int
+        Maximum number of iterations for the optimizer. Default 100.
     parallel : bool
         Set to True to parallelize across frequency with multiprocessing.
         Default True.
@@ -597,6 +600,7 @@ def calibration_per_pol(
                 args = (
                     caldata_list[freq_ind],
                     xtol,
+                    maxiter,
                     verbose,
                 )
                 args_list.append(args)
@@ -616,6 +620,7 @@ def calibration_per_pol(
                 calibration_optimization.run_calibration_optimization_per_pol_single_freq(
                     caldata_list[freq_ind],
                     xtol,
+                    maxiter,
                     verbose,
                 )
                 caldata_obj.gains[:, freq_ind, :] = caldata_list[freq_ind].gains[

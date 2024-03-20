@@ -156,6 +156,7 @@ def hessian_single_pol_wrapper(
 def run_calibration_optimization_per_pol_single_freq(
     caldata_obj,
     xtol,
+    maxiter,
     verbose=True,
     get_crosspol_phase=True,
 ):
@@ -170,6 +171,8 @@ def run_calibration_optimization_per_pol_single_freq(
     caldata_obj : CalData
     xtol : float
         Accuracy tolerance for optimizer.
+    maxiter : int
+        Maximum number of iterations for the optimizer.
     verbose : bool
         Set to True to print optimization outputs. Default True.
     get_crosspol_phase : bool
@@ -262,7 +265,7 @@ def run_calibration_optimization_per_pol_single_freq(
                     method="Newton-CG",
                     jac=jacobian_single_pol_wrapper,
                     hess=hessian_single_pol_wrapper,
-                    options={"disp": verbose, "xtol": xtol, "maxiter": 100},
+                    options={"disp": verbose, "xtol": xtol, "maxiter": maxiter},
                 )
                 end_optimize = time.time()
                 if verbose:
