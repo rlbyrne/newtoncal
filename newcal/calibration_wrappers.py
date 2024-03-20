@@ -136,7 +136,7 @@ class CalData:
         gain_init_calfile=None,
         gain_init_to_vis_ratio=True,
         gain_init_stddev=0.0,
-        N_feed_pols=2,
+        N_feed_pols=None,
         feed_polarization_array=None,
         min_cal_baseline_m=None,
         max_cal_baseline_m=None,
@@ -167,8 +167,8 @@ class CalData:
             Default 0.0. Standard deviation of a random complex Gaussian
             perturbation to the initial gains.
         N_feed_pols : int
-            Default 2. Number of feed polarizations, equal to the number of gain
-            values to be calculated per antenna.
+            Default min(2, N_vis_pols). Number of feed polarizations, equal to
+            the number of gain values to be calculated per antenna.
         feed_polarization_array : array of int or None
             Feed polarizations to calibrate. Shape (N_feed_pols,). Options are
             -5 for X or -6 for Y. Default None. If None, feed_polarization_array
@@ -364,15 +364,36 @@ class CalData:
         # Get polarization ordering
         self.vis_polarization_array = np.array(metadata_reference.polarization_array)
 
-        # Initialize gains
         if N_feed_pols is None:
             self.N_feed_pols = np.min([2, self.N_vis_pols])
         else:
             self.N_feed_pols = N_feed_pols
+
         if feed_polarization_array is None:
-            self.feed_polarization_array = np.array([-5, -6])[: self.N_feed_pols]
+            self.feed_polarization_array = np.empty()
+            if (
+                (-5 in self.vis_polarization_array)
+                or (-7 in self.vis_polarization_array)
+                or (-8 in self.vis_polarization_array)
+            ):
+                self.feed_polarization_array = np.append(
+                    self.feed_polarization_array, -5
+                )
+            if (
+                (-6 in self.vis_polarization_array)
+                or (-7 in self.vis_polarization_array)
+                or (-8 in self.vis_polarization_array)
+            ):
+                self.feed_polarization_array = np.append(
+                    self.feed_polarization_array, -6
+                )
+            self.feed_polarization_array = self.feed_polarization_array[
+                : self.N_feed_pols
+            ]
         else:
             self.feed_polarization_array = feed_polarization_array
+
+        # Initialize gains
         if gain_init_calfile is None:
             self.gains = np.ones(
                 (
