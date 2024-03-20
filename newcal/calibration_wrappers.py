@@ -366,7 +366,7 @@ class CalData:
 
         # Initialize gains
         if N_feed_pols is None:
-            self.N_feed_pols = 2
+            self.N_feed_pols = np.min([2, self.N_vis_pols])
         else:
             self.N_feed_pols = N_feed_pols
         if feed_polarization_array is None:
