@@ -370,7 +370,7 @@ class CalData:
             self.N_feed_pols = N_feed_pols
 
         if feed_polarization_array is None:
-            self.feed_polarization_array = np.array([])
+            self.feed_polarization_array = np.array([], dtype=int)
             if (
                 (-5 in self.vis_polarization_array)
                 or (-7 in self.vis_polarization_array)
