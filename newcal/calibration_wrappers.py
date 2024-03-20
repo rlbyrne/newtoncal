@@ -362,7 +362,7 @@ class CalData:
         )
 
         # Get polarization ordering
-        self.vis_polarization_array = metadata_reference.polarization_array
+        self.vis_polarization_array = np.array(metadata_reference.polarization_array)
 
         # Initialize gains
         if N_feed_pols is None:
@@ -536,7 +536,7 @@ def calibration_per_pol(
         Maximum number of iterations for the optimizer. Default 100.
     parallel : bool
         Set to True to parallelize across frequency with multiprocessing.
-        Default True.
+        Default True if Nfreqs > 1.
     verbose : bool
         Set to True to print optimization outputs. Default False.
     log_file_path : str or None
@@ -549,6 +549,9 @@ def calibration_per_pol(
         sys.stdout = sys.stderr = log_file_new = open(log_file_path, "w")
 
     start_time = time.time()
+
+    if caldata_obj.Nfreqs < 2:
+        parallel = False
 
     if np.max(caldata_obj.visibility_weights) == 0.0:
         print("ERROR: All data flagged.")
