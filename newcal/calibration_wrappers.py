@@ -123,7 +123,7 @@ class CalData:
         pol_inds = np.array(
             [
                 np.where(uvcal.jones_array == feed_pol)[0]
-                for feed_pol in feed_polarization_array
+                for feed_pol in self.feed_polarization_array
             ]
         )
 
