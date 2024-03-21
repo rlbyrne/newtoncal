@@ -299,6 +299,15 @@ class CalData:
         # Free memory
         data = model = data_copy = model_copy = None
 
+        # Grab other metadata from uvfits
+        self.channel_width = metadata_reference.channel_width
+        self.freq_array = np.reshape(metadata_reference.freq_array, (self.Nfreqs))
+        self.integration_time = np.mean(metadata_reference.integration_time)
+        self.time = np.mean(metadata_reference.time_array)
+        self.telescope_name = metadata_reference.telescope_name
+        self.lst = np.mean(metadata_reference.lst_array)
+        self.telescope_location = metadata_reference.telescope_location
+
         if (min_cal_baseline_lambda is not None) or (
             max_cal_baseline_lambda is not None
         ):
@@ -439,15 +448,6 @@ class CalData:
                     self.gains[
                         nan_gains, feed_pol_ind
                     ] = 0.0  # Nans in the gains produce matrix multiplication errors, set to zero
-
-        # Grab other metadata from uvfits
-        self.channel_width = metadata_reference.channel_width
-        self.freq_array = np.reshape(metadata_reference.freq_array, (self.Nfreqs))
-        self.integration_time = np.mean(metadata_reference.integration_time)
-        self.time = np.mean(metadata_reference.time_array)
-        self.telescope_name = metadata_reference.telescope_name
-        self.lst = np.mean(metadata_reference.lst_array)
-        self.telescope_location = metadata_reference.telescope_location
 
         # Free memory
         metadata_reference = None
