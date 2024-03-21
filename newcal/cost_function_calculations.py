@@ -41,8 +41,10 @@ def cost_function_single_pol(
     )[np.newaxis, :]
     res_vec = model_visibilities - gains_expanded * data_visibilities
     cost = np.sum(visibility_weights * np.abs(res_vec) ** 2)
-    regularization_term = lambda_val * np.sum(np.angle(gains)) ** 2.0
-    cost += regularization_term
+
+    if lambda_val > 0:
+        regularization_term = lambda_val * np.sum(np.angle(gains)) ** 2.0
+        cost += regularization_term
 
     return cost
 
@@ -105,10 +107,13 @@ def jacobian_single_pol(
     )
     term2 = np.matmul(gains_exp_mat_2.T, term2)
 
-    regularization_term = (
-        lambda_val * 1j * np.sum(np.angle(gains)) * gains / np.abs(gains) ** 2.0
-    )
-    jac = 2 * (term1 + term2 + regularization_term)
+    jac = 2 * (term1 + term2)
+
+    if lambda_val > 0:
+        regularization_term = (
+            lambda_val * 1j * np.sum(np.angle(gains)) * gains / np.abs(gains) ** 2.0
+        )
+        jac += 2 * regularization_term
 
     return jac
 
@@ -264,32 +269,32 @@ def hessian_single_pol(
     np.fill_diagonal(hess_imag_imag, hess_diag)
     np.fill_diagonal(hess_real_imag, 0.0)
 
-    # Add regularization term
-    gains_weighted = gains / np.abs(gains) ** 2.0
-    arg_sum = np.sum(np.angle(gains))
-    # Antenna off-diagonals
-    hess_real_real += (
-        2 * lambda_val * np.outer(np.imag(gains_weighted), np.imag(gains_weighted))
-    )
-    hess_real_imag -= (
-        2 * lambda_val * np.outer(np.imag(gains_weighted), np.real(gains_weighted))
-    )
-    hess_imag_imag += (
-        2 * lambda_val * np.outer(np.real(gains_weighted), np.real(gains_weighted))
-    )
-    # Antenna diagonals
-    hess_real_real += np.diag(
-        4 * lambda_val * arg_sum * np.imag(gains_weighted) * np.real(gains_weighted)
-    )
-    hess_real_imag -= np.diag(
-        2
-        * lambda_val
-        * arg_sum
-        * (np.real(gains_weighted) ** 2.0 - np.imag(gains_weighted) ** 2.0)
-    )
-    hess_imag_imag -= np.diag(
-        4 * lambda_val * arg_sum * np.imag(gains_weighted) * np.real(gains_weighted)
-    )
+    if lambda_val > 0:  # Add regularization term
+        gains_weighted = gains / np.abs(gains) ** 2.0
+        arg_sum = np.sum(np.angle(gains))
+        # Antenna off-diagonals
+        hess_real_real += (
+            2 * lambda_val * np.outer(np.imag(gains_weighted), np.imag(gains_weighted))
+        )
+        hess_real_imag -= (
+            2 * lambda_val * np.outer(np.imag(gains_weighted), np.real(gains_weighted))
+        )
+        hess_imag_imag += (
+            2 * lambda_val * np.outer(np.real(gains_weighted), np.real(gains_weighted))
+        )
+        # Antenna diagonals
+        hess_real_real += np.diag(
+            4 * lambda_val * arg_sum * np.imag(gains_weighted) * np.real(gains_weighted)
+        )
+        hess_real_imag -= np.diag(
+            2
+            * lambda_val
+            * arg_sum
+            * (np.real(gains_weighted) ** 2.0 - np.imag(gains_weighted) ** 2.0)
+        )
+        hess_imag_imag -= np.diag(
+            4 * lambda_val * arg_sum * np.imag(gains_weighted) * np.real(gains_weighted)
+        )
 
     return hess_real_real, hess_real_imag, hess_imag_imag
 
