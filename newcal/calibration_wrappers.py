@@ -106,28 +106,24 @@ class CalData:
 
         uvcal = pyuvdata.UVCal()
         uvcal.read_calfits(calfile)
-
+        uvcal.select(frequencies=self.freq_array, antenna_names=self.antenna_names)
+        if self.feed_polarization_array is None:
+            self.feed_polarization_array = uvcal.jones_array
+        else:
+            uvcal.select(jones=self.feed_polarization_array)
         uvcal.reorder_freqs(channel_order="freq")
         uvcal.reorder_jones()
         use_gains = np.mean(
             uvcal.gain_array[:, 0, :, :, :], axis=2
         )  # Average over times
 
+        # Make antenna ordering match
         cal_ant_names = np.array([uvcal.antenna_names[ant] for ant in uvcal.ant_array])
         cal_ant_inds = np.array(
             [list(cal_ant_names).index(name) for name in self.antenna_names]
         )
 
-        if self.feed_polarization_array is None:
-            self.feed_polarization_array = uvcal.jones_array
-        pol_inds = np.array(
-            [
-                np.where(uvcal.jones_array == feed_pol)[0]
-                for feed_pol in self.feed_polarization_array
-            ]
-        )
-
-        self.gains = use_gains[cal_ant_inds, :, pol_inds]
+        self.gains = use_gains[cal_ant_inds, :, :]
 
     def load_data(
         self,
