@@ -516,7 +516,7 @@ class CalData:
         uvcal.lst_array = np.array([self.lst])
         uvcal.telescope_location = self.telescope_location
         uvcal.time_array = np.array([self.time])
-        uvcal.time_range = np.array([self.time, self.time])[np.newaxis, :]
+        uvcal.time_range = np.array([self.time, self.time])
         uvcal.x_orientation = "east"
         uvcal.gain_array = self.gains[:, np.newaxis, :, np.newaxis, :]
         uvcal.flag_array = (np.isnan(self.gains))[:, np.newaxis, :, np.newaxis, :]
