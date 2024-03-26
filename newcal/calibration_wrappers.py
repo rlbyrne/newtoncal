@@ -624,7 +624,7 @@ def calibration_per_pol(
                     verbose,
                 )
                 args_list.append(args)
-            pool = multiprocessing.Pool()
+            pool = multiprocessing.Pool(processes=40)
             result = pool.starmap(
                 calibration_optimization.run_calibration_optimization_per_pol_single_freq,
                 args_list,
