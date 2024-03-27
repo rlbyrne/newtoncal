@@ -194,7 +194,7 @@ def run_calibration_optimization_per_pol_single_freq(
         caldata_list = caldata_obj.expand_in_polarization()
         for caldata_per_pol in caldata_list:
 
-            if np.max(caldata_obj.visibility_weights) == 0.0:# All flagged
+            if np.max(caldata_per_pol.visibility_weights) == 0.0:  # All flagged
                 caldata_per_pol.gains[:, :, :] = np.nan + 1j * np.nan
             else:
                 gains_init_flattened = np.stack(

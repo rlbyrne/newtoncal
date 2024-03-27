@@ -507,9 +507,7 @@ class CalData:
             caldata_per_freq.Nfreqs = 1
             caldata_per_freq.N_feed_pols = self.N_feed_pols
             caldata_per_freq.N_vis_pols = self.N_vis_pols
-            caldata_per_freq.feed_polarization_array = (
-                self.feed_polarization_array
-            )
+            caldata_per_freq.feed_polarization_array = self.feed_polarization_array
             caldata_per_freq.vis_polarization_array = self.vis_polarization_array
             caldata_per_freq.model_visibilities = self.model_visibilities[
                 :, :, [freq_ind], :
@@ -559,9 +557,9 @@ class CalData:
             caldata_per_pol.Nfreqs = self.Nfreqs
             caldata_per_pol.N_feed_pols = 1
             caldata_per_pol.N_vis_pols = 1
-            caldata_per_pol.feed_polarization_array = (
-                self.feed_polarization_array[[feed_pol_ind]]
-            )
+            caldata_per_pol.feed_polarization_array = self.feed_polarization_array[
+                [feed_pol_ind]
+            ]
             caldata_per_pol.vis_polarization_array = self.vis_polarization_array[
                 [sky_pol_ind]
             ]
