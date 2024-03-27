@@ -669,6 +669,7 @@ def calibration_per_pol(
     caldata_obj,
     xtol=1e-4,
     maxiter=100,
+    get_crosspol_phase=True,
     parallel=True,
     verbose=False,
     log_file_path=None,
@@ -687,6 +688,8 @@ def calibration_per_pol(
         Accuracy tolerance for optimizer. Default 1e-8.
     maxiter : int
         Maximum number of iterations for the optimizer. Default 100.
+    get_crosspol_phase : bool
+        If True, crosspol phase is calculated. Default True.
     parallel : bool
         Set to True to parallelize across frequency with multiprocessing.
         Default True if Nfreqs > 1.
@@ -732,6 +735,7 @@ def calibration_per_pol(
                     xtol,
                     maxiter,
                     verbose,
+                    get_crosspol_phase,
                 )
                 args_list.append(args)
             pool = multiprocessing.Pool(processes=40)
@@ -751,7 +755,8 @@ def calibration_per_pol(
                     caldata_list[freq_ind],
                     xtol,
                     maxiter,
-                    verbose,
+                    verbose=verbose,
+                    get_crosspol_phase=get_crosspol_phase,
                 )
                 caldata_obj.gains[:, freq_ind, :] = caldata_list[freq_ind].gains[
                     :, 0, :
