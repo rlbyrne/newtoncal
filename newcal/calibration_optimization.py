@@ -236,19 +236,20 @@ def run_calibration_optimization_per_pol_single_freq(
                 gains_fit *= np.cos(avg_angle) - 1j * np.sin(avg_angle)
                 caldata_per_pol.gains = gains_fit[:, np.newaxis, np.newaxis]
 
-            caldata_obj.gains[:, :, feed_pol_ind] = caldata_per_pol.gains[:, :, 0]
-            """
-            if caldata_per_pol.Nants == caldata_obj.Nants:
+
+                """
+                if caldata_per_pol.Nants == caldata_obj.Nants:
+                    caldata_obj.gains[:, :, feed_pol_ind] = caldata_per_pol.gains[:, :, 0]
+                else:
+                    ant_inds = np.array(
+                        [
+                            np.where(caldata_obj.antenna_names == ant_name)[0]
+                            for ant_name in caldata_per_pol.antenna_names
+                        ]
+                    )
+                    caldata_obj.gains[ant_inds, :, feed_pol_ind] = caldata_per_pol.gains
+                """
                 caldata_obj.gains[:, :, feed_pol_ind] = caldata_per_pol.gains[:, :, 0]
-            else:
-                ant_inds = np.array(
-                    [
-                        np.where(caldata_obj.antenna_names == ant_name)[0]
-                        for ant_name in caldata_per_pol.antenna_names
-                    ]
-                )
-                caldata_obj.gains[ant_inds, :, feed_pol_ind] = caldata_per_pol.gains
-            """
 
         # Constrain crosspol phase
         if (
