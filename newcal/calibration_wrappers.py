@@ -487,9 +487,147 @@ class CalData:
 
         self.lambda_val = lambda_val
 
+    def expand_in_frequency(self):
+        """
+        Converts a caldata object into a list of caldata objects each
+        corresponding to one frequency.
+
+        Returns
+        -------
+        caldata_list : list of caldata objects
+        """
+
+        caldata_list = []
+        for freq_ind in range(self.Nfreqs):
+            caldata_per_freq = CalData()
+            caldata_per_freq.gains = self.gains[:, [freq_ind], :]
+            caldata_per_freq.Nants = self.Nants
+            caldata_per_freq.Nbls = self.Nbls
+            caldata_per_freq.Ntimes = self.Ntimes
+            caldata_per_freq.Nfreqs = 1
+            caldata_per_freq.N_feed_pols = self.N_feed_pols
+            caldata_per_freq.N_vis_pols = self.N_vis_pols
+            caldata_per_freq.feed_polarization_array = (
+                self.feed_polarization_array
+            )
+            caldata_per_freq.vis_polarization_array = self.vis_polarization_array
+            caldata_per_freq.model_visibilities = self.model_visibilities[
+                :, :, [freq_ind], :
+            ]
+            caldata_per_freq.data_visibilities = self.data_visibilities[
+                :, :, [freq_ind], :
+            ]
+            caldata_per_freq.visibility_weights = self.visibility_weights[
+                :, :, [freq_ind], :
+            ]
+            caldata_per_freq.gains_exp_mat_1 = self.gains_exp_mat_1
+            caldata_per_freq.gains_exp_mat_2 = self.gains_exp_mat_2
+            caldata_per_freq.antenna_names = self.antenna_names
+            caldata_per_freq.antenna_numbers = self.antenna_numbers
+            caldata_per_freq.antenna_positions = self.antenna_positions
+            caldata_per_freq.channel_width = self.channel_width
+            caldata_per_freq.freq_array = self.freq_array[[freq_ind]]
+            caldata_per_freq.integration_time = self.integration_time
+            caldata_per_freq.time = self.time
+            caldata_per_freq.telescope_name = self.telescope_name
+            caldata_per_freq.lst = self.lst
+            caldata_per_freq.telescope_location = self.telescope_location
+            caldata_per_freq.lambda_val = self.lambda_val
+            caldata_list.append(caldata_per_freq)
+
+        return caldata_list
+
+    def expand_in_polarization(self):
+        """
+        Converts a caldata object into a list of caldata objects each
+        corresponding to one feed polarization. List does not include
+        cross-polarization visibilities.
+
+        Returns
+        -------
+        caldata_list : list of caldata objects
+        """
+
+        caldata_list = []
+        for feed_pol_ind, pol in enumerate(self.feed_polarization_array):
+            caldata_per_pol = CalData()
+            sky_pol_ind = np.where(self.vis_polarization_array == pol)[0][0]
+            caldata_per_pol.gains = self.gains[:, :, [feed_pol_ind]]
+            caldata_per_pol.Nants = self.Nants
+            caldata_per_pol.Nbls = self.Nbls
+            caldata_per_pol.Ntimes = self.Ntimes
+            caldata_per_pol.Nfreqs = self.Nfreqs
+            caldata_per_pol.N_feed_pols = 1
+            caldata_per_pol.N_vis_pols = 1
+            caldata_per_pol.feed_polarization_array = (
+                self.feed_polarization_array[[feed_pol_ind]]
+            )
+            caldata_per_pol.vis_polarization_array = self.vis_polarization_array[
+                [sky_pol_ind]
+            ]
+            caldata_per_pol.model_visibilities = self.model_visibilities[
+                :, :, :, [sky_pol_ind]
+            ]
+            caldata_per_pol.data_visibilities = self.data_visibilities[
+                :, :, :, [sky_pol_ind]
+            ]
+            caldata_per_pol.visibility_weights = self.visibility_weights[
+                :, :, :, [sky_pol_ind]
+            ]
+            caldata_per_pol.gains_exp_mat_1 = self.gains_exp_mat_1
+            caldata_per_pol.gains_exp_mat_2 = self.gains_exp_mat_2
+            caldata_per_pol.antenna_names = self.antenna_names
+            caldata_per_pol.antenna_numbers = self.antenna_numbers
+            caldata_per_pol.antenna_positions = self.antenna_positions
+            caldata_per_pol.channel_width = self.channel_width
+            caldata_per_pol.freq_array = self.freq_array
+            caldata_per_pol.integration_time = self.integration_time
+            caldata_per_pol.time = self.time
+            caldata_per_pol.telescope_name = self.telescope_name
+            caldata_per_pol.lst = self.lst
+            caldata_per_pol.telescope_location = self.telescope_location
+            caldata_per_pol.lambda_val = self.lambda_val
+
+            """
+            if np.max(caldata_per_pol.visibility_weights) > 0.0:
+                # Check if some antennas are fully flagged
+                antenna_weights = np.sum(
+                    np.matmul(
+                        caldata_per_pol.gains_exp_mat_1.T,
+                        caldata_per_pol.visibility_weights[:, :, 0, 0].T,
+                    )
+                    + np.matmul(
+                        caldata_per_pol.gains_exp_mat_2.T,
+                        caldata_per_pol.visibility_weights[:, :, 0, 0].T,
+                    ),
+                    axis=1,
+                )
+                use_ants = np.where(antenna_weights > 0)[0]
+                if len(use_ants) != caldata_per_pol.Nants:
+                    caldata_per_pol.gains = caldata_per_pol.gains[use_ants, :, :]
+                    caldata_per_pol.Nants = len(use_ants)
+                    caldata_per_pol.gains_exp_mat_1 = caldata_per_pol.gains_exp_mat_1[
+                        :, use_ants
+                    ]
+                    caldata_per_pol.gains_exp_mat_2 = caldata_per_pol.gains_exp_mat_2[
+                        :, use_ants
+                    ]
+                    caldata_per_pol.antenna_names = caldata_per_pol.antenna_names[
+                        use_ants
+                    ]
+            """
+
+            caldata_list.append(caldata_per_pol)
+
+        return caldata_list
+
     def convert_to_uvcal(self):
         """
-        Generate a pyuvdata UVCal object
+        Generate a pyuvdata UVCal object.
+
+        Returns
+        -------
+        uvcal : pyuvdata UVCal object
         """
 
         uvcal = pyuvdata.UVCal()
@@ -577,33 +715,7 @@ def calibration_per_pol(
     else:
 
         # Expand CalData object into per-frequency objects
-        caldata_list = []
-        for freq_ind in range(caldata_obj.Nfreqs):
-            caldata_per_freq = CalData()
-            caldata_per_freq.gains = caldata_obj.gains[:, [freq_ind], :]
-            caldata_per_freq.Nants = caldata_obj.Nants
-            caldata_per_freq.Nbls = caldata_obj.Nbls
-            caldata_per_freq.Ntimes = caldata_obj.Ntimes
-            caldata_per_freq.Nfreqs = 1
-            caldata_per_freq.N_feed_pols = caldata_obj.N_feed_pols
-            caldata_per_freq.feed_polarization_array = (
-                caldata_obj.feed_polarization_array
-            )
-            caldata_per_freq.vis_polarization_array = caldata_obj.vis_polarization_array
-            caldata_per_freq.model_visibilities = caldata_obj.model_visibilities[
-                :, :, [freq_ind], :
-            ]
-            caldata_per_freq.data_visibilities = caldata_obj.data_visibilities[
-                :, :, [freq_ind], :
-            ]
-            caldata_per_freq.visibility_weights = caldata_obj.visibility_weights[
-                :, :, [freq_ind], :
-            ]
-            caldata_per_freq.gains_exp_mat_1 = caldata_obj.gains_exp_mat_1
-            caldata_per_freq.gains_exp_mat_2 = caldata_obj.gains_exp_mat_2
-            caldata_per_freq.antenna_names = caldata_obj.antenna_names
-            caldata_per_freq.lambda_val = caldata_obj.lambda_val
-            caldata_list.append(caldata_per_freq)
+        caldata_list = caldata_obj.expand_in_frequency()
 
         gains_fit = np.full(
             (

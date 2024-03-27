@@ -191,63 +191,12 @@ def run_calibration_optimization_per_pol_single_freq(
     else:
 
         # Expand CalData object into per-pol objects
-        for feed_pol_ind, pol in enumerate(caldata_obj.feed_polarization_array):
-            sky_pol_ind = np.where(caldata_obj.vis_polarization_array == pol)[0][0]
-            caldata_per_pol = calibration_wrappers.CalData()
-            caldata_per_pol.gains = caldata_obj.gains[:, :, [feed_pol_ind]]
-            caldata_per_pol.Nants = caldata_obj.Nants
-            caldata_per_pol.Nbls = caldata_obj.Nbls
-            caldata_per_pol.Ntimes = caldata_obj.Ntimes
-            caldata_per_pol.Nfreqs = caldata_obj.Nfreqs
-            caldata_per_pol.N_feed_pols = 1
-            caldata_per_pol.N_vis_pols = 1
-            caldata_per_pol.feed_polarization_array = (
-                caldata_obj.feed_polarization_array[[feed_pol_ind]]
-            )
-            caldata_per_pol.vis_polarization_array = caldata_obj.vis_polarization_array[
-                [sky_pol_ind]
-            ]
-            caldata_per_pol.model_visibilities = caldata_obj.model_visibilities[
-                :, :, :, [sky_pol_ind]
-            ]
-            caldata_per_pol.data_visibilities = caldata_obj.data_visibilities[
-                :, :, :, [sky_pol_ind]
-            ]
-            caldata_per_pol.visibility_weights = caldata_obj.visibility_weights[
-                :, :, :, [sky_pol_ind]
-            ]
-            caldata_per_pol.gains_exp_mat_1 = caldata_obj.gains_exp_mat_1
-            caldata_per_pol.gains_exp_mat_2 = caldata_obj.gains_exp_mat_2
-            caldata_per_pol.antenna_names = caldata_obj.antenna_names
-            caldata_per_pol.lambda_val = caldata_obj.lambda_val
+        caldata_list = caldata_obj.expand_in_polarization()
+        for caldata_per_pol in caldata_list:
 
-            if np.max(caldata_per_pol.visibility_weights) > 0.0:
-                # Check if some antennas are fully flagged
-                antenna_weights = np.sum(
-                    np.matmul(
-                        caldata_per_pol.gains_exp_mat_1.T,
-                        caldata_per_pol.visibility_weights[:, :, 0, 0].T,
-                    )
-                    + np.matmul(
-                        caldata_per_pol.gains_exp_mat_2.T,
-                        caldata_per_pol.visibility_weights[:, :, 0, 0].T,
-                    ),
-                    axis=1,
-                )
-                use_ants = np.where(antenna_weights > 0)[0]
-                if len(use_ants) != caldata_per_pol.Nants:
-                    caldata_per_pol.gains = caldata_per_pol.gains[use_ants, :, :]
-                    caldata_per_pol.Nants = len(use_ants)
-                    caldata_per_pol.gains_exp_mat_1 = caldata_per_pol.gains_exp_mat_1[
-                        :, use_ants
-                    ]
-                    caldata_per_pol.gains_exp_mat_2 = caldata_per_pol.gains_exp_mat_2[
-                        :, use_ants
-                    ]
-                    caldata_per_pol.antenna_names = caldata_per_pol.antenna_names[
-                        use_ants
-                    ]
-
+            if np.max(caldata_obj.visibility_weights) == 0.0:# All flagged
+                caldata_per_pol.gains[:, :, :] = np.nan + 1j * np.nan
+            else:
                 gains_init_flattened = np.stack(
                     (
                         np.real(caldata_per_pol.gains[:, 0, 0]),
@@ -287,9 +236,8 @@ def run_calibration_optimization_per_pol_single_freq(
                 gains_fit *= np.cos(avg_angle) - 1j * np.sin(avg_angle)
                 caldata_per_pol.gains = gains_fit[:, np.newaxis, np.newaxis]
 
-            else:  # All flagged
-                caldata_per_pol.gains[:, :, :] = np.nan + 1j * np.nan
-
+            caldata_obj.gains[:, :, feed_pol_ind] = caldata_per_pol.gains[:, :, 0]
+            """
             if caldata_per_pol.Nants == caldata_obj.Nants:
                 caldata_obj.gains[:, :, feed_pol_ind] = caldata_per_pol.gains[:, :, 0]
             else:
@@ -300,6 +248,7 @@ def run_calibration_optimization_per_pol_single_freq(
                     ]
                 )
                 caldata_obj.gains[ant_inds, :, feed_pol_ind] = caldata_per_pol.gains
+            """
 
         # Constrain crosspol phase
         if (
