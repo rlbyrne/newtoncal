@@ -240,7 +240,6 @@ def run_calibration_optimization_per_pol_single_freq(
                 gains_fit *= np.cos(avg_angle) - 1j * np.sin(avg_angle)
                 caldata_per_pol.gains = gains_fit[:, np.newaxis, np.newaxis]
 
-
                 """
                 if caldata_per_pol.Nants == caldata_obj.Nants:
                     caldata_obj.gains[:, :, feed_pol_ind] = caldata_per_pol.gains[:, :, 0]

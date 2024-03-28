@@ -671,6 +671,7 @@ def calibration_per_pol(
     maxiter=100,
     get_crosspol_phase=True,
     parallel=True,
+    max_processes=40,
     verbose=False,
     log_file_path=None,
 ):
@@ -693,6 +694,9 @@ def calibration_per_pol(
     parallel : bool
         Set to True to parallelize across frequency with multiprocessing.
         Default True if Nfreqs > 1.
+    max_processes : int or None
+        Maximum number of multithreaded processes to use. Applicable only if
+        parallel is True. If None, uses the multiprocessing default. Default 40.
     verbose : bool
         Set to True to print optimization outputs. Default False.
     log_file_path : str or None
@@ -739,7 +743,10 @@ def calibration_per_pol(
                     True,
                 )
                 args_list.append(args)
-            pool = multiprocessing.Pool(processes=40)
+            if max_processes is None:
+                pool = multiprocessing.Pool()
+            else:
+                pool = multiprocessing.Pool(processes=max_processes)
             result = pool.starmap(
                 calibration_optimization.run_calibration_optimization_per_pol_single_freq,
                 args_list,
