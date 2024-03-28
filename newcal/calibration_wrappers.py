@@ -757,7 +757,7 @@ def calibration_per_pol(
                     verbose=verbose,
                     get_crosspol_phase=get_crosspol_phase,
                 )
-                caldata_obj.gains[:, freq_ind, :] = caldata_list[freq_ind].gains[
+                caldata_obj.gains[:, [freq_ind], :] = caldata_list[freq_ind].gains[
                     :, 0, :
                 ]
 
