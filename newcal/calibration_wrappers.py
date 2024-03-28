@@ -746,7 +746,7 @@ def calibration_per_pol(
             )
             pool.close()
             for freq_ind in range(caldata_obj.Nfreqs):
-                caldata_obj.gains[:, freq_ind, :] = result[freq_ind]
+                caldata_obj.gains[:, [freq_ind], :] = result[freq_ind]
             pool.join()
         else:
             for freq_ind in range(caldata_obj.Nfreqs):
