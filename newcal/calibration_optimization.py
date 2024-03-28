@@ -269,7 +269,7 @@ def run_calibration_optimization_per_pol_single_freq(
                 crosspol_polarizations = [-8, -7]
             crosspol_indices = np.array(
                 [
-                    np.where(caldata_obj.vis_polarization_array == pol)[0]
+                    np.where(caldata_obj.vis_polarization_array == pol)[0][0]
                     for pol in crosspol_polarizations
                 ]
             )
