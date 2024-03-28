@@ -159,6 +159,7 @@ def run_calibration_optimization_per_pol_single_freq(
     maxiter,
     verbose=True,
     get_crosspol_phase=True,
+    return_gains=False,
 ):
     """
     Run calibration per polarization. Here the XX and YY visibilities are
@@ -178,11 +179,14 @@ def run_calibration_optimization_per_pol_single_freq(
     get_crosspol_phase : bool
         Set to True to constrain the cross-polarizaton phase from the XY and YX
         visibilities. Default True.
+    return_gains : bool
+        Set to True to return gain values as an array. Default False.
 
     Returns
     -------
-    gains_fit : array of complex
-        Fit gain values. Shape (Nants, N_feed_pols,).
+    gains : array of complex
+        Fit gain values. Shape (Nants, 1, N_feed_pols,). Returned only if
+        return_gains is True.
     """
 
     if np.max(caldata_obj.visibility_weights) == 0.0:
@@ -284,3 +288,6 @@ def run_calibration_optimization_per_pol_single_freq(
 
             caldata_obj.gains[:, :, 0] *= np.exp(-1j * crosspol_phase / 2)
             caldata_obj.gains[:, :, 1] *= np.exp(1j * crosspol_phase / 2)
+
+    if return_gains:
+        return caldata_obj.gains
