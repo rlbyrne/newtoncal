@@ -302,12 +302,19 @@ def plot_gains(cal, plot_output_dir, plot_prefix=""):
 
     Parameters
     ----------
-    cal : pyuvdata UVCal object
+    cal : UVCal object or str
+        pyuvdata UVCal object or path to a calfits file.
     plot_output_dir : str
         Path to the directory where the plots will be saved.
     plot_prefix : str
         Optional string to be appended to the start of the file names.
     """
+
+    # Read data
+    if isinstance(cal, str):
+        cal_obj = pyuvdata.UVCal()
+        cal_obj.read_calfits(cal)
+        cal = cal_obj
 
     # Parse strings
     use_plot_prefix = plot_prefix
