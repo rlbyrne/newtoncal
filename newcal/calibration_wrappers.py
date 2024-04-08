@@ -445,9 +445,9 @@ class CalData:
                                 flag_freq,
                                 flag_pol,
                             ] = True
-                    self.gains[
-                        nan_gains, feed_pol_ind
-                    ] = 0.0  # Nans in the gains produce matrix multiplication errors, set to zero
+                    self.gains[nan_gains, feed_pol_ind] = (
+                        0.0  # Nans in the gains produce matrix multiplication errors, set to zero
+                    )
 
         # Free memory
         metadata_reference = None
@@ -666,7 +666,19 @@ class CalData:
 
 
 def calibration_per_pol(
-    caldata_obj,
+    data_ms_path,
+    model_ms_path,
+    data_use_column="DATA",
+    model_use_column="MODEL",
+    gain_init_calfile=None,
+    gain_init_to_vis_ratio=True,
+    gain_init_stddev=0.0,
+    N_feed_pols=None,
+    feed_polarization_array=None,
+    min_cal_baseline_m=None,
+    max_cal_baseline_m=None,
+    min_cal_baseline_lambda=None,
+    max_cal_baseline_lambda=None,
     xtol=1e-4,
     maxiter=100,
     get_crosspol_phase=True,
@@ -676,15 +688,55 @@ def calibration_per_pol(
     log_file_path=None,
 ):
     """
-    Run calibration per polarization. Function updates the gains attribute of
-    the CalData object. Here the XX and YY visibilities are calibrated
+    Run calibration per polarization. Function creates a CalData object and
+    updates the gains attribute. Here the XX and YY visibilities are calibrated
     individually and the cross-polarization phase is applied from the XY and YX
     visibilities after the fact. Option to parallelize calibration across
     frequency.
 
     Parameters
     ----------
-    caldata_obj : CalData
+    data_ms_path : str
+        Path to the ms file containing the data visibilities.
+    model_ms_path : str
+        Path to the ms file containing the model visibilities.
+    gain_init_calfile : str or None
+        Default None. If not None, provides a path to a pyuvdata-formatted
+        calfits file containing gains values for calibration initialization.
+    gain_init_to_vis_ratio : bool
+        Used only if gain_init_calfile is None. If True, initializes gains
+        to the median ratio between the amplitudes of the model and data
+        visibilities. If False, the gains are initialized to 1. Default
+        True.
+    gain_init_stddev : float
+        Default 0.0. Standard deviation of a random complex Gaussian
+        perturbation to the initial gains.
+    N_feed_pols : int
+        Default min(2, N_vis_pols). Number of feed polarizations, equal to
+        the number of gain values to be calculated per antenna.
+    feed_polarization_array : array of int or None
+        Feed polarizations to calibrate. Shape (N_feed_pols,). Options are
+        -5 for X or -6 for Y. Default None. If None, feed_polarization_array
+        is set to ([-5, -6])[:N_feed_pols].
+    min_cal_baseline_m : float or None
+        Minimum baseline length, in meters, to use in calibration. If both
+        min_cal_baseline_m and min_cal_baseline_lambda are None, arbitrarily
+        short baselines are used. Default None.
+    max_cal_baseline_m : float or None
+        Maximum baseline length, in meters, to use in calibration. If both
+        max_cal_baseline_m and max_cal_baseline_lambda are None, arbitrarily
+        long baselines are used. Default None.
+    min_cal_baseline_lambda : float or None
+        Minimum baseline length, in wavelengths, to use in calibration. If
+        both min_cal_baseline_m and min_cal_baseline_lambda are None,
+        arbitrarily short baselines are used. Default None.
+    max_cal_baseline_lambda : float or None
+        Maximum baseline length, in wavelengths, to use in calibration. If
+        both max_cal_baseline_m and max_cal_baseline_lambda are None,
+        arbitrarily long baselines are used. Default None.
+    lambda_val : float
+        Weight of the phase regularization term; must be positive. Default
+        100.
     xtol : float
         Accuracy tolerance for optimizer. Default 1e-8.
     maxiter : int
@@ -710,8 +762,50 @@ def calibration_per_pol(
 
     start_time = time.time()
 
+    if parallel:  # Start multiprocessing pool
+        if max_processes is None:
+            pool = multiprocessing.Pool()
+        else:
+            pool = multiprocessing.Pool(processes=max_processes)
+
+    if verbose:
+        print("Reading data...")
+        sys.stdout.flush()
+        data_read_start_time = time.time()
+
+    # Read data
+    data = pyuvdata.UVData()
+    data.read_ms(data_ms_path, data_column=data_use_column)
+    model = pyuvdata.UVData()
+    model.read_ms(model_ms_path, data_column=model_use_column)
+
+    if verbose:
+        print(
+            f"Done. Data read time {(time.time() - data_read_start_time)/60.} minutes."
+        )
+        print("Formatting data...")
+        sys.stdout.flush()
+        data_format_start_time = time.time()
+
+    caldata_obj = CalData()
+    caldata_obj.load_data(
+        data,
+        model,
+        gain_init_calfile=gain_init_calfile,
+        gain_init_to_vis_ratio=gain_init_to_vis_ratio,
+        gain_init_stddev=gain_init_stddev,
+        N_feed_pols=N_feed_pols,
+        feed_polarization_array=feed_polarization_array,
+        min_cal_baseline_m=min_cal_baseline_m,
+        max_cal_baseline_m=max_cal_baseline_m,
+        min_cal_baseline_lambda=min_cal_baseline_lambda,
+        max_cal_baseline_lambda=max_cal_baseline_lambda,
+    )
+
     if caldata_obj.Nfreqs < 2:
         parallel = False
+        pool.close()
+        pool.join()
 
     if np.max(caldata_obj.visibility_weights) == 0.0:
         print("ERROR: All data flagged.")
@@ -722,15 +816,14 @@ def calibration_per_pol(
         # Expand CalData object into per-frequency objects
         caldata_list = caldata_obj.expand_in_frequency()
 
-        gains_fit = np.full(
-            (
-                caldata_obj.Nants,
-                caldata_obj.Nfreqs,
-                caldata_obj.N_feed_pols,
-            ),
-            np.nan,
-            dtype=complex,
-        )
+        if verbose:
+            print(
+                f"Done. Data formatting time {(time.time() - data_format_start_time)/60.} minutes."
+            )
+            print("Running calibration optimization...")
+            sys.stdout.flush()
+            optimization_start_time = time.time()
+
         if parallel:
             args_list = []
             for freq_ind in range(caldata_obj.Nfreqs):
@@ -743,10 +836,6 @@ def calibration_per_pol(
                     True,
                 )
                 args_list.append(args)
-            if max_processes is None:
-                pool = multiprocessing.Pool()
-            else:
-                pool = multiprocessing.Pool(processes=max_processes)
             result = pool.starmap(
                 calibration_optimization.run_calibration_optimization_per_pol_single_freq,
                 args_list,
@@ -770,8 +859,9 @@ def calibration_per_pol(
 
         if verbose:
             print(
-                f"Optimization time: {caldata_obj.Nfreqs} frequency channels in {(time.time() - start_time)/60.} minutes"
+                f"Done. Optimization time: {caldata_obj.Nfreqs} frequency channels in {(time.time() - optimization_start_time)/60.} minutes"
             )
+            print(f"Total processing time {(time.time() - start_time)/60.} minutes.")
             sys.stdout.flush()
     if log_file_path is not None:
         sys.stdout = stdout_orig
