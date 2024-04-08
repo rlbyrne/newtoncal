@@ -669,7 +669,7 @@ def calibration_per_pol(
     data_ms_path,
     model_ms_path,
     data_use_column="DATA",
-    model_use_column="MODEL",
+    model_use_column="MODEL_DATA",
     gain_init_calfile=None,
     gain_init_to_vis_ratio=True,
     gain_init_stddev=0.0,
