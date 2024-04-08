@@ -753,6 +753,9 @@ def calibration_per_pol(
         Set to True to print optimization outputs. Default False.
     log_file_path : str or None
         Path to the log file. Default None.
+    Returns
+    -------
+    uvcal : pyuvdata UVCal object
     """
 
     if log_file_path is not None:
@@ -863,7 +866,13 @@ def calibration_per_pol(
             )
             print(f"Total processing time {(time.time() - start_time)/60.} minutes.")
             sys.stdout.flush()
+
+    # Convert to UVCal object
+    uvcal = caldata_obj.convert_to_uvcal()
+
     if log_file_path is not None:
         sys.stdout = stdout_orig
         sys.stderr = stderr_orig
         log_file_new.close()
+
+    return uvcal
