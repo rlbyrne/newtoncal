@@ -3,6 +3,7 @@ import sys
 import time
 import pyuvdata
 from newcal import cost_function_calculations
+from newcal import calibration_optimization
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import multiprocessing
@@ -170,35 +171,51 @@ def get_antenna_flags_from_per_ant_cost(
                             vis_pol_ind = np.where(
                                 caldata_obj.vis_polarization_array == -5
                             )[0]
-                            visibility_weights[:, bl_inds_1, :, vis_pol_ind] = 0
-                            visibility_weights[:, bl_inds_2, :, vis_pol_ind] = 0
+                            caldata_obj.visibility_weights[
+                                :, bl_inds_1, :, vis_pol_ind
+                            ] = 0
+                            caldata_obj.visibility_weights[
+                                :, bl_inds_2, :, vis_pol_ind
+                            ] = 0
                         if -7 in caldata_obj.vis_polarization_array:
                             vis_pol_ind = np.where(
                                 caldata_obj.vis_polarization_array == -7
                             )[0]
-                            visibility_weights[:, bl_inds_1, :, vis_pol_ind] = 0
+                            caldata_obj.visibility_weights[
+                                :, bl_inds_1, :, vis_pol_ind
+                            ] = 0
                         if -8 in caldata_obj.vis_polarization_array:
                             vis_pol_ind = np.where(
                                 caldata_obj.vis_polarization_array == -8
                             )[0]
-                            visibility_weights[:, bl_inds_2, :, vis_pol_ind] = 0
+                            caldata_obj.visibility_weights[
+                                :, bl_inds_2, :, vis_pol_ind
+                            ] = 0
                     elif caldata_obj.feed_polarization_array[pol_ind] == -6:
                         if -6 in caldata_obj.vis_polarization_array:
                             vis_pol_ind = np.where(
                                 caldata_obj.vis_polarization_array == -6
                             )[0]
-                            visibility_weights[:, bl_inds_1, :, vis_pol_ind] = 0
-                            visibility_weights[:, bl_inds_2, :, vis_pol_ind] = 0
+                            caldata_obj.visibility_weights[
+                                :, bl_inds_1, :, vis_pol_ind
+                            ] = 0
+                            caldata_obj.visibility_weights[
+                                :, bl_inds_2, :, vis_pol_ind
+                            ] = 0
                         if -7 in caldata_obj.vis_polarization_array:
                             vis_pol_ind = np.where(
                                 caldata_obj.vis_polarization_array == -7
                             )[0]
-                            visibility_weights[:, bl_inds_2, :, vis_pol_ind] = 0
+                            caldata_obj.visibility_weights[
+                                :, bl_inds_2, :, vis_pol_ind
+                            ] = 0
                         if -8 in caldata_obj.vis_polarization_array:
                             vis_pol_ind = np.where(
                                 caldata_obj.vis_polarization_array == -8
                             )[0]
-                            visibility_weights[:, bl_inds_1, :, vis_pol_ind] = 0
+                            caldata_obj.visibility_weights[
+                                :, bl_inds_1, :, vis_pol_ind
+                            ] = 0
 
     else:  # Flag everything
         flag_antenna_list = []
