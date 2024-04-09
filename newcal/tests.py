@@ -1122,7 +1122,7 @@ class TestStringMethods(unittest.TestCase):
             dtype=float,
         )
 
-        calibration_wrappers.calibration_per_pol(
+        calibration_wrappers.calibrate_caldata_per_pol(
             caldata_obj,
             xtol=1e-8,
             parallel=False,
@@ -1154,7 +1154,7 @@ class TestStringMethods(unittest.TestCase):
         caldata_obj.visibility_weights[2, 10, 0, :] = 0.0
         caldata_obj.visibility_weights[1, 20, 0, :] = 0.0
 
-        calibration_wrappers.calibration_per_pol(
+        calibration_wrappers.calibrate_caldata_per_pol(
             caldata_obj,
             xtol=1e-8,
             parallel=False,
@@ -1205,7 +1205,7 @@ class TestStringMethods(unittest.TestCase):
         )
         caldata_obj.data_visibilities[:, baseline_inds, :, :] += data_perturbation
 
-        calibration_wrappers.calibration_per_pol(
+        calibration_wrappers.calibrate_caldata_per_pol(
             caldata_obj,
             xtol=1e-8,
             parallel=False,

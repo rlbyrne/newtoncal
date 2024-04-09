@@ -683,9 +683,94 @@ class CalData:
         return uvcal
 
 
+def calibrate_caldata_per_pol(
+    caldata_obj,
+    xtol=1e-4,
+    maxiter=100,
+    get_crosspol_phase=True,
+    parallel=True,
+    verbose=False,
+    pool=None,
+):
+    """
+    Run calibration per polarization. Updates the gains attribute of caldata_obj
+    with calibrated values. Here the XX and YY visibilities are calibrated
+    individually and the cross-polarization phase is applied fromthe XY and YX
+    visibilities after the fact. Option to parallelize calibration across frequency.
+
+    Parameters
+    ----------
+    caldata_obj : CalData
+        CalData object containing the data and model visibilities for calibration.
+    xtol : float
+        Accuracy tolerance for optimizer. Default 1e-8.
+    maxiter : int
+        Maximum number of iterations for the optimizer. Default 100.
+    get_crosspol_phase : bool
+        If True, crosspol phase is calculated. Default True.
+    parallel : bool
+        Set to True to parallelize across frequency with multiprocessing.
+        Default True if Nfreqs > 1.
+    verbose : bool
+        Set to True to print optimization outputs. Default False.
+    pool : multiprocessing.pool.Pool or None
+        Pool for multiprocessing. Must not be None if parallel=True.
+    """
+
+    if np.max(caldata_obj.visibility_weights) == 0.0:
+        print("ERROR: All data flagged.")
+        sys.stdout.flush()
+        caldata_obj.gains[:, :, :] = np.nan + 1j * np.nan
+    else:
+
+        # Expand CalData object into per-frequency objects
+        caldata_list = caldata_obj.expand_in_frequency()
+
+        optimization_start_time = time.time()
+
+        if parallel:
+            args_list = []
+            for freq_ind in range(caldata_obj.Nfreqs):
+                args = (
+                    caldata_list[freq_ind],
+                    xtol,
+                    maxiter,
+                    verbose,
+                    get_crosspol_phase,
+                    True,
+                )
+                args_list.append(args)
+            result = pool.starmap(
+                calibration_optimization.run_calibration_optimization_per_pol_single_freq,
+                args_list,
+            )
+            pool.close()
+            for freq_ind in range(caldata_obj.Nfreqs):
+                caldata_obj.gains[:, [freq_ind], :] = result[freq_ind]
+            pool.join()
+        else:
+            for freq_ind in range(caldata_obj.Nfreqs):
+                calibration_optimization.run_calibration_optimization_per_pol_single_freq(
+                    caldata_list[freq_ind],
+                    xtol,
+                    maxiter,
+                    verbose=verbose,
+                    get_crosspol_phase=get_crosspol_phase,
+                )
+                caldata_obj.gains[:, [freq_ind], :] = caldata_list[freq_ind].gains[
+                    :, [0], :
+                ]
+
+        if verbose:
+            print(
+                f"Done. Optimization time: {caldata_obj.Nfreqs} frequency channels in {(time.time() - optimization_start_time)/60.} minutes"
+            )
+            sys.stdout.flush()
+
+
 def calibration_per_pol(
-    data_ms_path,
-    model_ms_path,
+    data_file_path,
+    model_file_path,
     data_use_column="DATA",
     model_use_column="MODEL_DATA",
     gain_init_calfile=None,
@@ -697,6 +782,7 @@ def calibration_per_pol(
     max_cal_baseline_m=None,
     min_cal_baseline_lambda=None,
     max_cal_baseline_lambda=None,
+    lambda_val=100,
     xtol=1e-4,
     maxiter=100,
     get_crosspol_phase=True,
@@ -706,18 +792,25 @@ def calibration_per_pol(
     log_file_path=None,
 ):
     """
-    Run calibration per polarization. Function creates a CalData object and
-    updates the gains attribute. Here the XX and YY visibilities are calibrated
-    individually and the cross-polarization phase is applied from the XY and YX
-    visibilities after the fact. Option to parallelize calibration across
-    frequency.
+    Top-level wrapper for running calibration per polarization. Function creates
+    a CalData object, updates the gains attribute, and returns a pyuvdata UVCal
+    object containing the calibration solutions. Here the XX and YY visibilities
+    are calibrated individually and the cross-polarization phase is applied from
+    the XY and YX visibilities after the fact. Option to parallelize calibration
+    across frequency.
 
     Parameters
     ----------
-    data_ms_path : str
-        Path to the ms file containing the data visibilities.
-    model_ms_path : str
-        Path to the ms file containing the model visibilities.
+    data_file_path : str
+        Path to the ms or uvfits file containing the data visibilities.
+    model_file_path : str
+        Path to the ms or uvfits file containing the model visibilities.
+    data_use_column : str
+        Column in an ms file to use for the data visibilities. Used only if
+        data_file_path points to an ms file. Default "DATA".
+    data_use_column : str
+        Column in an ms file to use for the data visibilities. Used only if
+        data_file_path points to an ms file. Default "MODEL_DATA".
     gain_init_calfile : str or None
         Default None. If not None, provides a path to a pyuvdata-formatted
         calfits file containing gains values for calibration initialization.
@@ -796,9 +889,22 @@ def calibration_per_pol(
 
     # Read data
     data = pyuvdata.UVData()
-    data.read_ms(data_ms_path, data_column=data_use_column)
+    if data_file_path.endswith(".ms"):
+        data.read_ms(data_file_path, data_column=data_use_column)
+    elif data_file_path.endswith(".uvfits"):
+        data.read_uvfits(data_file_path)
+    else:
+        print(f"ERROR: Unsupported file type for data file {data_file_path}. Exiting.")
+        sys.exit(1)
     model = pyuvdata.UVData()
-    model.read_ms(model_ms_path, data_column=model_use_column)
+    if model_file_path.endswith(".ms"):
+        model.read_ms(model_file_path, data_column=model_use_column)
+    elif model_file_path.endswith(".uvfits"):
+        model.read_uvfits(model_file_path)
+    else:
+        print(
+            f"ERROR: Unsupported file type for model file {model_file_path}. Exiting."
+        )
 
     if verbose:
         print(
@@ -821,6 +927,7 @@ def calibration_per_pol(
         max_cal_baseline_m=max_cal_baseline_m,
         min_cal_baseline_lambda=min_cal_baseline_lambda,
         max_cal_baseline_lambda=max_cal_baseline_lambda,
+        lambda_val=lambda_val,
     )
 
     if caldata_obj.Nfreqs < 2:
@@ -828,65 +935,29 @@ def calibration_per_pol(
         pool.close()
         pool.join()
 
-    if np.max(caldata_obj.visibility_weights) == 0.0:
-        print("ERROR: All data flagged.")
+    if verbose:
+        print(
+            f"Done. Data formatting time {(time.time() - data_format_start_time)/60.} minutes."
+        )
+        print("Running calibration optimization...")
         sys.stdout.flush()
-        caldata_obj.gains[:, :, :] = np.nan + 1j * np.nan
-    else:
 
-        # Expand CalData object into per-frequency objects
-        caldata_list = caldata_obj.expand_in_frequency()
-
-        if verbose:
-            print(
-                f"Done. Data formatting time {(time.time() - data_format_start_time)/60.} minutes."
-            )
-            print("Running calibration optimization...")
-            sys.stdout.flush()
-            optimization_start_time = time.time()
-
-        if parallel:
-            args_list = []
-            for freq_ind in range(caldata_obj.Nfreqs):
-                args = (
-                    caldata_list[freq_ind],
-                    xtol,
-                    maxiter,
-                    verbose,
-                    get_crosspol_phase,
-                    True,
-                )
-                args_list.append(args)
-            result = pool.starmap(
-                calibration_optimization.run_calibration_optimization_per_pol_single_freq,
-                args_list,
-            )
-            pool.close()
-            for freq_ind in range(caldata_obj.Nfreqs):
-                caldata_obj.gains[:, [freq_ind], :] = result[freq_ind]
-            pool.join()
-        else:
-            for freq_ind in range(caldata_obj.Nfreqs):
-                calibration_optimization.run_calibration_optimization_per_pol_single_freq(
-                    caldata_list[freq_ind],
-                    xtol,
-                    maxiter,
-                    verbose=verbose,
-                    get_crosspol_phase=get_crosspol_phase,
-                )
-                caldata_obj.gains[:, [freq_ind], :] = caldata_list[freq_ind].gains[
-                    :, 0, :
-                ]
-
-        if verbose:
-            print(
-                f"Done. Optimization time: {caldata_obj.Nfreqs} frequency channels in {(time.time() - optimization_start_time)/60.} minutes"
-            )
-            print(f"Total processing time {(time.time() - start_time)/60.} minutes.")
-            sys.stdout.flush()
+    calibrate_caldata_per_pol(
+        caldata_obj,
+        xtol=xtol,
+        maxiter=maxiter,
+        get_crosspol_phase=get_crosspol_phase,
+        parallel=parallel,
+        verbose=verbose,
+        pool=pool,
+    )
 
     # Convert to UVCal object
     uvcal = caldata_obj.convert_to_uvcal()
+
+    if verbose:
+        print(f"Total processing time {(time.time() - start_time)/60.} minutes.")
+        sys.stdout.flush()
 
     if log_file_path is not None:
         sys.stdout = stdout_orig
