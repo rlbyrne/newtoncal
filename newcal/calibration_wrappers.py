@@ -677,6 +677,8 @@ class CalData:
         freq_weights = np.sum(self.visibility_weights, axis=(0, 1, 3))
         uvcal.flag_array[:, :, np.where(freq_weights == 0)[0], :, :] = True
 
+        uvcal.use_future_array_shapes()
+
         if not uvcal.check():
             print("ERROR: UVCal check failed.")
 
