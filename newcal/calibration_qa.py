@@ -294,7 +294,9 @@ def plot_per_ant_cost(per_ant_cost, antenna_names, plot_output_dir, plot_prefix=
     plt.close()
 
 
-def plot_gains(cal, plot_output_dir, plot_prefix="", plot_reciprocal=False):
+def plot_gains(
+    cal, plot_output_dir, plot_prefix="", plot_reciprocal=False, ymin=0, ymax=None
+):
     """
     Plot gain values. Creates two set of plots for each the gain amplitudes and
     phases. Each figure contains 12 panel, each corresponding to one antenna.
@@ -310,6 +312,10 @@ def plot_gains(cal, plot_output_dir, plot_prefix="", plot_reciprocal=False):
         Optional string to be appended to the start of the file names.
     plot_reciprocal : bool
         Plot 1/gains.
+    ymin : float
+        Minimum of the gain amplitude y-axis. Default 0.
+    ymax : float
+        Maximum of the gain amplitude y-axis. Default is the maximum gain amplitude.
     """
 
     # Read data
@@ -365,6 +371,10 @@ def plot_gains(cal, plot_output_dir, plot_prefix="", plot_reciprocal=False):
         cal.gain_array = 1.0 / cal.gain_array
 
     # Plot amplitudes
+    if ymax is None:
+        ymax = np.nanmax(np.abs(cal.gain_array))
+    y_range = [ymin, ymax]
+    x_range = [np.min(freq_axis_mhz), np.max(freq_axis_mhz)]
     subplot_ind = 0
     plot_ind = 1
     for name in ant_names:
@@ -375,8 +385,8 @@ def plot_gains(cal, plot_output_dir, plot_prefix="", plot_reciprocal=False):
         ant_ind = np.where(np.array(cal.antenna_names) == name)[0][0]
         if np.isnan(np.nanmean(cal.gain_array[ant_ind, :, 0, :])):  # All gains flagged
             ax.flat[subplot_ind].text(
-                np.mean([np.min(freq_axis_mhz), np.max(freq_axis_mhz)]),
-                np.mean([0, np.nanmax(np.abs(cal.gain_array))]),
+                np.mean(x_range),
+                np.mean(y_range),
                 "ALL FLAGGED",
                 horizontalalignment="center",
                 verticalalignment="center",
@@ -392,8 +402,8 @@ def plot_gains(cal, plot_output_dir, plot_prefix="", plot_reciprocal=False):
                 label=(["X", "Y"])[pol_ind],
                 color=colors[pol_ind],
             )
-        ax.flat[subplot_ind].set_ylim([0, np.nanmax(np.abs(cal.gain_array))])
-        ax.flat[subplot_ind].set_xlim([np.min(freq_axis_mhz), np.max(freq_axis_mhz)])
+        ax.flat[subplot_ind].set_ylim(y_range)
+        ax.flat[subplot_ind].set_xlim(x_range)
         ax.flat[subplot_ind].set_title(name)
         subplot_ind += 1
         if subplot_ind == len(ax.flat) or name == ant_names[-1]:
@@ -425,7 +435,7 @@ def plot_gains(cal, plot_output_dir, plot_prefix="", plot_reciprocal=False):
         ant_ind = np.where(np.array(cal.antenna_names) == name)[0][0]
         if np.isnan(np.nanmean(cal.gain_array[ant_ind, :, 0, :])):  # All gains flagged
             ax.flat[subplot_ind].text(
-                np.mean([np.min(freq_axis_mhz), np.max(freq_axis_mhz)]),
+                np.mean(x_range),
                 0,
                 "ALL FLAGGED",
                 horizontalalignment="center",
@@ -443,7 +453,7 @@ def plot_gains(cal, plot_output_dir, plot_prefix="", plot_reciprocal=False):
                 color=colors[pol_ind],
             )
         ax.flat[subplot_ind].set_ylim([-np.pi, np.pi])
-        ax.flat[subplot_ind].set_xlim([np.min(freq_axis_mhz), np.max(freq_axis_mhz)])
+        ax.flat[subplot_ind].set_xlim(x_range)
         ax.flat[subplot_ind].set_title(name)
         subplot_ind += 1
         if subplot_ind == len(ax.flat) or name == ant_names[-1]:
