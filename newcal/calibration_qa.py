@@ -353,6 +353,9 @@ def plot_gains(cal, plot_output_dir, plot_prefix=""):
     ant_names = np.sort(cal.antenna_names)
     freq_axis_mhz = cal.freq_array[0, :] / 1e6
 
+    # Apply flags
+    cal.gain_array[np.where(cal.flag_array)] = np.nan + 1j * np.nan
+
     # Plot amplitudes
     subplot_ind = 0
     plot_ind = 1
@@ -362,6 +365,17 @@ def plot_gains(cal, plot_output_dir, plot_prefix=""):
                 nrows=3, ncols=4, figsize=(10, 8), sharex=True, sharey=True
             )
         ant_ind = np.where(cal.antenna_names == name)[0][0]
+        if np.isnan(
+            np.nanmean(cal.gain_array[ant_ind, 0, :, 0, :])
+        ):  # All gains flagged
+            ax.flat[subplot_ind].text(
+                np.mean([np.min(freq_axis_mhz), np.max(freq_axis_mhz)]),
+                np.mean([0, np.nanmax(np.abs(cal.gain_array))]),
+                "ALL FLAGGED",
+                horizontalalignment="center",
+                verticalalignment="center",
+                color="red",
+            )
         for pol_ind in range(cal.Njones):
             ax.flat[subplot_ind].plot(
                 freq_axis_mhz,
