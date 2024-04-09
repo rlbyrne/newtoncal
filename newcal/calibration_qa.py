@@ -353,7 +353,7 @@ def plot_gains(cal, plot_output_dir, plot_prefix="", plot_reciprocal=False):
     ]
 
     ant_names = np.sort(cal.antenna_names)
-    freq_axis_mhz = cal.freq_array[0, :] / 1e6
+    freq_axis_mhz = np.flatten(cal.freq_array) / 1e6
 
     # Apply flags
     cal.gain_array[np.where(cal.flag_array)] = np.nan + 1j * np.nan
