@@ -655,9 +655,27 @@ class CalData:
         uvcal.time_range = np.array([self.time, self.time])
         uvcal.x_orientation = "east"
         uvcal.gain_array = self.gains[:, np.newaxis, :, np.newaxis, :]
-        uvcal.flag_array = (np.isnan(self.gains))[:, np.newaxis, :, np.newaxis, :]
         uvcal.ref_antenna_name = "none"
         uvcal.sky_catalog = ""
+
+        # Get flags from nan-ed gains and zeroed weights
+        uvcal.flag_array = (np.isnan(self.gains))[:, np.newaxis, :, np.newaxis, :]
+        # Flag antennas
+        antenna_weights = np.sum(
+            np.matmul(
+                self.gains_exp_mat_1.T,
+                self.visibility_weights[:, :, 0, 0].T,
+            )
+            + np.matmul(
+                self.gains_exp_mat_2.T,
+                self.visibility_weights[:, :, 0, 0].T,
+            ),
+            axis=1,
+        )
+        uvcal.flag_array[np.where(antenna_weights == 0)[0], :, :, :, :] = True
+        # Flag frequencies
+        freq_weights = np.sum(self.visibility_weights, axis=(0, 1, 3))
+        uvcal.flag_array[:, :, np.where(freq_weights == 0)[0], :, :] = True
 
         if not uvcal.check():
             print("ERROR: UVCal check failed.")
