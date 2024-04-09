@@ -148,15 +148,11 @@ def reformat_baselines_to_antenna_matrix(
     """
 
     antenna_matrix = np.zeros_like(
-        bl_array[
-            0,
-        ],
+        bl_array[0,],
         dtype=bl_array.dtype,
     )
     antenna_matrix = np.repeat(
-        np.repeat(antenna_matrix[np.newaxis,], Nants, axis=0)[
-            np.newaxis,
-        ],
+        np.repeat(antenna_matrix[np.newaxis,], Nants, axis=0)[np.newaxis,],
         Nants,
         axis=0,
     )
@@ -164,7 +160,10 @@ def reformat_baselines_to_antenna_matrix(
     antenna1_num = np.matmul(gains_exp_mat_1, antenna_numbers)
     antenna2_num = np.matmul(gains_exp_mat_2, antenna_numbers)
     for bl_ind in range(Nbls):
-        antenna_matrix[antenna1_num[bl_ind], antenna2_num[bl_ind],] = bl_array[
+        antenna_matrix[
+            antenna1_num[bl_ind],
+            antenna2_num[bl_ind],
+        ] = bl_array[
             bl_ind,
         ]
     return antenna_matrix
@@ -307,7 +306,6 @@ def set_crosspol_phase(
     gains_exp_mat_1,
     gains_exp_mat_2,
 ):
-
     """
     Calculate the cross-polarization phase between the P and Q gains. This
     quantity is not constrained in typical per-polarization calibration but is

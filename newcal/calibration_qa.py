@@ -1,6 +1,4 @@
 import numpy as np
-import sys
-import time
 import pyuvdata
 from newcal import cost_function_calculations
 from newcal import calibration_optimization

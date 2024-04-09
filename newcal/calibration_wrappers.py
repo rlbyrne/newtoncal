@@ -3,7 +3,6 @@ import sys
 import time
 import pyuvdata
 import multiprocessing
-from newcal import cost_function_calculations
 from newcal import calibration_optimization
 
 
