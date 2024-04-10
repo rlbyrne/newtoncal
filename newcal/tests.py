@@ -16,10 +16,8 @@ THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 class TestStringMethods(unittest.TestCase):
     def test_cost_single_pol_with_identical_data(self):
 
-        test_ant_ind = 10
         test_freq_ind = 0
         test_pol_ind = 0
-        lambda_val = 0.1
 
         model = pyuvdata.UVData()
         model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
