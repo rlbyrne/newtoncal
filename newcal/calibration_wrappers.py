@@ -3,7 +3,6 @@ import sys
 import time
 import pyuvdata
 import multiprocessing
-from newcal import cost_function_calculations
 from newcal import calibration_optimization
 
 
@@ -445,9 +444,9 @@ class CalData:
                                 flag_freq,
                                 flag_pol,
                             ] = True
-                    self.gains[
-                        nan_gains, feed_pol_ind
-                    ] = 0.0  # Nans in the gains produce matrix multiplication errors, set to zero
+                    self.gains[nan_gains, feed_pol_ind] = (
+                        0.0  # Nans in the gains produce matrix multiplication errors, set to zero
+                    )
 
         # Free memory
         metadata_reference = None
@@ -655,9 +654,29 @@ class CalData:
         uvcal.time_range = np.array([self.time, self.time])
         uvcal.x_orientation = "east"
         uvcal.gain_array = self.gains[:, np.newaxis, :, np.newaxis, :]
-        uvcal.flag_array = (np.isnan(self.gains))[:, np.newaxis, :, np.newaxis, :]
         uvcal.ref_antenna_name = "none"
         uvcal.sky_catalog = ""
+
+        # Get flags from nan-ed gains and zeroed weights
+        uvcal.flag_array = (np.isnan(self.gains))[:, np.newaxis, :, np.newaxis, :]
+        # Flag antennas
+        antenna_weights = np.sum(
+            np.matmul(
+                self.gains_exp_mat_1.T,
+                self.visibility_weights[:, :, 0, 0].T,
+            )
+            + np.matmul(
+                self.gains_exp_mat_2.T,
+                self.visibility_weights[:, :, 0, 0].T,
+            ),
+            axis=1,
+        )
+        uvcal.flag_array[np.where(antenna_weights == 0)[0], :, :, :, :] = True
+        # Flag frequencies
+        freq_weights = np.sum(self.visibility_weights, axis=(0, 1, 3))
+        uvcal.flag_array[:, :, np.where(freq_weights == 0)[0], :, :] = True
+
+        uvcal.use_future_array_shapes()
 
         if not uvcal.check():
             print("ERROR: UVCal check failed.")
@@ -665,26 +684,25 @@ class CalData:
         return uvcal
 
 
-def calibration_per_pol(
+def calibrate_caldata_per_pol(
     caldata_obj,
     xtol=1e-4,
     maxiter=100,
     get_crosspol_phase=True,
     parallel=True,
-    max_processes=40,
     verbose=False,
-    log_file_path=None,
+    pool=None,
 ):
     """
-    Run calibration per polarization. Function updates the gains attribute of
-    the CalData object. Here the XX and YY visibilities are calibrated
-    individually and the cross-polarization phase is applied from the XY and YX
-    visibilities after the fact. Option to parallelize calibration across
-    frequency.
+    Run calibration per polarization. Updates the gains attribute of caldata_obj
+    with calibrated values. Here the XX and YY visibilities are calibrated
+    individually and the cross-polarization phase is applied fromthe XY and YX
+    visibilities after the fact. Option to parallelize calibration across frequency.
 
     Parameters
     ----------
     caldata_obj : CalData
+        CalData object containing the data and model visibilities for calibration.
     xtol : float
         Accuracy tolerance for optimizer. Default 1e-8.
     maxiter : int
@@ -694,24 +712,11 @@ def calibration_per_pol(
     parallel : bool
         Set to True to parallelize across frequency with multiprocessing.
         Default True if Nfreqs > 1.
-    max_processes : int or None
-        Maximum number of multithreaded processes to use. Applicable only if
-        parallel is True. If None, uses the multiprocessing default. Default 40.
     verbose : bool
         Set to True to print optimization outputs. Default False.
-    log_file_path : str or None
-        Path to the log file. Default None.
+    pool : multiprocessing.pool.Pool or None
+        Pool for multiprocessing. Must not be None if parallel=True.
     """
-
-    if log_file_path is not None:
-        stdout_orig = sys.stdout
-        stderr_orig = sys.stderr
-        sys.stdout = sys.stderr = log_file_new = open(log_file_path, "w")
-
-    start_time = time.time()
-
-    if caldata_obj.Nfreqs < 2:
-        parallel = False
 
     if np.max(caldata_obj.visibility_weights) == 0.0:
         print("ERROR: All data flagged.")
@@ -722,15 +727,8 @@ def calibration_per_pol(
         # Expand CalData object into per-frequency objects
         caldata_list = caldata_obj.expand_in_frequency()
 
-        gains_fit = np.full(
-            (
-                caldata_obj.Nants,
-                caldata_obj.Nfreqs,
-                caldata_obj.N_feed_pols,
-            ),
-            np.nan,
-            dtype=complex,
-        )
+        optimization_start_time = time.time()
+
         if parallel:
             args_list = []
             for freq_ind in range(caldata_obj.Nfreqs):
@@ -743,10 +741,6 @@ def calibration_per_pol(
                     True,
                 )
                 args_list.append(args)
-            if max_processes is None:
-                pool = multiprocessing.Pool()
-            else:
-                pool = multiprocessing.Pool(processes=max_processes)
             result = pool.starmap(
                 calibration_optimization.run_calibration_optimization_per_pol_single_freq,
                 args_list,
@@ -765,15 +759,210 @@ def calibration_per_pol(
                     get_crosspol_phase=get_crosspol_phase,
                 )
                 caldata_obj.gains[:, [freq_ind], :] = caldata_list[freq_ind].gains[
-                    :, 0, :
+                    :, [0], :
                 ]
 
         if verbose:
             print(
-                f"Optimization time: {caldata_obj.Nfreqs} frequency channels in {(time.time() - start_time)/60.} minutes"
+                f"Done. Optimization time: {caldata_obj.Nfreqs} frequency channels in {(time.time() - optimization_start_time)/60.} minutes"
             )
             sys.stdout.flush()
+
+
+def calibration_per_pol(
+    data_file_path,
+    model_file_path,
+    data_use_column="DATA",
+    model_use_column="MODEL_DATA",
+    gain_init_calfile=None,
+    gain_init_to_vis_ratio=True,
+    gain_init_stddev=0.0,
+    N_feed_pols=None,
+    feed_polarization_array=None,
+    min_cal_baseline_m=None,
+    max_cal_baseline_m=None,
+    min_cal_baseline_lambda=None,
+    max_cal_baseline_lambda=None,
+    lambda_val=100,
+    xtol=1e-4,
+    maxiter=100,
+    get_crosspol_phase=True,
+    parallel=True,
+    max_processes=40,
+    verbose=False,
+    log_file_path=None,
+):
+    """
+    Top-level wrapper for running calibration per polarization. Function creates
+    a CalData object, updates the gains attribute, and returns a pyuvdata UVCal
+    object containing the calibration solutions. Here the XX and YY visibilities
+    are calibrated individually and the cross-polarization phase is applied from
+    the XY and YX visibilities after the fact. Option to parallelize calibration
+    across frequency.
+
+    Parameters
+    ----------
+    data_file_path : str
+        Path to the ms or uvfits file containing the data visibilities.
+    model_file_path : str
+        Path to the ms or uvfits file containing the model visibilities.
+    data_use_column : str
+        Column in an ms file to use for the data visibilities. Used only if
+        data_file_path points to an ms file. Default "DATA".
+    data_use_column : str
+        Column in an ms file to use for the data visibilities. Used only if
+        data_file_path points to an ms file. Default "MODEL_DATA".
+    gain_init_calfile : str or None
+        Default None. If not None, provides a path to a pyuvdata-formatted
+        calfits file containing gains values for calibration initialization.
+    gain_init_to_vis_ratio : bool
+        Used only if gain_init_calfile is None. If True, initializes gains
+        to the median ratio between the amplitudes of the model and data
+        visibilities. If False, the gains are initialized to 1. Default
+        True.
+    gain_init_stddev : float
+        Default 0.0. Standard deviation of a random complex Gaussian
+        perturbation to the initial gains.
+    N_feed_pols : int
+        Default min(2, N_vis_pols). Number of feed polarizations, equal to
+        the number of gain values to be calculated per antenna.
+    feed_polarization_array : array of int or None
+        Feed polarizations to calibrate. Shape (N_feed_pols,). Options are
+        -5 for X or -6 for Y. Default None. If None, feed_polarization_array
+        is set to ([-5, -6])[:N_feed_pols].
+    min_cal_baseline_m : float or None
+        Minimum baseline length, in meters, to use in calibration. If both
+        min_cal_baseline_m and min_cal_baseline_lambda are None, arbitrarily
+        short baselines are used. Default None.
+    max_cal_baseline_m : float or None
+        Maximum baseline length, in meters, to use in calibration. If both
+        max_cal_baseline_m and max_cal_baseline_lambda are None, arbitrarily
+        long baselines are used. Default None.
+    min_cal_baseline_lambda : float or None
+        Minimum baseline length, in wavelengths, to use in calibration. If
+        both min_cal_baseline_m and min_cal_baseline_lambda are None,
+        arbitrarily short baselines are used. Default None.
+    max_cal_baseline_lambda : float or None
+        Maximum baseline length, in wavelengths, to use in calibration. If
+        both max_cal_baseline_m and max_cal_baseline_lambda are None,
+        arbitrarily long baselines are used. Default None.
+    lambda_val : float
+        Weight of the phase regularization term; must be positive. Default
+        100.
+    xtol : float
+        Accuracy tolerance for optimizer. Default 1e-8.
+    maxiter : int
+        Maximum number of iterations for the optimizer. Default 100.
+    get_crosspol_phase : bool
+        If True, crosspol phase is calculated. Default True.
+    parallel : bool
+        Set to True to parallelize across frequency with multiprocessing.
+        Default True if Nfreqs > 1.
+    max_processes : int or None
+        Maximum number of multithreaded processes to use. Applicable only if
+        parallel is True. If None, uses the multiprocessing default. Default 40.
+    verbose : bool
+        Set to True to print optimization outputs. Default False.
+    log_file_path : str or None
+        Path to the log file. Default None.
+    Returns
+    -------
+    uvcal : pyuvdata UVCal object
+    """
+
+    if log_file_path is not None:
+        stdout_orig = sys.stdout
+        stderr_orig = sys.stderr
+        sys.stdout = sys.stderr = log_file_new = open(log_file_path, "w")
+
+    start_time = time.time()
+
+    if parallel:  # Start multiprocessing pool
+        if max_processes is None:
+            pool = multiprocessing.Pool()
+        else:
+            pool = multiprocessing.Pool(processes=max_processes)
+
+    if verbose:
+        print("Reading data...")
+        sys.stdout.flush()
+        data_read_start_time = time.time()
+
+    # Read data
+    data = pyuvdata.UVData()
+    if data_file_path.endswith(".ms"):
+        data.read_ms(data_file_path, data_column=data_use_column)
+    elif data_file_path.endswith(".uvfits"):
+        data.read_uvfits(data_file_path)
+    else:
+        print(f"ERROR: Unsupported file type for data file {data_file_path}. Exiting.")
+        sys.exit(1)
+    model = pyuvdata.UVData()
+    if model_file_path.endswith(".ms"):
+        model.read_ms(model_file_path, data_column=model_use_column)
+    elif model_file_path.endswith(".uvfits"):
+        model.read_uvfits(model_file_path)
+    else:
+        print(
+            f"ERROR: Unsupported file type for model file {model_file_path}. Exiting."
+        )
+
+    if verbose:
+        print(
+            f"Done. Data read time {(time.time() - data_read_start_time)/60.} minutes."
+        )
+        print("Formatting data...")
+        sys.stdout.flush()
+        data_format_start_time = time.time()
+
+    caldata_obj = CalData()
+    caldata_obj.load_data(
+        data,
+        model,
+        gain_init_calfile=gain_init_calfile,
+        gain_init_to_vis_ratio=gain_init_to_vis_ratio,
+        gain_init_stddev=gain_init_stddev,
+        N_feed_pols=N_feed_pols,
+        feed_polarization_array=feed_polarization_array,
+        min_cal_baseline_m=min_cal_baseline_m,
+        max_cal_baseline_m=max_cal_baseline_m,
+        min_cal_baseline_lambda=min_cal_baseline_lambda,
+        max_cal_baseline_lambda=max_cal_baseline_lambda,
+        lambda_val=lambda_val,
+    )
+
+    if caldata_obj.Nfreqs < 2:
+        parallel = False
+        pool.close()
+        pool.join()
+
+    if verbose:
+        print(
+            f"Done. Data formatting time {(time.time() - data_format_start_time)/60.} minutes."
+        )
+        print("Running calibration optimization...")
+        sys.stdout.flush()
+
+    calibrate_caldata_per_pol(
+        caldata_obj,
+        xtol=xtol,
+        maxiter=maxiter,
+        get_crosspol_phase=get_crosspol_phase,
+        parallel=parallel,
+        verbose=verbose,
+        pool=pool,
+    )
+
+    # Convert to UVCal object
+    uvcal = caldata_obj.convert_to_uvcal()
+
+    if verbose:
+        print(f"Total processing time {(time.time() - start_time)/60.} minutes.")
+        sys.stdout.flush()
+
     if log_file_path is not None:
         sys.stdout = stdout_orig
         sys.stderr = stderr_orig
         log_file_new.close()
+
+    return uvcal

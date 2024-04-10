@@ -1,8 +1,7 @@
 import numpy as np
-import sys
-import time
 import pyuvdata
 from newcal import cost_function_calculations
+from newcal import calibration_optimization
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import multiprocessing
@@ -170,35 +169,51 @@ def get_antenna_flags_from_per_ant_cost(
                             vis_pol_ind = np.where(
                                 caldata_obj.vis_polarization_array == -5
                             )[0]
-                            visibility_weights[:, bl_inds_1, :, vis_pol_ind] = 0
-                            visibility_weights[:, bl_inds_2, :, vis_pol_ind] = 0
+                            caldata_obj.visibility_weights[
+                                :, bl_inds_1, :, vis_pol_ind
+                            ] = 0
+                            caldata_obj.visibility_weights[
+                                :, bl_inds_2, :, vis_pol_ind
+                            ] = 0
                         if -7 in caldata_obj.vis_polarization_array:
                             vis_pol_ind = np.where(
                                 caldata_obj.vis_polarization_array == -7
                             )[0]
-                            visibility_weights[:, bl_inds_1, :, vis_pol_ind] = 0
+                            caldata_obj.visibility_weights[
+                                :, bl_inds_1, :, vis_pol_ind
+                            ] = 0
                         if -8 in caldata_obj.vis_polarization_array:
                             vis_pol_ind = np.where(
                                 caldata_obj.vis_polarization_array == -8
                             )[0]
-                            visibility_weights[:, bl_inds_2, :, vis_pol_ind] = 0
+                            caldata_obj.visibility_weights[
+                                :, bl_inds_2, :, vis_pol_ind
+                            ] = 0
                     elif caldata_obj.feed_polarization_array[pol_ind] == -6:
                         if -6 in caldata_obj.vis_polarization_array:
                             vis_pol_ind = np.where(
                                 caldata_obj.vis_polarization_array == -6
                             )[0]
-                            visibility_weights[:, bl_inds_1, :, vis_pol_ind] = 0
-                            visibility_weights[:, bl_inds_2, :, vis_pol_ind] = 0
+                            caldata_obj.visibility_weights[
+                                :, bl_inds_1, :, vis_pol_ind
+                            ] = 0
+                            caldata_obj.visibility_weights[
+                                :, bl_inds_2, :, vis_pol_ind
+                            ] = 0
                         if -7 in caldata_obj.vis_polarization_array:
                             vis_pol_ind = np.where(
                                 caldata_obj.vis_polarization_array == -7
                             )[0]
-                            visibility_weights[:, bl_inds_2, :, vis_pol_ind] = 0
+                            caldata_obj.visibility_weights[
+                                :, bl_inds_2, :, vis_pol_ind
+                            ] = 0
                         if -8 in caldata_obj.vis_polarization_array:
                             vis_pol_ind = np.where(
                                 caldata_obj.vis_polarization_array == -8
                             )[0]
-                            visibility_weights[:, bl_inds_1, :, vis_pol_ind] = 0
+                            caldata_obj.visibility_weights[
+                                :, bl_inds_1, :, vis_pol_ind
+                            ] = 0
 
     else:  # Flag everything
         flag_antenna_list = []
@@ -294,7 +309,9 @@ def plot_per_ant_cost(per_ant_cost, antenna_names, plot_output_dir, plot_prefix=
     plt.close()
 
 
-def plot_gains(cal, plot_output_dir, plot_prefix=""):
+def plot_gains(
+    cal, plot_output_dir, plot_prefix="", plot_reciprocal=False, ymin=0, ymax=None
+):
     """
     Plot gain values. Creates two set of plots for each the gain amplitudes and
     phases. Each figure contains 12 panel, each corresponding to one antenna.
@@ -302,12 +319,25 @@ def plot_gains(cal, plot_output_dir, plot_prefix=""):
 
     Parameters
     ----------
-    cal : pyuvdata UVCal object
+    cal : UVCal object or str
+        pyuvdata UVCal object or path to a calfits file.
     plot_output_dir : str
         Path to the directory where the plots will be saved.
     plot_prefix : str
         Optional string to be appended to the start of the file names.
+    plot_reciprocal : bool
+        Plot 1/gains.
+    ymin : float
+        Minimum of the gain amplitude y-axis. Default 0.
+    ymax : float
+        Maximum of the gain amplitude y-axis. Default is the maximum gain amplitude.
     """
+
+    # Read data
+    if isinstance(cal, str):
+        cal_obj = pyuvdata.UVCal()
+        cal_obj.read_calfits(cal)
+        cal = cal_obj
 
     # Parse strings
     use_plot_prefix = plot_prefix
@@ -344,9 +374,22 @@ def plot_gains(cal, plot_output_dir, plot_prefix=""):
     ]
 
     ant_names = np.sort(cal.antenna_names)
-    freq_axis_mhz = cal.freq_array[0, :] / 1e6
+    freq_axis_mhz = cal.freq_array.flatten() / 1e6
+
+    # Apply flags
+    cal.gain_array[np.where(cal.flag_array)] = np.nan + 1j * np.nan
+
+    if cal.gain_array.ndim == 5:
+        cal.gain_array = cal.gain_array[:, 0, :, :, :]
+
+    if plot_reciprocal:
+        cal.gain_array = 1.0 / cal.gain_array
 
     # Plot amplitudes
+    if ymax is None:
+        ymax = np.nanmax(np.abs(cal.gain_array))
+    y_range = [ymin, ymax]
+    x_range = [np.min(freq_axis_mhz), np.max(freq_axis_mhz)]
     subplot_ind = 0
     plot_ind = 1
     for name in ant_names:
@@ -354,19 +397,28 @@ def plot_gains(cal, plot_output_dir, plot_prefix=""):
             fig, ax = plt.subplots(
                 nrows=3, ncols=4, figsize=(10, 8), sharex=True, sharey=True
             )
-        ant_ind = np.where(cal.antenna_names == name)[0][0]
+        ant_ind = np.where(np.array(cal.antenna_names) == name)[0][0]
+        if np.isnan(np.nanmean(cal.gain_array[ant_ind, :, 0, :])):  # All gains flagged
+            ax.flat[subplot_ind].text(
+                np.mean(x_range),
+                np.mean(y_range),
+                "ALL FLAGGED",
+                horizontalalignment="center",
+                verticalalignment="center",
+                color="red",
+            )
         for pol_ind in range(cal.Njones):
             ax.flat[subplot_ind].plot(
                 freq_axis_mhz,
-                np.abs(cal.gain_array[ant_ind, 0, :, 0, pol_ind]),
+                np.abs(cal.gain_array[ant_ind, :, 0, pol_ind]),
                 "-o",
                 linewidth=linewidth,
                 markersize=markersize,
                 label=(["X", "Y"])[pol_ind],
                 color=colors[pol_ind],
             )
-        ax.flat[subplot_ind].set_ylim([0, np.nanmax(np.abs(cal.gain_array))])
-        ax.flat[subplot_ind].set_xlim([np.min(freq_axis_mhz), np.max(freq_axis_mhz)])
+        ax.flat[subplot_ind].set_ylim(y_range)
+        ax.flat[subplot_ind].set_xlim(x_range)
         ax.flat[subplot_ind].set_title(name)
         subplot_ind += 1
         if subplot_ind == len(ax.flat) or name == ant_names[-1]:
@@ -395,11 +447,20 @@ def plot_gains(cal, plot_output_dir, plot_prefix=""):
             fig, ax = plt.subplots(
                 nrows=3, ncols=4, figsize=(10, 8), sharex=True, sharey=True
             )
-        ant_ind = np.where(cal.antenna_names == name)[0][0]
+        ant_ind = np.where(np.array(cal.antenna_names) == name)[0][0]
+        if np.isnan(np.nanmean(cal.gain_array[ant_ind, :, 0, :])):  # All gains flagged
+            ax.flat[subplot_ind].text(
+                np.mean(x_range),
+                0,
+                "ALL FLAGGED",
+                horizontalalignment="center",
+                verticalalignment="center",
+                color="red",
+            )
         for pol_ind in range(cal.Njones):
             ax.flat[subplot_ind].plot(
                 freq_axis_mhz,
-                np.angle(cal.gain_array[ant_ind, 0, :, 0, pol_ind]),
+                np.angle(cal.gain_array[ant_ind, :, 0, pol_ind]),
                 "-o",
                 linewidth=linewidth,
                 markersize=markersize,
@@ -407,12 +468,12 @@ def plot_gains(cal, plot_output_dir, plot_prefix=""):
                 color=colors[pol_ind],
             )
         ax.flat[subplot_ind].set_ylim([-np.pi, np.pi])
-        ax.flat[subplot_ind].set_xlim([np.min(freq_axis_mhz), np.max(freq_axis_mhz)])
+        ax.flat[subplot_ind].set_xlim(x_range)
         ax.flat[subplot_ind].set_title(name)
         subplot_ind += 1
         if subplot_ind == len(ax.flat) or name == ant_names[-1]:
             fig.supxlabel("Frequency (MHz)")
-            fig.supylabel("Gain Amplitude")
+            fig.supylabel("Gain Phase (rad.)")
             plt.legend(
                 handles=legend_elements,
                 bbox_to_anchor=(1.04, 0),

@@ -3,8 +3,6 @@ import sys
 import scipy
 import scipy.optimize
 import time
-import pyuvdata
-from newcal import calibration_wrappers
 from newcal import cost_function_calculations
 
 
