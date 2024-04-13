@@ -14,6 +14,9 @@ class CalData:
     -------
     gains : array of complex
         Shape (Nants, Nfreqs, N_feed_pols,).
+    abscal_params : array of float
+        Shape (3,). abscal_params[0] is the overall amplitude, abscal_params[1]
+        is the x-phase gradient, and abscal_params[2] is the y-phase gradient.
     Nants : int
         Number of antennas.
     Nbls : int
@@ -50,6 +53,8 @@ class CalData:
         Shape (Nants,). Ordering matches the ordering of the gains attribute.
     antenna_positions : array of float
         Shape (Nants, 3,). Units meters, relative to telescope location.
+    uv_array : array of float
+        Shape (Nbls, 2,). Baseline positions in the UV plane, units meters.
     channel_width : float
         Width of frequency channels in Hz.
     freq_array : array of float
@@ -68,6 +73,7 @@ class CalData:
 
     def __init__(self):
         self.gains = None
+        self.abscal_params = None
         self.Nants = 0
         self.Nbls = 0
         self.Ntimes = 0
@@ -84,6 +90,7 @@ class CalData:
         self.antenna_names = None
         self.antenna_numbers = None
         self.antenna_positions = None
+        self.uv_array = None
         self.channel_width = None
         self.freq_array = None
         self.integration_time = None
@@ -306,6 +313,7 @@ class CalData:
         self.telescope_name = metadata_reference.telescope_name
         self.lst = np.mean(metadata_reference.lst_array)
         self.telescope_location = metadata_reference.telescope_location
+        self.uv_array = metadata_reference.uvw_array[:, :2]
 
         if (min_cal_baseline_lambda is not None) or (
             max_cal_baseline_lambda is not None
@@ -470,6 +478,9 @@ class CalData:
                     self.N_feed_pols,
                 ),
             )
+
+        # Initialize abscal parameters
+        self.abscal_params = np.array([1, 0, 0])
 
         # Define visibility weights
         self.visibility_weights = np.ones(

@@ -359,3 +359,211 @@ def set_crosspol_phase(
     crosspol_phase = np.angle(term1 + term2)
 
     return crosspol_phase
+
+
+def cost_function_abs_cal(
+    amp,
+    phase_grad,
+    model_visibilities,
+    data_visibilities,
+    uv_array,
+    visibility_weights,
+):
+    """
+    Calculate the cost function (chi-squared) value for absolute calibration.
+
+    Parameters
+    ----------
+    amp : float
+        Overall visibility amplitude.
+    phase_grad :  array of float
+        Shape (2,). Phase gradient terms, in units of 1/m.
+    model_visibilities : array of complex
+        Shape (Ntimes, Nbls,).
+    data_visibilities : array of complex
+        Relatively calibrated data. Shape (Ntimes, Nbls,).
+    visibility_weights : array of float
+        Shape (Ntimes, Nbls,).
+    uv_array : array of float
+        Shape(Nbls, 2,)
+
+    Returns
+    -------
+    cost : float
+        Value of the cost function.
+    """
+
+    phase_term = np.sum(phase_grad[np.newaxis, :] * uv_array, axis=1)
+    res_vec = (amp**2.0 * np.exp(1j * phase_term))[
+        np.newaxis, :
+    ] * data_visibilities - model_visibilities
+    cost = np.sum(visibility_weights * np.abs(res_vec) ** 2)
+    return cost
+
+
+def jacobian_abs_cal(
+    amp,
+    phase_grad,
+    model_visibilities,
+    data_visibilities,
+    uv_array,
+    visibility_weights,
+):
+    """
+    Calculate the cost function (chi-squared) value for absolute calibration.
+
+    Parameters
+    ----------
+    amp : float
+        Overall visibility amplitude.
+    phase_grad :  array of float
+        Shape (2,). Phase gradient terms, in units of 1/m.
+    model_visibilities : array of complex
+        Shape (Ntimes, Nbls,).
+    data_visibilities : array of complex
+        Relatively calibrated data. Shape (Ntimes, Nbls,).
+    visibility_weights : array of float
+        Shape (Ntimes, Nbls,).
+    uv_array : array of float
+        Shape(Nbls, 2,)
+
+    Returns
+    -------
+    amp_jac : float
+        Derivative of the cost with respect to the visibility amplitude term.
+    phase_jac : array of float
+        Derivatives of the cost with respect to the phase gradient terms. Shape (2,).
+    """
+
+    phase_term = np.sum(phase_grad[np.newaxis, :] * uv_array, axis=1)
+    data_prod = (
+        np.exp(1j * phase_term)[np.newaxis, :]
+        * data_visibilities
+        * np.conj(model_visibilities)
+    )
+
+    amp_jac = (
+        4
+        * amp
+        * np.sum(
+            visibility_weights
+            * (amp**2.0 * np.abs(data_visibilities) ** 2.0 - np.real(data_prod))
+        )
+    )
+    phase_jac = (
+        2
+        * amp**2.0
+        * np.sum(
+            visibility_weights[:, :, np.newaxis]
+            * uv_array[np.newaxis, :, :]
+            * np.imag(data_prod)[:, :, np.newaxis],
+            axis=(0, 1),
+        )
+    )
+
+    return amp_jac, phase_jac
+
+
+def hess_abs_cal(
+    amp,
+    phase_grad,
+    model_visibilities,
+    data_visibilities,
+    uv_array,
+    visibility_weights,
+):
+    """
+    Calculate the cost function (chi-squared) value for absolute calibration.
+
+    Parameters
+    ----------
+    amp : float
+        Overall visibility amplitude.
+    phase_grad :  array of float
+        Shape (2,). Phase gradient terms, in units of 1/m.
+    model_visibilities : array of complex
+        Shape (Ntimes, Nbls,).
+    data_visibilities : array of complex
+        Relatively calibrated data. Shape (Ntimes, Nbls,).
+    visibility_weights : array of float
+        Shape (Ntimes, Nbls,).
+    uv_array : array of float
+        Shape(Nbls, 2,)
+
+    Returns
+    -------
+    hess_amp_amp : float
+        Second derivative of the cost with respect to the amplitude term.
+    hess_amp_phasex : float
+        Second derivative of the cost with respect to the amplitude term and the phase gradient in x.
+    hess_amp_phasey : float
+        Second derivative of the cost with respect to the amplitude term and the phase gradient in y.
+    hess_phasex_phasex : float
+        Second derivative of the cost with respect to the phase gradient in x.
+    hess_phasey_phasey : float
+        Second derivative of the cost with respect to the phase gradient in x.
+    hess_phasex_phasey : float
+        Second derivative of the cost with respect to the phase gradient in x and y.
+    """
+
+    phase_term = np.sum(phase_grad[np.newaxis, :] * uv_array, axis=1)
+    data_prod = (
+        np.exp(1j * phase_term)[np.newaxis, :]
+        * data_visibilities
+        * np.conj(model_visibilities)
+    )
+
+    hess_amp_amp = np.sum(
+        visibility_weights
+        * (
+            12.0 * amp**2.0 * np.abs(data_visibilities) ** 2.0
+            - 4.0 * np.real(data_prod)
+        )
+    )
+
+    hess_amp_phasex = (
+        4.0
+        * amp
+        * np.sum(visibility_weights * uv_array[np.newaxis, :, 0] * np.imag(data_prod))
+    )
+    hess_amp_phasey = (
+        4.0
+        * amp
+        * np.sum(visibility_weights * uv_array[np.newaxis, :, 1] * np.imag(data_prod))
+    )
+
+    hess_phasex_phasex = (
+        2.0
+        * amp**2.0
+        * np.sum(
+            visibility_weights * uv_array[np.newaxis, :, 0] ** 2.0 * np.real(data_prod)
+        )
+    )
+
+    hess_phasey_phasey = (
+        2.0
+        * amp**2.0
+        * np.sum(
+            visibility_weights * uv_array[np.newaxis, :, 1] ** 2.0 * np.real(data_prod)
+        )
+    )
+
+    hess_phasex_phasey = (
+        2.0
+        * amp**2.0
+        * np.sum(
+            visibility_weights
+            * uv_array[np.newaxis, :, 0]
+            * uv_array[np.newaxis, :, 1]
+            * np.real(data_prod)
+        )
+    )
+
+    return (
+        hess_amp_amp,
+        hess_amp_phasex,
+        hess_amp_phasey,
+        hess_phasex_phasex,
+        hess_phasey_phasey,
+        hess_phasex_phasey,
+    )
