@@ -820,8 +820,8 @@ def calibration_per_pol(
     data_use_column : str
         Column in an ms file to use for the data visibilities. Used only if
         data_file_path points to an ms file. Default "DATA".
-    data_use_column : str
-        Column in an ms file to use for the data visibilities. Used only if
+    model_use_column : str
+        Column in an ms file to use for the model visibilities. Used only if
         data_file_path points to an ms file. Default "MODEL_DATA".
     gain_init_calfile : str or None
         Default None. If not None, provides a path to a pyuvdata-formatted
