@@ -382,10 +382,10 @@ def cost_function_abs_cal(
         Shape (Ntimes, Nbls,).
     data_visibilities : array of complex
         Relatively calibrated data. Shape (Ntimes, Nbls,).
-    visibility_weights : array of float
-        Shape (Ntimes, Nbls,).
     uv_array : array of float
         Shape(Nbls, 2,)
+    visibility_weights : array of float
+        Shape (Ntimes, Nbls,).
 
     Returns
     -------
@@ -422,10 +422,10 @@ def jacobian_abs_cal(
         Shape (Ntimes, Nbls,).
     data_visibilities : array of complex
         Relatively calibrated data. Shape (Ntimes, Nbls,).
-    visibility_weights : array of float
-        Shape (Ntimes, Nbls,).
     uv_array : array of float
         Shape(Nbls, 2,)
+    visibility_weights : array of float
+        Shape (Ntimes, Nbls,).
 
     Returns
     -------
@@ -485,10 +485,11 @@ def hess_abs_cal(
         Shape (Ntimes, Nbls,).
     data_visibilities : array of complex
         Relatively calibrated data. Shape (Ntimes, Nbls,).
-    visibility_weights : array of float
-        Shape (Ntimes, Nbls,).
     uv_array : array of float
         Shape(Nbls, 2,)
+    visibility_weights : array of float
+        Shape (Ntimes, Nbls,).
+
 
     Returns
     -------

@@ -696,6 +696,44 @@ class CalData:
         return uvcal
 
 
+def apply_abscal(uvdata, abscal_params, inplace=False):
+    """
+    Apply absolute calibration solutions to data.
+
+    Parameters
+    ----------
+    uvdata : pyuvdata UVData object
+        pyuvdata UVData object containing the data.
+    abscal_params : array of float
+        Shape (3,). abscal_params[0] is the overall amplitude, abscal_params[1]
+        is the x-phase gradient, and abscal_params[2] is the y-phase gradient.
+    inplace : bool
+        If True, updates uvdata. If False, returns a new UVData object.
+
+    Returns
+    -------
+    uvdata_new : pyuvdata UVData object
+        Returned only if inplace is False.
+    """
+
+    uv_array = uvdata.uvw_array[:, :2]
+    phase_correction = np.exp(
+        1j * np.sum(abscal_params[np.newaxis, 1:] * uv_array, axis=1)
+    )
+    if inplace:
+        uvdata.data_array *= (
+            abscal_params[0] ** 2.0
+            * phase_correction[:, np.newaxis, np.newaxis, np.newaxis]
+        )
+    else:
+        uvdata_new = uvdata.copy()
+        uvdata_new.data_array *= (
+            abscal_params[0] ** 2.0
+            * phase_correction[:, np.newaxis, np.newaxis, np.newaxis]
+        )
+        return uvdata_new
+
+
 def calibrate_caldata_per_pol(
     caldata_obj,
     xtol=1e-4,
