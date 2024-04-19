@@ -1237,16 +1237,16 @@ class TestStringMethods(unittest.TestCase):
         caldata_obj.model_visibilities *= amplitude_perturbation
 
         cost1 = cost_function_calculations.cost_function_abs_cal(
-            caldata_obj.abscal_params[0] + delta_val / 2,
-            caldata_obj.abscal_params[1:],
+            caldata_obj.abscal_params[0, test_freq_ind, test_pol_ind] + delta_val / 2,
+            caldata_obj.abscal_params[1:, test_freq_ind, test_pol_ind],
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.uv_array,
             caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
         )
         cost0 = cost_function_calculations.cost_function_abs_cal(
-            caldata_obj.abscal_params[0] - delta_val / 2,
-            caldata_obj.abscal_params[1:],
+            caldata_obj.abscal_params[0, test_freq_ind, test_pol_ind] - delta_val / 2,
+            caldata_obj.abscal_params[1:, test_freq_ind, test_pol_ind],
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.uv_array,
@@ -1254,8 +1254,8 @@ class TestStringMethods(unittest.TestCase):
         )
 
         amp_jac, phase_jac = cost_function_calculations.jacobian_abs_cal(
-            caldata_obj.abscal_params[0],
-            caldata_obj.abscal_params[1:],
+            caldata_obj.abscal_params[0, test_freq_ind, test_pol_ind],
+            caldata_obj.abscal_params[1:, test_freq_ind, test_pol_ind],
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.uv_array,
@@ -1289,16 +1289,16 @@ class TestStringMethods(unittest.TestCase):
             delta_phase_array = np.zeros(2)
             delta_phase_array[phase_ind] = delta_val / 2
             cost1 = cost_function_calculations.cost_function_abs_cal(
-                caldata_obj.abscal_params[0],
-                caldata_obj.abscal_params[1:] + delta_phase_array,
+                caldata_obj.abscal_params[0, test_freq_ind, test_pol_ind],
+                caldata_obj.abscal_params[1:, test_freq_ind, test_pol_ind] + delta_phase_array,
                 caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
                 caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
                 caldata_obj.uv_array,
                 caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
             )
             cost0 = cost_function_calculations.cost_function_abs_cal(
-                caldata_obj.abscal_params[0],
-                caldata_obj.abscal_params[1:] - delta_phase_array,
+                caldata_obj.abscal_params[0, test_freq_ind, test_pol_ind],
+                caldata_obj.abscal_params[1:, test_freq_ind, test_pol_ind] - delta_phase_array,
                 caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
                 caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
                 caldata_obj.uv_array,
@@ -1306,8 +1306,8 @@ class TestStringMethods(unittest.TestCase):
             )
 
             amp_jac, phase_jac = cost_function_calculations.jacobian_abs_cal(
-                caldata_obj.abscal_params[0],
-                caldata_obj.abscal_params[1:],
+                caldata_obj.abscal_params[0, test_freq_ind, test_pol_ind],
+                caldata_obj.abscal_params[1:, test_freq_ind, test_pol_ind],
                 caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
                 caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
                 caldata_obj.uv_array,
@@ -1337,16 +1337,16 @@ class TestStringMethods(unittest.TestCase):
         caldata_obj.visibility_weights[:, :, :, :] = 1  # Unflag all
 
         amp_jac1, phase_jac1 = cost_function_calculations.jacobian_abs_cal(
-            caldata_obj.abscal_params[0] + delta_val / 2,
-            caldata_obj.abscal_params[1:],
+            caldata_obj.abscal_params[0, test_freq_ind, test_pol_ind] + delta_val / 2,
+            caldata_obj.abscal_params[1:, test_freq_ind, test_pol_ind],
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.uv_array,
             caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
         )
         amp_jac0, phase_jac0 = cost_function_calculations.jacobian_abs_cal(
-            caldata_obj.abscal_params[0] - delta_val / 2,
-            caldata_obj.abscal_params[1:],
+            caldata_obj.abscal_params[0, test_freq_ind, test_pol_ind] - delta_val / 2,
+            caldata_obj.abscal_params[1:, test_freq_ind, test_pol_ind],
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.uv_array,
@@ -1361,8 +1361,8 @@ class TestStringMethods(unittest.TestCase):
             hess_phasey_phasey,
             hess_phasex_phasey,
         ) = cost_function_calculations.hess_abs_cal(
-            caldata_obj.abscal_params[0],
-            caldata_obj.abscal_params[1:],
+            caldata_obj.abscal_params[0, test_freq_ind, test_pol_ind],
+            caldata_obj.abscal_params[1:, test_freq_ind, test_pol_ind],
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.uv_array,
