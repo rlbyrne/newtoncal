@@ -16,7 +16,7 @@ class CalData:
         Shape (Nants, Nfreqs, N_feed_pols,).
     abscal_params : array of float
         Shape (3, Nfreqs, N_feed_pols). abscal_params[0, :, :] are the overall amplitudes,
-        abscal_params[1, :, :] are the x-phase gradients, and abscal_params[2, :, :] 
+        abscal_params[1, :, :] are the x-phase gradients, and abscal_params[2, :, :]
         are the y-phase gradients.
     Nants : int
         Number of antennas.
@@ -374,10 +374,16 @@ class CalData:
         )
 
         # Get UV locations
-        antpos_ecef = self.antenna_positions + metadata_reference.telescope_location  # Get antennas positions in ECEF
-        antpos_enu = pyuvdata.utils.ENU_from_ECEF(antpos_ecef, *metadata_reference.telescope_location_lat_lon_alt)  # Convert to topocentric (East, North, Up or ENU) coords.
-        uvw_array = np.matmul(self.gains_exp_mat_1, antpos_enu) - np.matmul(self.gains_exp_mat_2, antpos_enu)
-        self.uv_array = uvw_array.T[:, :2]
+        antpos_ecef = (
+            self.antenna_positions + metadata_reference.telescope_location
+        )  # Get antennas positions in ECEF
+        antpos_enu = pyuvdata.utils.ENU_from_ECEF(
+            antpos_ecef, *metadata_reference.telescope_location_lat_lon_alt
+        )  # Convert to topocentric (East, North, Up or ENU) coords.
+        uvw_array = np.matmul(self.gains_exp_mat_1, antpos_enu) - np.matmul(
+            self.gains_exp_mat_2, antpos_enu
+        )
+        self.uv_array = uvw_array[:, :2]
 
         # Get polarization ordering
         self.vis_polarization_array = np.array(metadata_reference.polarization_array)
@@ -518,6 +524,7 @@ class CalData:
         for freq_ind in range(self.Nfreqs):
             caldata_per_freq = CalData()
             caldata_per_freq.gains = self.gains[:, [freq_ind], :]
+            caldata_per_freq.abscal_params = self.abscal_params[:, [freq_ind], :]
             caldata_per_freq.Nants = self.Nants
             caldata_per_freq.Nbls = self.Nbls
             caldata_per_freq.Ntimes = self.Ntimes
@@ -568,6 +575,7 @@ class CalData:
             caldata_per_pol = CalData()
             sky_pol_ind = np.where(self.vis_polarization_array == pol)[0][0]
             caldata_per_pol.gains = self.gains[:, :, [feed_pol_ind]]
+            caldata_per_pol.abscal_params = self.abscal_params[:, :, [feed_pol_ind]]
             caldata_per_pol.Nants = self.Nants
             caldata_per_pol.Nbls = self.Nbls
             caldata_per_pol.Ntimes = self.Ntimes
@@ -730,8 +738,30 @@ def apply_abscal(uvdata, abscal_params, feed_polarization_array, inplace=False):
     if not inplace:
         uvdata_new = uvdata.copy()
 
-    uv_array = uvdata.uvw_array[:, :2]
-    for vis_pol_ind, vis_pol in enumerate(uv_array.polarization_array):
+    # Get antenna locations
+    # Create gains expand matrices
+    gains_exp_mat_1 = np.zeros((uvdata.Nbls, uvdata.Nants), dtype=int)
+    gains_exp_mat_2 = np.zeros((uvdata.Nbls, uvdata.Nants), dtype=int)
+    for baseline in range(uvdata.Nbls):
+        gains_exp_mat_1[
+            baseline,
+            np.where(uvdata.antenna_numbers == uvdata.ant_1_array[baseline]),
+        ] = 1
+        gains_exp_mat_2[
+            baseline,
+            np.where(uvdata.antenna_numbers == uvdata.ant_2_array[baseline]),
+        ] = 1
+    antpos_ecef = (
+        uvdata.antenna_positions + uvdata.telescope_location
+    )  # Get antennas positions in ECEF
+    antpos_enu = pyuvdata.utils.ENU_from_ECEF(
+        antpos_ecef, *uvdata.telescope_location_lat_lon_alt
+    )  # Convert to topocentric (East, North, Up or ENU) coords.
+    antpos_en = antpos_enu[:, :2]
+    ant1_positions = np.matmul(gains_exp_mat_1, antpos_en)
+    ant2_positions = np.matmul(gains_exp_mat_2, antpos_en)
+
+    for vis_pol_ind, vis_pol in enumerate(uvdata.polarization_array):
         if vis_pol == -5:
             pol1 = pol2 = np.where(feed_polarization_array == -5)[0]
         elif vis_pol == -6:
@@ -743,37 +773,33 @@ def apply_abscal(uvdata, abscal_params, feed_polarization_array, inplace=False):
             pol1 = np.where(feed_polarization_array == -6)[0]
             pol2 = np.where(feed_polarization_array == -5)[0]
         else:
-            print(f"ERROR: Polarization {vis_pol} not supported.")
+            print(f"ERROR: Polarization {vis_pol} not recognized.")
             sys.exit(1)
 
         amp_term = abscal_params[0, :, pol1] * abscal_params[0, :, pol2]
-        if pol1 == pol2:  # uvw_array can be used
-            phase_correction = np.exp(
-                1j * np.sum(abscal_params[np.newaxis, 1:, :, pol1] * uv_array[:, :, np.newaxis, np.newaxis], axis=1)
+        phase_correction = np.exp(
+            1j
+            * (
+                abscal_params[1, np.newaxis, :, pol1] * ant1_positions[:, np.newaxis, 0]
+                - abscal_params[1, np.newaxis, :, pol2]
+                * ant2_positions[:, np.newaxis, 0]
+                + abscal_params[2, np.newaxis, :, pol1]
+                * ant1_positions[:, np.newaxis, 1]
+                - abscal_params[2, np.newaxis, :, pol2]
+                * ant2_positions[:, np.newaxis, 1]
             )
-        else:  # get antenna positions
-            telescope_location = uvdata.telescope_location_lat_lon_alt
-
-            new_uvw = uvutils.calc_uvw(
-                app_ra=uvdata.phase_center_app_ra,
-                app_dec=uvdata.phase_center_app_dec,
-                frame_pa=uvdata.phase_center_frame_pa,
-                lst_array=uvdata.lst_array,
-                use_ant_pos=True,
-                antenna_positions=uvdata.antenna_positions,
-                antenna_numbers=uvdata.antenna_numbers,
-                ant_1_array=uvdata.ant_1_array,
-                ant_2_array=uvdata.ant_2_array,
-                telescope_lat=telescope_location[0],
-                telescope_lon=telescope_location[1],
-            )
+        )
 
         if inplace:
-            uvdata.data_array[:, :, :, vis_pol_ind] *= amp_term[np.newaxis, np.newaxis, :] * phase_correction[:, np.newaxis, :]
+            uvdata.data_array[:, :, :, vis_pol_ind] *= (
+                amp_term[np.newaxis, np.newaxis, :] * phase_correction[:, np.newaxis, :]
+            )
         else:
-            uvdata_new.data_array[:, :, :, vis_pol_ind] *= amp_term[np.newaxis, np.newaxis, :] * phase_correction[:, np.newaxis, :]
-            
-    if not inplace:    
+            uvdata_new.data_array[:, :, :, vis_pol_ind] *= (
+                amp_term[np.newaxis, np.newaxis, :] * phase_correction[:, np.newaxis, :]
+            )
+
+    if not inplace:
         return uvdata_new
 
 
