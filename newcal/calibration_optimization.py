@@ -151,6 +151,121 @@ def hessian_single_pol_wrapper(
     return hess_flattened
 
 
+def cost_abscal_wrapper(abscal_parameters, caldata_obj):
+
+    cost = cost_function_calculations.cost_function_abs_cal(
+        abscal_parameters[0],
+        abscal_parameters[1:],
+        caldata_obj.model_visibilities[:, :, 0, 0],
+        caldata_obj.data_visibilities[:, :, 0, 0],
+        caldata_obj.uv_array,
+        caldata_obj.visibility_weights[:, :, 0, 0],
+    )
+    return cost
+
+
+def jacobian_abscal_wrapper(abscal_parameters, caldata_obj):
+
+    jac = np.zeros((3,), dtype=float)
+    amp_jac, phase_jac = cost_function_calculations.jacobian_abs_cal(
+        abscal_parameters[0],
+        abscal_parameters[1:],
+        caldata_obj.model_visibilities[:, :, 0, 0],
+        caldata_obj.data_visibilities[:, :, 0, 0],
+        caldata_obj.uv_array,
+        caldata_obj.visibility_weights[:, :, 0, 0],
+    )
+    jac[0] = amp_jac
+    jac[1:] = phase_jac
+    return jac
+
+
+def hessian_abscal_wrapper(abscal_parameters, caldata_obj):
+
+    hess = np.zeros(
+        (
+            3,
+            3,
+        ),
+        dtype=float,
+    )
+    (
+        hess_amp_amp,
+        hess_amp_phasex,
+        hess_amp_phasey,
+        hess_phasex_phasex,
+        hess_phasey_phasey,
+        hess_phasex_phasey,
+    ) = cost_function_calculations.hess_abs_cal(
+        abscal_parameters[0],
+        abscal_parameters[1:],
+        caldata_obj.model_visibilities[:, :, 0, 0],
+        caldata_obj.data_visibilities[:, :, 0, 0],
+        caldata_obj.uv_array,
+        caldata_obj.visibility_weights[:, :, 0, 0],
+    )
+    hess[0, 0] = hess_amp_amp
+    hess[0, 1] = hess[1, 0] = hess_amp_phasex
+    hess[0, 2] = hess[2, 0] = hess_amp_phasey
+    hess[1, 1] = hess_phasex_phasex
+    hess[2, 2] = hess_phasey_phasey
+    hess[1, 2] = hess[2, 1] = hess_phasex_phasey
+    return hess
+
+
+def run_abscal_optimization_single_freq(
+    caldata_obj,
+    xtol,
+    maxiter,
+    verbose=True,
+    return_abscal_params=False,
+):
+    """
+    Run absolute calibration ("abscal").
+
+    Parameters
+    ----------
+    caldata_obj : CalData
+    xtol : float
+        Accuracy tolerance for optimizer.
+    maxiter : int
+        Maximum number of iterations for the optimizer.
+    verbose : bool
+        Set to True to print optimization outputs. Default True.
+    return_abscal_params : bool
+        Set to True to return abscal parameter values as an array. Default False.
+
+    Returns
+    -------
+    abscal_params : array of complex
+        Fit abscal parameter values. Shape (3, 1, N_feed_pols,). Returned only if
+        return_abscal_params is True.
+    """
+
+    caldata_list = caldata_obj.expand_in_polarization()
+    for feed_pol_ind, caldata_per_pol in enumerate(caldata_list):
+        # Minimize the cost function
+        start_optimize = time.time()
+        result = scipy.optimize.minimize(
+            cost_abscal_wrapper,
+            caldata_per_pol.abscal_params[:, 0, 0],
+            args=(caldata_per_pol),
+            method="Newton-CG",
+            jac=jacobian_abscal_wrapper,
+            hess=hessian_abscal_wrapper,
+            options={"disp": verbose, "xtol": xtol, "maxiter": maxiter},
+        )
+        caldata_obj.abscal_params[:, :, feed_pol_ind] = result.x
+        end_optimize = time.time()
+        if verbose:
+            print(result.message)
+            print(f"Optimization time: {(end_optimize - start_optimize)/60.} minutes")
+        sys.stdout.flush()
+
+    if return_abscal_params:
+        return caldata_obj.abscal_params
+
+
 def run_calibration_optimization_per_pol_single_freq(
     caldata_obj,
     xtol,

@@ -16,8 +16,8 @@ class CalData:
         Shape (Nants, Nfreqs, N_feed_pols,).
     abscal_params : array of float
         Shape (3, Nfreqs, N_feed_pols). abscal_params[0, :, :] are the overall amplitudes,
-        abscal_params[1, :, :] are the x-phase gradients, and abscal_params[2, :, :]
-        are the y-phase gradients.
+        abscal_params[1, :, :] are the x-phase gradients in units 1/m, and abscal_params[2, :, :]
+        are the y-phase gradients in units 1/m.
     Nants : int
         Number of antennas.
     Nbls : int
@@ -547,6 +547,7 @@ class CalData:
             caldata_per_freq.antenna_names = self.antenna_names
             caldata_per_freq.antenna_numbers = self.antenna_numbers
             caldata_per_freq.antenna_positions = self.antenna_positions
+            caldata_per_freq.uv_array = self.uv_array
             caldata_per_freq.channel_width = self.channel_width
             caldata_per_freq.freq_array = self.freq_array[[freq_ind]]
             caldata_per_freq.integration_time = self.integration_time
@@ -602,6 +603,7 @@ class CalData:
             caldata_per_pol.antenna_names = self.antenna_names
             caldata_per_pol.antenna_numbers = self.antenna_numbers
             caldata_per_pol.antenna_positions = self.antenna_positions
+            caldata_per_pol.uv_array = self.uv_array
             caldata_per_pol.channel_width = self.channel_width
             caldata_per_pol.freq_array = self.freq_array
             caldata_per_pol.integration_time = self.integration_time
@@ -721,8 +723,8 @@ def apply_abscal(uvdata, abscal_params, feed_polarization_array, inplace=False):
         pyuvdata UVData object containing the data.
     abscal_params : array of float
         Shape (3, Nfreqs, N_feed_pols). abscal_params[0, :, :] are the overall amplitudes,
-        abscal_params[1, :, :] are the x-phase gradients, and abscal_params[2, :, :]
-        are the y-phase gradients.
+        abscal_params[1, :, :] are the x-phase gradients in units 1/m, and abscal_params[2, :, :]
+        are the y-phase gradients in units 1/m.
     feed_polarization_array : array of int
         Shape (N_feed_pols). Array of polarization integers. Indicates the
         ordering of the polarization axis of the gains. X is -5 and Y is -6.
@@ -801,6 +803,166 @@ def apply_abscal(uvdata, abscal_params, feed_polarization_array, inplace=False):
 
     if not inplace:
         return uvdata_new
+
+
+def absolute_calibration(
+    data_file_path,
+    model_file_path,
+    data_use_column="DATA",
+    model_use_column="MODEL_DATA",
+    N_feed_pols=None,
+    feed_polarization_array=None,
+    min_cal_baseline_m=None,
+    max_cal_baseline_m=None,
+    min_cal_baseline_lambda=None,
+    max_cal_baseline_lambda=None,
+    xtol=1e-4,
+    maxiter=100,
+    verbose=False,
+    log_file_path=None,
+):
+    """
+    Top-level wrapper for running absolute calibration ("abscal").
+
+    Parameters
+    ----------
+    data_file_path : str
+        Path to the ms or uvfits file containing the relatively calibrated
+        data visibilities.
+    model_file_path : str
+        Path to the ms or uvfits file containing the model visibilities.
+    data_use_column : str
+        Column in an ms file to use for the data visibilities. Used only if
+        data_file_path points to an ms file. Default "DATA".
+    model_use_column : str
+        Column in an ms file to use for the model visibilities. Used only if
+        data_file_path points to an ms file. Default "MODEL_DATA".
+    N_feed_pols : int
+        Default min(2, N_vis_pols). Number of feed polarizations, equal to
+        the number of gain values to be calculated per antenna.
+    feed_polarization_array : array of int or None
+        Feed polarizations to calibrate. Shape (N_feed_pols,). Options are
+        -5 for X or -6 for Y. Default None. If None, feed_polarization_array
+        is set to ([-5, -6])[:N_feed_pols].
+    min_cal_baseline_m : float or None
+        Minimum baseline length, in meters, to use in calibration. If both
+        min_cal_baseline_m and min_cal_baseline_lambda are None, arbitrarily
+        short baselines are used. Default None.
+    max_cal_baseline_m : float or None
+        Maximum baseline length, in meters, to use in calibration. If both
+        max_cal_baseline_m and max_cal_baseline_lambda are None, arbitrarily
+        long baselines are used. Default None.
+    min_cal_baseline_lambda : float or None
+        Minimum baseline length, in wavelengths, to use in calibration. If
+        both min_cal_baseline_m and min_cal_baseline_lambda are None,
+        arbitrarily short baselines are used. Default None.
+    max_cal_baseline_lambda : float or None
+        Maximum baseline length, in wavelengths, to use in calibration. If
+        both max_cal_baseline_m and max_cal_baseline_lambda are None,
+        arbitrarily long baselines are used. Default None.
+    xtol : float
+        Accuracy tolerance for optimizer. Default 1e-8.
+    maxiter : int
+        Maximum number of iterations for the optimizer. Default 100.
+    verbose : bool
+        Set to True to print optimization outputs. Default False.
+    log_file_path : str or None
+        Path to the log file. Default None.
+    Returns
+    -------
+    abscal_params : array of float
+        Shape (3, Nfreqs, N_feed_pols). abscal_params[0, :, :] are the overall amplitudes,
+        abscal_params[1, :, :] are the x-phase gradients in units 1/m, and abscal_params[2, :, :]
+        are the y-phase gradients in units 1/m.
+    """
+
+    if log_file_path is not None:
+        stdout_orig = sys.stdout
+        stderr_orig = sys.stderr
+        sys.stdout = sys.stderr = log_file_new = open(log_file_path, "w")
+
+    start_time = time.time()
+
+    if verbose:
+        print("Reading data...")
+        sys.stdout.flush()
+        data_read_start_time = time.time()
+
+    # Read data
+    data = pyuvdata.UVData()
+    if data_file_path.endswith(".ms"):
+        data.read_ms(data_file_path, data_column=data_use_column)
+    elif data_file_path.endswith(".uvfits"):
+        data.read_uvfits(data_file_path)
+    else:
+        print(f"ERROR: Unsupported file type for data file {data_file_path}. Exiting.")
+        sys.exit(1)
+    model = pyuvdata.UVData()
+    if model_file_path.endswith(".ms"):
+        model.read_ms(model_file_path, data_column=model_use_column)
+    elif model_file_path.endswith(".uvfits"):
+        model.read_uvfits(model_file_path)
+    else:
+        print(
+            f"ERROR: Unsupported file type for model file {model_file_path}. Exiting."
+        )
+
+    if verbose:
+        print(
+            f"Done. Data read time {(time.time() - data_read_start_time)/60.} minutes."
+        )
+        print("Formatting data...")
+        sys.stdout.flush()
+        data_format_start_time = time.time()
+
+    caldata_obj = CalData()
+    caldata_obj.load_data(
+        data,
+        model,
+        N_feed_pols=N_feed_pols,
+        feed_polarization_array=feed_polarization_array,
+        min_cal_baseline_m=min_cal_baseline_m,
+        max_cal_baseline_m=max_cal_baseline_m,
+        min_cal_baseline_lambda=min_cal_baseline_lambda,
+        max_cal_baseline_lambda=max_cal_baseline_lambda,
+    )
+
+    if verbose:
+        print(
+            f"Done. Data formatting time {(time.time() - data_format_start_time)/60.} minutes."
+        )
+        print("Running calibration optimization...")
+        sys.stdout.flush()
+
+    # Expand CalData object into per-frequency objects
+    caldata_list = caldata_obj.expand_in_frequency()
+
+    optimization_start_time = time.time()
+
+    for freq_ind in range(caldata_obj.Nfreqs):
+        calibration_optimization.run_abscal_optimization_single_freq(
+            caldata_list[freq_ind],
+            xtol,
+            maxiter,
+            verbose=verbose,
+        )
+        caldata_obj.abscal_params[:, [freq_ind], :] = caldata_list[
+            freq_ind
+        ].abscal_params[:, [0], :]
+
+    if verbose:
+        print(
+            f"Done. Optimization time: {caldata_obj.Nfreqs} frequency channels in {(time.time() - optimization_start_time)/60.} minutes"
+        )
+        print(f"Total processing time {(time.time() - start_time)/60.} minutes.")
+        sys.stdout.flush()
+
+    if log_file_path is not None:
+        sys.stdout = stdout_orig
+        sys.stderr = stderr_orig
+        log_file_new.close()
+
+    return caldata_obj.abscal_params
 
 
 def calibrate_caldata_per_pol(
