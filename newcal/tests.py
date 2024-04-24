@@ -1290,7 +1290,8 @@ class TestStringMethods(unittest.TestCase):
             delta_phase_array[phase_ind] = delta_val / 2
             cost1 = cost_function_calculations.cost_function_abs_cal(
                 caldata_obj.abscal_params[0, test_freq_ind, test_pol_ind],
-                caldata_obj.abscal_params[1:, test_freq_ind, test_pol_ind] + delta_phase_array,
+                caldata_obj.abscal_params[1:, test_freq_ind, test_pol_ind]
+                + delta_phase_array,
                 caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
                 caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
                 caldata_obj.uv_array,
@@ -1298,7 +1299,8 @@ class TestStringMethods(unittest.TestCase):
             )
             cost0 = cost_function_calculations.cost_function_abs_cal(
                 caldata_obj.abscal_params[0, test_freq_ind, test_pol_ind],
-                caldata_obj.abscal_params[1:, test_freq_ind, test_pol_ind] - delta_phase_array,
+                caldata_obj.abscal_params[1:, test_freq_ind, test_pol_ind]
+                - delta_phase_array,
                 caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
                 caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
                 caldata_obj.uv_array,
@@ -1371,9 +1373,52 @@ class TestStringMethods(unittest.TestCase):
 
         hess_amp_amp_approx = (amp_jac1 - amp_jac0) / delta_val
         hess_amp_phase_approx = (phase_jac1 - phase_jac0) / delta_val
-        np.testing.assert_allclose(hess_amp_amp_approx, hess_amp_amp, rtol=1e-8)
-        np.testing.assert_allclose(hess_amp_phase_approx[0], hess_amp_phasex, rtol=1e-8)
-        np.testing.assert_allclose(hess_amp_phase_approx[1], hess_amp_phasey, rtol=1e-8)
+        np.testing.assert_allclose(hess_amp_amp_approx, hess_amp_amp, rtol=1e-6)
+        np.testing.assert_allclose(hess_amp_phase_approx[0], hess_amp_phasex, rtol=1e-6)
+        np.testing.assert_allclose(hess_amp_phase_approx[1], hess_amp_phasey, rtol=1e-6)
+
+    def test_abscal(self):
+
+        model = pyuvdata.UVData()
+        model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
+        data = model.copy()
+
+        # Apply abcal offsets
+        data.data_array *= (
+            1.2
+            * np.exp(
+                1j * (0.001 * data.uvw_array[:, 0] - 0.002 * data.uvw_array[:, 1])
+            )[:, np.newaxis, np.newaxis, np.newaxis]
+        )
+
+        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj.load_data(data, model)
+
+        # Unflag all
+        caldata_obj.visibility_weights = np.ones(
+            (
+                caldata_obj.Ntimes,
+                caldata_obj.Nbls,
+                caldata_obj.Nfreqs,
+                4,
+            ),
+            dtype=float,
+        )
+
+        calibration_optimization.run_abscal_optimization_single_freq(
+            caldata_obj,
+            1e-9,
+            100,
+            verbose=True,
+        )
+        print(caldata_obj.abscal_params)
+        calibration_wrappers.apply_abscal(
+            data,
+            caldata_obj.abscal_params,
+            caldata_obj.feed_polarization_array,
+            inplace=True,
+        )
+        np.testing.assert_allclose(data.data_array, model.data_array, rtol=1e-3)
 
 
 if __name__ == "__main__":

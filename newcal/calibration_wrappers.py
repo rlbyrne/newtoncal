@@ -493,7 +493,7 @@ class CalData:
 
         # Initialize abscal parameters
         self.abscal_params = np.zeros((3, self.Nfreqs, self.N_feed_pols), dtype=float)
-        self.abscal_params[1, :, :] = 1.0
+        self.abscal_params[0, :, :] = 1.0
 
         # Define visibility weights
         self.visibility_weights = np.ones(
@@ -742,9 +742,9 @@ def apply_abscal(uvdata, abscal_params, feed_polarization_array, inplace=False):
 
     # Get antenna locations
     # Create gains expand matrices
-    gains_exp_mat_1 = np.zeros((uvdata.Nbls, uvdata.Nants), dtype=int)
-    gains_exp_mat_2 = np.zeros((uvdata.Nbls, uvdata.Nants), dtype=int)
-    for baseline in range(uvdata.Nbls):
+    gains_exp_mat_1 = np.zeros((uvdata.Nblts, len(uvdata.antenna_numbers)), dtype=int)
+    gains_exp_mat_2 = np.zeros((uvdata.Nblts, len(uvdata.antenna_numbers)), dtype=int)
+    for baseline in range(uvdata.Nblts):
         gains_exp_mat_1[
             baseline,
             np.where(uvdata.antenna_numbers == uvdata.ant_1_array[baseline]),
@@ -765,20 +765,22 @@ def apply_abscal(uvdata, abscal_params, feed_polarization_array, inplace=False):
 
     for vis_pol_ind, vis_pol in enumerate(uvdata.polarization_array):
         if vis_pol == -5:
-            pol1 = pol2 = np.where(feed_polarization_array == -5)[0]
+            pol1 = pol2 = np.where(feed_polarization_array == -5)[0][0]
         elif vis_pol == -6:
-            pol1 = pol2 = np.where(feed_polarization_array == -6)[0]
+            pol1 = pol2 = np.where(feed_polarization_array == -6)[0][0]
         elif vis_pol == -7:
-            pol1 = np.where(feed_polarization_array == -5)[0]
-            pol2 = np.where(feed_polarization_array == -6)[0]
+            pol1 = np.where(feed_polarization_array == -5)[0][0]
+            pol2 = np.where(feed_polarization_array == -6)[0][0]
         elif vis_pol == -8:
-            pol1 = np.where(feed_polarization_array == -6)[0]
-            pol2 = np.where(feed_polarization_array == -5)[0]
+            pol1 = np.where(feed_polarization_array == -6)[0][0]
+            pol2 = np.where(feed_polarization_array == -5)[0][0]
         else:
             print(f"ERROR: Polarization {vis_pol} not recognized.")
             sys.exit(1)
 
-        amp_term = abscal_params[0, :, pol1] * abscal_params[0, :, pol2]
+        amp_term = (
+            abscal_params[0, :, pol1] * abscal_params[0, :, pol2]
+        )  # Shape (Nfreqs,)
         phase_correction = np.exp(
             1j
             * (
@@ -790,7 +792,7 @@ def apply_abscal(uvdata, abscal_params, feed_polarization_array, inplace=False):
                 - abscal_params[2, np.newaxis, :, pol2]
                 * ant2_positions[:, np.newaxis, 1]
             )
-        )
+        )  # Shape (Nbls, Nfreqs,)
 
         if inplace:
             uvdata.data_array[:, :, :, vis_pol_ind] *= (

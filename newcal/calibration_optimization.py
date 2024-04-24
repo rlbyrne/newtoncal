@@ -255,7 +255,7 @@ def run_abscal_optimization_single_freq(
             hess=hessian_abscal_wrapper,
             options={"disp": verbose, "xtol": xtol, "maxiter": maxiter},
         )
-        caldata_obj.abscal_params[:, :, feed_pol_ind] = result.x
+        caldata_obj.abscal_params[:, 0, feed_pol_ind] = result.x
         end_optimize = time.time()
         if verbose:
             print(result.message)
