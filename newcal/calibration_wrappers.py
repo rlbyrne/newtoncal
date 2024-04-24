@@ -14,6 +14,10 @@ class CalData:
     -------
     gains : array of complex
         Shape (Nants, Nfreqs, N_feed_pols,).
+    abscal_params : array of float
+        Shape (3, Nfreqs, N_feed_pols). abscal_params[0, :, :] are the overall amplitudes,
+        abscal_params[1, :, :] are the x-phase gradients in units 1/m, and abscal_params[2, :, :]
+        are the y-phase gradients in units 1/m.
     Nants : int
         Number of antennas.
     Nbls : int
@@ -50,6 +54,8 @@ class CalData:
         Shape (Nants,). Ordering matches the ordering of the gains attribute.
     antenna_positions : array of float
         Shape (Nants, 3,). Units meters, relative to telescope location.
+    uv_array : array of float
+        Shape (Nbls, 2,). Baseline positions in the UV plane, units meters.
     channel_width : float
         Width of frequency channels in Hz.
     freq_array : array of float
@@ -68,6 +74,7 @@ class CalData:
 
     def __init__(self):
         self.gains = None
+        self.abscal_params = None
         self.Nants = 0
         self.Nbls = 0
         self.Ntimes = 0
@@ -84,6 +91,7 @@ class CalData:
         self.antenna_names = None
         self.antenna_numbers = None
         self.antenna_positions = None
+        self.uv_array = None
         self.channel_width = None
         self.freq_array = None
         self.integration_time = None
@@ -365,6 +373,18 @@ class CalData:
             ]
         )
 
+        # Get UV locations
+        antpos_ecef = (
+            self.antenna_positions + metadata_reference.telescope_location
+        )  # Get antennas positions in ECEF
+        antpos_enu = pyuvdata.utils.ENU_from_ECEF(
+            antpos_ecef, *metadata_reference.telescope_location_lat_lon_alt
+        )  # Convert to topocentric (East, North, Up or ENU) coords.
+        uvw_array = np.matmul(self.gains_exp_mat_1, antpos_enu) - np.matmul(
+            self.gains_exp_mat_2, antpos_enu
+        )
+        self.uv_array = uvw_array[:, :2]
+
         # Get polarization ordering
         self.vis_polarization_array = np.array(metadata_reference.polarization_array)
 
@@ -471,6 +491,10 @@ class CalData:
                 ),
             )
 
+        # Initialize abscal parameters
+        self.abscal_params = np.zeros((3, self.Nfreqs, self.N_feed_pols), dtype=float)
+        self.abscal_params[0, :, :] = 1.0
+
         # Define visibility weights
         self.visibility_weights = np.ones(
             (
@@ -500,6 +524,7 @@ class CalData:
         for freq_ind in range(self.Nfreqs):
             caldata_per_freq = CalData()
             caldata_per_freq.gains = self.gains[:, [freq_ind], :]
+            caldata_per_freq.abscal_params = self.abscal_params[:, [freq_ind], :]
             caldata_per_freq.Nants = self.Nants
             caldata_per_freq.Nbls = self.Nbls
             caldata_per_freq.Ntimes = self.Ntimes
@@ -522,6 +547,7 @@ class CalData:
             caldata_per_freq.antenna_names = self.antenna_names
             caldata_per_freq.antenna_numbers = self.antenna_numbers
             caldata_per_freq.antenna_positions = self.antenna_positions
+            caldata_per_freq.uv_array = self.uv_array
             caldata_per_freq.channel_width = self.channel_width
             caldata_per_freq.freq_array = self.freq_array[[freq_ind]]
             caldata_per_freq.integration_time = self.integration_time
@@ -550,6 +576,7 @@ class CalData:
             caldata_per_pol = CalData()
             sky_pol_ind = np.where(self.vis_polarization_array == pol)[0][0]
             caldata_per_pol.gains = self.gains[:, :, [feed_pol_ind]]
+            caldata_per_pol.abscal_params = self.abscal_params[:, :, [feed_pol_ind]]
             caldata_per_pol.Nants = self.Nants
             caldata_per_pol.Nbls = self.Nbls
             caldata_per_pol.Ntimes = self.Ntimes
@@ -576,6 +603,7 @@ class CalData:
             caldata_per_pol.antenna_names = self.antenna_names
             caldata_per_pol.antenna_numbers = self.antenna_numbers
             caldata_per_pol.antenna_positions = self.antenna_positions
+            caldata_per_pol.uv_array = self.uv_array
             caldata_per_pol.channel_width = self.channel_width
             caldata_per_pol.freq_array = self.freq_array
             caldata_per_pol.integration_time = self.integration_time
@@ -651,7 +679,8 @@ class CalData:
         uvcal.lst_array = np.array([self.lst])
         uvcal.telescope_location = self.telescope_location
         uvcal.time_array = np.array([self.time])
-        uvcal.time_range = np.array([self.time, self.time])
+        uvcal.time_range = np.array([self.time, self.time])[np.newaxis, :]
+        uvcal.lst_range = np.array([self.lst, self.lst])[np.newaxis, :]
         uvcal.x_orientation = "east"
         uvcal.gain_array = self.gains[:, np.newaxis, :, np.newaxis, :]
         uvcal.ref_antenna_name = "none"
@@ -682,6 +711,260 @@ class CalData:
             print("ERROR: UVCal check failed.")
 
         return uvcal
+
+
+def apply_abscal(uvdata, abscal_params, feed_polarization_array, inplace=False):
+    """
+    Apply absolute calibration solutions to data.
+
+    Parameters
+    ----------
+    uvdata : pyuvdata UVData object
+        pyuvdata UVData object containing the data.
+    abscal_params : array of float
+        Shape (3, Nfreqs, N_feed_pols). abscal_params[0, :, :] are the overall amplitudes,
+        abscal_params[1, :, :] are the x-phase gradients in units 1/m, and abscal_params[2, :, :]
+        are the y-phase gradients in units 1/m.
+    feed_polarization_array : array of int
+        Shape (N_feed_pols). Array of polarization integers. Indicates the
+        ordering of the polarization axis of the gains. X is -5 and Y is -6.
+    inplace : bool
+        If True, updates uvdata. If False, returns a new UVData object.
+
+    Returns
+    -------
+    uvdata_new : pyuvdata UVData object
+        Returned only if inplace is False.
+    """
+
+    if not inplace:
+        uvdata_new = uvdata.copy()
+
+    # Get antenna locations
+    # Create gains expand matrices
+    gains_exp_mat_1 = np.zeros((uvdata.Nblts, len(uvdata.antenna_numbers)), dtype=int)
+    gains_exp_mat_2 = np.zeros((uvdata.Nblts, len(uvdata.antenna_numbers)), dtype=int)
+    for baseline in range(uvdata.Nblts):
+        gains_exp_mat_1[
+            baseline,
+            np.where(uvdata.antenna_numbers == uvdata.ant_1_array[baseline]),
+        ] = 1
+        gains_exp_mat_2[
+            baseline,
+            np.where(uvdata.antenna_numbers == uvdata.ant_2_array[baseline]),
+        ] = 1
+    antpos_ecef = (
+        uvdata.antenna_positions + uvdata.telescope_location
+    )  # Get antennas positions in ECEF
+    antpos_enu = pyuvdata.utils.ENU_from_ECEF(
+        antpos_ecef, *uvdata.telescope_location_lat_lon_alt
+    )  # Convert to topocentric (East, North, Up or ENU) coords.
+    antpos_en = antpos_enu[:, :2]
+    ant1_positions = np.matmul(gains_exp_mat_1, antpos_en)
+    ant2_positions = np.matmul(gains_exp_mat_2, antpos_en)
+
+    for vis_pol_ind, vis_pol in enumerate(uvdata.polarization_array):
+        if vis_pol == -5:
+            pol1 = pol2 = np.where(feed_polarization_array == -5)[0][0]
+        elif vis_pol == -6:
+            pol1 = pol2 = np.where(feed_polarization_array == -6)[0][0]
+        elif vis_pol == -7:
+            pol1 = np.where(feed_polarization_array == -5)[0][0]
+            pol2 = np.where(feed_polarization_array == -6)[0][0]
+        elif vis_pol == -8:
+            pol1 = np.where(feed_polarization_array == -6)[0][0]
+            pol2 = np.where(feed_polarization_array == -5)[0][0]
+        else:
+            print(f"ERROR: Polarization {vis_pol} not recognized.")
+            sys.exit(1)
+
+        amp_term = (
+            abscal_params[0, :, pol1] * abscal_params[0, :, pol2]
+        )  # Shape (Nfreqs,)
+        phase_correction = np.exp(
+            1j
+            * (
+                abscal_params[1, np.newaxis, :, pol1] * ant1_positions[:, np.newaxis, 0]
+                - abscal_params[1, np.newaxis, :, pol2]
+                * ant2_positions[:, np.newaxis, 0]
+                + abscal_params[2, np.newaxis, :, pol1]
+                * ant1_positions[:, np.newaxis, 1]
+                - abscal_params[2, np.newaxis, :, pol2]
+                * ant2_positions[:, np.newaxis, 1]
+            )
+        )  # Shape (Nbls, Nfreqs,)
+
+        if inplace:
+            uvdata.data_array[:, :, :, vis_pol_ind] *= (
+                amp_term[np.newaxis, np.newaxis, :] * phase_correction[:, np.newaxis, :]
+            )
+        else:
+            uvdata_new.data_array[:, :, :, vis_pol_ind] *= (
+                amp_term[np.newaxis, np.newaxis, :] * phase_correction[:, np.newaxis, :]
+            )
+
+    if not inplace:
+        return uvdata_new
+
+
+def absolute_calibration(
+    data_file_path,
+    model_file_path,
+    data_use_column="DATA",
+    model_use_column="MODEL_DATA",
+    N_feed_pols=None,
+    feed_polarization_array=None,
+    min_cal_baseline_m=None,
+    max_cal_baseline_m=None,
+    min_cal_baseline_lambda=None,
+    max_cal_baseline_lambda=None,
+    xtol=1e-4,
+    maxiter=100,
+    verbose=False,
+    log_file_path=None,
+):
+    """
+    Top-level wrapper for running absolute calibration ("abscal").
+
+    Parameters
+    ----------
+    data_file_path : str
+        Path to the ms or uvfits file containing the relatively calibrated
+        data visibilities.
+    model_file_path : str
+        Path to the ms or uvfits file containing the model visibilities.
+    data_use_column : str
+        Column in an ms file to use for the data visibilities. Used only if
+        data_file_path points to an ms file. Default "DATA".
+    model_use_column : str
+        Column in an ms file to use for the model visibilities. Used only if
+        data_file_path points to an ms file. Default "MODEL_DATA".
+    N_feed_pols : int
+        Default min(2, N_vis_pols). Number of feed polarizations, equal to
+        the number of gain values to be calculated per antenna.
+    feed_polarization_array : array of int or None
+        Feed polarizations to calibrate. Shape (N_feed_pols,). Options are
+        -5 for X or -6 for Y. Default None. If None, feed_polarization_array
+        is set to ([-5, -6])[:N_feed_pols].
+    min_cal_baseline_m : float or None
+        Minimum baseline length, in meters, to use in calibration. If both
+        min_cal_baseline_m and min_cal_baseline_lambda are None, arbitrarily
+        short baselines are used. Default None.
+    max_cal_baseline_m : float or None
+        Maximum baseline length, in meters, to use in calibration. If both
+        max_cal_baseline_m and max_cal_baseline_lambda are None, arbitrarily
+        long baselines are used. Default None.
+    min_cal_baseline_lambda : float or None
+        Minimum baseline length, in wavelengths, to use in calibration. If
+        both min_cal_baseline_m and min_cal_baseline_lambda are None,
+        arbitrarily short baselines are used. Default None.
+    max_cal_baseline_lambda : float or None
+        Maximum baseline length, in wavelengths, to use in calibration. If
+        both max_cal_baseline_m and max_cal_baseline_lambda are None,
+        arbitrarily long baselines are used. Default None.
+    xtol : float
+        Accuracy tolerance for optimizer. Default 1e-8.
+    maxiter : int
+        Maximum number of iterations for the optimizer. Default 100.
+    verbose : bool
+        Set to True to print optimization outputs. Default False.
+    log_file_path : str or None
+        Path to the log file. Default None.
+    Returns
+    -------
+    abscal_params : array of float
+        Shape (3, Nfreqs, N_feed_pols). abscal_params[0, :, :] are the overall amplitudes,
+        abscal_params[1, :, :] are the x-phase gradients in units 1/m, and abscal_params[2, :, :]
+        are the y-phase gradients in units 1/m.
+    """
+
+    if log_file_path is not None:
+        stdout_orig = sys.stdout
+        stderr_orig = sys.stderr
+        sys.stdout = sys.stderr = log_file_new = open(log_file_path, "w")
+
+    start_time = time.time()
+
+    if verbose:
+        print("Reading data...")
+        sys.stdout.flush()
+        data_read_start_time = time.time()
+
+    # Read data
+    data = pyuvdata.UVData()
+    if data_file_path.endswith(".ms"):
+        data.read_ms(data_file_path, data_column=data_use_column)
+    elif data_file_path.endswith(".uvfits"):
+        data.read_uvfits(data_file_path)
+    else:
+        print(f"ERROR: Unsupported file type for data file {data_file_path}. Exiting.")
+        sys.exit(1)
+    model = pyuvdata.UVData()
+    if model_file_path.endswith(".ms"):
+        model.read_ms(model_file_path, data_column=model_use_column)
+    elif model_file_path.endswith(".uvfits"):
+        model.read_uvfits(model_file_path)
+    else:
+        print(
+            f"ERROR: Unsupported file type for model file {model_file_path}. Exiting."
+        )
+
+    if verbose:
+        print(
+            f"Done. Data read time {(time.time() - data_read_start_time)/60.} minutes."
+        )
+        print("Formatting data...")
+        sys.stdout.flush()
+        data_format_start_time = time.time()
+
+    caldata_obj = CalData()
+    caldata_obj.load_data(
+        data,
+        model,
+        N_feed_pols=N_feed_pols,
+        feed_polarization_array=feed_polarization_array,
+        min_cal_baseline_m=min_cal_baseline_m,
+        max_cal_baseline_m=max_cal_baseline_m,
+        min_cal_baseline_lambda=min_cal_baseline_lambda,
+        max_cal_baseline_lambda=max_cal_baseline_lambda,
+    )
+
+    if verbose:
+        print(
+            f"Done. Data formatting time {(time.time() - data_format_start_time)/60.} minutes."
+        )
+        print("Running calibration optimization...")
+        sys.stdout.flush()
+
+    # Expand CalData object into per-frequency objects
+    caldata_list = caldata_obj.expand_in_frequency()
+
+    optimization_start_time = time.time()
+
+    for freq_ind in range(caldata_obj.Nfreqs):
+        calibration_optimization.run_abscal_optimization_single_freq(
+            caldata_list[freq_ind],
+            xtol,
+            maxiter,
+            verbose=verbose,
+        )
+        caldata_obj.abscal_params[:, [freq_ind], :] = caldata_list[
+            freq_ind
+        ].abscal_params[:, [0], :]
+
+    if verbose:
+        print(
+            f"Done. Optimization time: {caldata_obj.Nfreqs} frequency channels in {(time.time() - optimization_start_time)/60.} minutes"
+        )
+        print(f"Total processing time {(time.time() - start_time)/60.} minutes.")
+        sys.stdout.flush()
+
+    if log_file_path is not None:
+        sys.stdout = stdout_orig
+        sys.stderr = stderr_orig
+        log_file_new.close()
+
+    return caldata_obj.abscal_params
 
 
 def calibrate_caldata_per_pol(
@@ -809,8 +1092,8 @@ def calibration_per_pol(
     data_use_column : str
         Column in an ms file to use for the data visibilities. Used only if
         data_file_path points to an ms file. Default "DATA".
-    data_use_column : str
-        Column in an ms file to use for the data visibilities. Used only if
+    model_use_column : str
+        Column in an ms file to use for the model visibilities. Used only if
         data_file_path points to an ms file. Default "MODEL_DATA".
     gain_init_calfile : str or None
         Default None. If not None, provides a path to a pyuvdata-formatted
