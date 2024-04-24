@@ -808,8 +808,8 @@ def apply_abscal(uvdata, abscal_params, feed_polarization_array, inplace=False):
 
 
 def absolute_calibration(
-    data_file_path,
-    model_file_path,
+    data,
+    model,
     data_use_column="DATA",
     model_use_column="MODEL_DATA",
     N_feed_pols=None,
@@ -828,11 +828,12 @@ def absolute_calibration(
 
     Parameters
     ----------
-    data_file_path : str
-        Path to the ms or uvfits file containing the relatively calibrated
-        data visibilities.
-    model_file_path : str
-        Path to the ms or uvfits file containing the model visibilities.
+    data : str or UVData
+        Path to the pyuvdata-readable file containing the relatively calibrated
+        data visibilities or a pyuvdata UVData object.
+    model : str or UVData
+        Path to the pyuvdata-readable file containing the model visibilities
+        or a pyuvdata UVData object.
     data_use_column : str
         Column in an ms file to use for the data visibilities. Used only if
         data_file_path points to an ms file. Default "DATA".
@@ -890,29 +891,30 @@ def absolute_calibration(
         sys.stdout.flush()
         data_read_start_time = time.time()
 
-    # Read data
-    data = pyuvdata.UVData()
-    if data_file_path.endswith(".ms"):
-        data.read_ms(data_file_path, data_column=data_use_column)
-    elif data_file_path.endswith(".uvfits"):
-        data.read_uvfits(data_file_path)
-    else:
-        print(f"ERROR: Unsupported file type for data file {data_file_path}. Exiting.")
-        sys.exit(1)
-    model = pyuvdata.UVData()
-    if model_file_path.endswith(".ms"):
-        model.read_ms(model_file_path, data_column=model_use_column)
-    elif model_file_path.endswith(".uvfits"):
-        model.read_uvfits(model_file_path)
-    else:
-        print(
-            f"ERROR: Unsupported file type for model file {model_file_path}. Exiting."
-        )
+    print_data_read_time = False
+    if isinstance(data, str):  # Read data
+        print_data_read_time = True
+        data_file_path = np.copy(data)
+        data = pyuvdata.UVData()
+        if data_file_path.endswith(".ms"):
+            data.read_ms(data_file_path, data_column=data_use_column)
+        else:
+            data.read(data_file_path)
+    if isinstance(model, str):  # Read model
+        print_data_read_time = True
+        model_file_path = np.copy(model)
+        model = pyuvdata.UVData()
+        if model_file_path.endswith(".ms"):
+            model.read_ms(model_file_path, data_column=model_use_column)
+        else:
+            model.read(model_file_path)
 
-    if verbose:
+    if verbose and print_data_read_time:
         print(
             f"Done. Data read time {(time.time() - data_read_start_time)/60.} minutes."
         )
+        sys.stdout.flush()
+    if verbose:
         print("Formatting data...")
         sys.stdout.flush()
         data_format_start_time = time.time()
