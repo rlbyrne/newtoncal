@@ -1,0 +1,444 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+\usepackage{amsmath, amsthm, amssymb, commath, graphicx, bbold, endnotes, graphicx, subfigure, multirow, setspace, comment}
+
+\newcommand\re{\operatorname{Re}}
+\newcommand\im{\operatorname{Im}}
+
+\title{Calibration Cost Functions and Derivatives}
+\author{Ruby Byrne}
+\date{last updated April 2024}
+
+\begin{document}
+
+\maketitle
+
+\section{Per-Frequency, Per-Polarization, and Per-Time Calibration}
+
+The simplest calibration implementation is not fully polarized. We calibrate the $pp$ and $qq$ visibilities separately and fit the crosspol phase only from the cross-polarized visibilities $pq$ and $qp$. We also exclude the autocorrelations in calibration, assume a single time step, and calibrate each frequency independently.
+
+\subsection{Cost Function}
+
+For a single polarization, time step, and frequency, calibration consists of minimizing the chi-squared quantity
+\begin{equation}
+    \chi^2(\boldsymbol{g}) = \sum_{jk} \frac{1}{\sigma_{jk}^2} \left| m_{jk} - g_j g_k^* v_{jk} \right|^2.
+\end{equation}
+
+\subsection{Jacobian Calculation}
+\label{s:simplest_jac}
+
+Expanding the chi-squared gives
+\begin{equation}
+\begin{split}
+    \chi^2(\boldsymbol{g}) &= \sum_{jk} \frac{1}{\sigma_{jk}^2} \left[ |m_{jk}|^2 + |g_j|^2 |g_k|^2 |v_{jk}|^2 - m_{jk}^* g_j g_k^* v_{jk} - m_{jk} g_j^* g_k v_{jk}^* \right] \\
+    &= \sum_{jk} \frac{1}{\sigma_{jk}^2} \left[ |m_{jk}|^2 + |g_j|^2 |g_k|^2 |v_{jk}|^2 - 2 \re \left( m_{jk}^* g_j g_k^* v_{jk} \right) \right].
+\end{split}
+\end{equation}
+
+Now taking derivatives and omitting autocorrelations (assuming $\frac{1}{\sigma_{jk}^2} = 0$ for $j=k$) gives
+\begin{equation}
+\begin{split}
+    \frac{\partial \chi^2(\boldsymbol{g})}{\partial \re(g_a)} = \frac{\partial}{\partial \re(g_a)} \sum_{j \ne a} & \left( \frac{1}{\sigma_{aj}^2} \left[ |m_{aj}|^2 + |g_a|^2 |g_j|^2 |v_{aj}|^2 - 2 \re \left( m_{aj}^* g_a g_j^* v_{aj} \right) \right] \right. \\
+    &\left. + \frac{1}{\sigma_{ja}^2} \left[ |m_{ja}|^2 + |g_j|^2 |g_a|^2 |v_{ja}|^2 - 2 \re \left( m_{ja}^* g_j g_a^* v_{ja} \right) \right] \right).
+\end{split}
+\end{equation}
+Evaluating the derivative gives
+\begin{equation}
+\begin{split}
+    \frac{\partial \chi^2(\boldsymbol{g})}{\partial \re(g_a)} = \sum_{j \ne a} 
+    & \left( \frac{1}{\sigma_{aj}^2} \left[ 2 \re(g_a) |g_j|^2 |v_{aj}|^2 - 2 \re \left( m_{aj}^* g_j^* v_{aj} \right) \right] \right. \\
+    &\left. + \frac{1}{\sigma_{ja}^2} \left[ 2 \re(g_a) |g_j|^2 |v_{ja}|^2 - 2 \re \left( m_{ja}^* g_j v_{ja} \right) \right] \right).
+\end{split}
+\end{equation}
+The derivative with respect to the imaginary component is
+\begin{equation}
+\begin{split}
+    \frac{\partial \chi^2(\boldsymbol{g})}{\partial \im(g_a)} = \sum_{j \ne a} 
+    & \left( \frac{1}{\sigma_{aj}^2} \left[ 2 \im(g_a) |g_j|^2 |v_{aj}|^2 + 2 \im \left( m_{aj}^* g_j^* v_{aj} \right) \right] \right. \\
+    &\left. + \frac{1}{\sigma_{ja}^2} \left[ 2 \im(g_a) |g_j|^2 |v_{ja}|^2 - 2 \im \left( m_{ja}^* g_j v_{ja} \right) \right] \right).
+\end{split}
+\end{equation}
+We can rewrite this as
+\begin{equation}
+\begin{split}
+    \frac{\partial \chi^2(\boldsymbol{g})}{\partial \re(g_a)} = 2 \re \sum_{j \ne a} 
+    & \left( \frac{1}{\sigma_{aj}^2} \left[ g_a |g_j|^2 |v_{aj}|^2 - m_{aj} g_j v_{aj}^* \right] \right. \\
+    &\left. + \frac{1}{\sigma_{ja}^2} \left[ g_a |g_j|^2 |v_{ja}|^2 - m_{ja}^* g_j v_{ja} \right] \right)
+\end{split}
+\end{equation}
+and
+\begin{equation}
+\begin{split}
+    \frac{\partial \chi^2(\boldsymbol{g})}{\partial \im(g_a)} = 2 \im \sum_{j \ne a} 
+    & \left( \frac{1}{\sigma_{aj}^2} \left[ g_a |g_j|^2 |v_{aj}|^2 - m_{aj} g_j v_{aj}^* \right] \right. \\
+    &\left. + \frac{1}{\sigma_{ja}^2} \left[ g_a |g_j|^2 |v_{ja}|^2 - m_{ja}^* g_j v_{ja} \right] \right),
+\end{split}
+\end{equation}
+or alternatively as
+\begin{equation}
+\begin{split}
+    \frac{\partial \chi^2(\boldsymbol{g})}{\partial \re(g_a)} = 2 \re \sum_{j \ne a} 
+    & \left( \frac{1}{\sigma_{aj}^2} g_j v_{aj}^* \left[ g_a g_j^* v_{aj} - m_{aj} \right] \right. \\
+    &\left. + \frac{1}{\sigma_{ja}^2} g_j v_{ja} \left[ g_j^* g_a v_{ja}^* - m_{ja}^*  \right] \right)
+\end{split}
+\end{equation}
+and
+\begin{equation}
+\begin{split}
+    \frac{\partial \chi^2(\boldsymbol{g})}{\partial \im(g_a)} = 2 \im \sum_{j \ne a} 
+    & \left( \frac{1}{\sigma_{aj}^2} g_j v_{aj}^* \left[ g_a g_j^* v_{aj} - m_{aj} \right] \right. \\
+    &\left. + \frac{1}{\sigma_{ja}^2} g_j v_{ja} \left[ g_j^* g_a v_{ja}^* - m_{ja}^*  \right] \right).
+\end{split}
+\end{equation}
+
+\subsection{Hessian Calculation}
+\label{s:simplest_hess}
+
+Taking second derivatives, we get that
+\begin{equation}
+\begin{split}
+    \frac{\partial^2 \chi^2(\boldsymbol{g})}{\partial \re^2(g_a)} = \frac{\partial^2 \chi^2(\boldsymbol{g})}{\partial \im^2(g_a)} = 2 \sum_{j \ne a} 
+    & \left( \frac{1}{\sigma_{aj}^2} |g_j|^2 |v_{aj}|^2 + \frac{1}{\sigma_{ja}^2} |g_j|^2 |v_{ja}|^2 \right)
+\end{split}
+\end{equation}
+and
+\begin{equation}
+\frac{\partial^2 \chi^2(\boldsymbol{g})}{\partial \re(g_a) \partial \im(g_a)} = \frac{\partial^2 \chi^2(\boldsymbol{g})}{\partial \im(g_a) \partial \re(g_a)} = 0.
+\end{equation}
+For $b \ne a$, we get
+\begin{equation}
+\begin{split}
+    \frac{\partial \chi^2(\boldsymbol{g})}{\partial \re(g_a) \re(g_b)} = & 2 \frac{\partial}{\partial \re(g_b)} \re \sum_{j \ne a} 
+    \left( \frac{1}{\sigma_{aj}^2} \left[ g_a |g_j|^2 |v_{aj}|^2 - m_{aj} g_j v_{aj}^* \right] \right. \\
+    &\left. + \frac{1}{\sigma_{ja}^2} \left[ g_a |g_j|^2 |v_{ja}|^2 - m_{ja}^* g_j v_{ja} \right] \right) \\
+    =& 2 \frac{\partial}{\partial \re(g_b)} 
+    \left( \frac{1}{\sigma_{ab}^2} \left[ \re(g_a) |g_b|^2 |v_{ab}|^2 - \re(m_{ab} g_b v_{ab}^*) \right] \right. \\
+    &\left. + \frac{1}{\sigma_{ba}^2} \left[ \re(g_a) |g_b|^2 |v_{ba}|^2 - \re(m_{ba}^* g_b v_{ba}) \right] \right) \\
+    =& 2
+    \left( \frac{1}{\sigma_{ab}^2} \left[ 2 \re(g_a) \re(g_b) |v_{ab}|^2 - \re(m_{ab} v_{ab}^*) \right] \right. \\
+    &\left. + \frac{1}{\sigma_{ba}^2} \left[ 2\re(g_a) \re(g_b) |v_{ba}|^2 - \re(m_{ba}^* v_{ba}) \right] \right), \\
+\end{split}
+\end{equation}
+\begin{equation}
+\begin{split}
+    \frac{\partial \chi^2(\boldsymbol{g})}{\partial \re(g_a) \im(g_b)} = & 2 \frac{\partial}{\partial \im(g_b)} \re \sum_{j \ne a} 
+    \left( \frac{1}{\sigma_{aj}^2} \left[ g_a |g_j|^2 |v_{aj}|^2 - m_{aj} g_j v_{aj}^* \right] \right. \\
+    &\left. + \frac{1}{\sigma_{ja}^2} \left[ g_a |g_j|^2 |v_{ja}|^2 - m_{ja}^* g_j v_{ja} \right] \right) \\
+    =& 2 \frac{\partial}{\partial \im(g_b)} 
+    \left( \frac{1}{\sigma_{ab}^2} \left[ \re(g_a) |g_b|^2 |v_{ab}|^2 - \re(m_{ab} g_b v_{ab}^*) \right] \right. \\
+    &\left. + \frac{1}{\sigma_{ba}^2} \left[ \re(g_a) |g_b|^2 |v_{ba}|^2 - \re(m_{ba}^* g_b v_{ba}) \right] \right) \\
+    =& 2
+    \left( \frac{1}{\sigma_{ab}^2} \left[ 2 \re(g_a) \im(g_b) |v_{ab}|^2 + \im(m_{ab} v_{ab}^*) \right] \right. \\
+    &\left. + \frac{1}{\sigma_{ba}^2} \left[ 2\re(g_a) \im(g_b) |v_{ba}|^2 + \im(m_{ba}^* v_{ba}) \right] \right), \\
+\end{split}
+\end{equation}
+and
+\begin{equation}
+\begin{split}
+    \frac{\partial \chi^2(\boldsymbol{g})}{\partial \im(g_a) \im(g_b)} = & 2 \frac{\partial}{\partial \im(g_b)} \im \sum_{j \ne a} 
+    \left( \frac{1}{\sigma_{aj}^2} \left[ g_a |g_j|^2 |v_{aj}|^2 - m_{aj} g_j v_{aj}^* \right] \right. \\
+    &\left. + \frac{1}{\sigma_{ja}^2} \left[ g_a |g_j|^2 |v_{ja}|^2 - m_{ja}^* g_j v_{ja} \right] \right) \\
+    =& 2 \frac{\partial}{\partial \im(g_b)} 
+    \left( \frac{1}{\sigma_{ab}^2} \left[ \im(g_a) |g_b|^2 |v_{ab}|^2 - \im(m_{ab} g_b v_{ab}^*) \right] \right. \\
+    &\left. + \frac{1}{\sigma_{ba}^2} \left[ \im(g_a) |g_b|^2 |v_{ba}|^2 - \im(m_{ba}^* g_b v_{ba}) \right] \right) \\
+    =& 2
+    \left( \frac{1}{\sigma_{ab}^2} \left[ 2 \im(g_a) \im(g_b) |v_{ab}|^2 - \re(m_{ab} v_{ab}^*) \right] \right. \\
+    &\left. + \frac{1}{\sigma_{ba}^2} \left[ 2\im(g_a) \im(g_b) |v_{ba}|^2 - \re(m_{ba}^* v_{ba}) \right] \right), \\
+\end{split}
+\end{equation}
+
+
+\subsection{Phase Regularization}
+\label{s:phase_regularization}
+
+The overall phase of the gains is degenerate. We want to constrain it such that the average phase of the gains is zero. We can do this by adding a regularization term to the chi-squared to produce a cost function of the form
+\begin{equation}
+    L(\boldsymbol{g}) = \sum_t \sum_{jk} \frac{1}{\sigma_{jk}^2(t)} \left| m_{jk}(t) - g_j g_k^* v_{jk}(t) \right|^2 + \lambda \left[ \sum_j \operatorname{Arg}(g_j) \right]^2.
+\end{equation}
+
+Taking derivatives gives
+\begin{align}
+    &\frac{\partial}
+    {\partial \re(g_a)} \lambda \left[ \sum_j \operatorname{Arg}(g_j) \right]^2 \\
+    &= 2 \lambda \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\partial}
+    {\partial \re(g_a)} \operatorname{Arg}(g_a) \\
+    &= 2 \lambda \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\partial}
+    {\partial \re(g_a)} \tan^{-1} \left[ \frac{\im(g_a)}{\re(g_a)} \right] \\
+    &= 2 \lambda \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{1}{1+\frac{\im^2(g_a)}{\re^2(g_a)}} \frac{\partial}
+    {\partial \re(g_a)} \left[ \frac{\im(g_a)}{\re(g_a)} \right] \\
+    &= -2 \lambda \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{1}{1+\frac{\im^2(g_a)}{\re^2(g_a)}} \frac{\im(g_a)}{\re^2(g_a)} \\
+    &= -2 \lambda \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\im(g_a)}{|g_a|^2} \\
+\end{align}
+and
+\begin{align}
+    &\frac{\partial}
+    {\partial \im(g_a)} \lambda \left[ \sum_j \operatorname{Arg}(g_j) \right]^2 \\
+    &= 2 \lambda \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\partial}
+    {\partial \im(g_a)} \operatorname{Arg}(g_a) \\
+    &= 2 \lambda \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\partial}
+    {\partial \im(g_a)} \tan^{-1} \left[ \frac{\im(g_a)}{\re(g_a)} \right] \\
+    &= 2 \lambda \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{1}{1+\frac{\im^2(g_a)}{\re^2(g_a)}} \frac{\partial}
+    {\partial \im(g_a)} \left[ \frac{\im(g_a)}{\re(g_a)} \right] \\
+    &= 2 \lambda \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{1}{1+\frac{\im^2(g_a)}{\re^2(g_a)}} \frac{1}{\re(g_a)} \\
+    &= 2 \lambda \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\re(g_a)}{|g_a|^2}. \\
+\end{align}
+This can be rewritten as
+\begin{equation}
+\frac{\partial}{\partial \re(g_a)} \lambda \left[ \sum_j \operatorname{Arg}(g_j) \right]^2 = 2 \lambda \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\re(i g_a)}{|g_a|^2}
+\end{equation}
+and
+\begin{equation}
+\frac{\partial}{\partial \im(g_a)} \lambda \left[ \sum_j \operatorname{Arg}(g_j) \right]^2 = 2 \lambda \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\im(i g_a)}{|g_a|^2}.
+\end{equation}
+
+The second derivatives are given by
+\begin{align}
+    &\frac{\partial}
+    {\partial \re(g_a) \partial \re(g_b)} \lambda \left[ \sum_j \operatorname{Arg}(g_j) \right]^2 \\
+    &= -2 \lambda \frac{\partial}{\partial \re(g_b)} \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\im(g_a)}{|g_a|^2} \\
+    &= -2 \lambda \left( \frac{\im(g_a)}{|g_a|^2} \frac{\partial}{\partial \re(g_b)} \left[ \sum_j \operatorname{Arg}(g_j) \right] + \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\partial}{\partial \re(g_b)} \frac{\im(g_a)}{|g_a|^2}  \right) \\
+    &= -2 \lambda \left( \frac{\im(g_a)}{|g_a|^2} \frac{\partial}{\partial \re(g_b)} \tan^{-1} \left[ \frac{\im(g_b)}{\re(g_b)} \right] + \delta_{ab} \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\partial}{\partial \re(g_a)} \frac{\im(g_a)}{|g_a|^2}  \right) \\
+    &= -2 \lambda \left( \frac{\im(g_a)}{|g_a|^2} \frac{1}{1+\frac{\im^2(g_b)}{\re^2(g_b)}} \frac{\partial}
+    {\partial \re(g_b)} \left[ \frac{\im(g_b)}{\re(g_b)} \right] + \delta_{ab} \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\partial}{\partial \re(g_a)} \frac{\im(g_a)}{|g_a|^2}  \right) \\
+    &= 2 \lambda \left( \frac{\im(g_a)}{|g_a|^2} \frac{1}{1+\frac{\im^2(g_b)}{\re^2(g_b)}} \left[ \frac{\im(g_b)}{\re^2(g_b)} \right] + 2 \delta_{ab} \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\im(g_a) \re(g_a)}{|g_a|^4}  \right) \\
+    &= 2 \lambda \left( \frac{\im(g_a) \im(g_b)}{|g_a|^2 |g_b|^2} + 2 \delta_{ab} \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\im(g_a) \re(g_a)}{|g_a|^4}  \right), \\
+\end{align}
+\begin{align}
+    &\frac{\partial}
+    {\partial \re(g_a) \partial \im(g_b)} \lambda \left[ \sum_j \operatorname{Arg}(g_j) \right]^2 \\
+    &= -2 \lambda \frac{\partial}{\partial \im(g_b)} \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\im(g_a)}{|g_a|^2} \\
+    &= -2 \lambda \left( \frac{\im(g_a)}{|g_a|^2} \frac{\partial}{\partial \im(g_b)} \left[ \sum_j \operatorname{Arg}(g_j) \right] + \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\partial}{\partial \im(g_b)} \frac{\im(g_a)}{|g_a|^2}  \right) \\
+    &= -2 \lambda \left( \frac{\im(g_a)}{|g_a|^2} \frac{\partial}{\partial \im(g_b)} \tan^{-1} \left[ \frac{\im(g_b)}{\re(g_b)} \right] + \delta_{ab} \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\partial}{\partial \im(g_a)} \frac{\im(g_a)}{|g_a|^2}  \right) \\
+    &= -2 \lambda \left( \frac{\im(g_a)}{|g_a|^2} \frac{1}{1+\frac{\im^2(g_b)}{\re^2(g_b)}} \frac{\partial}
+    {\partial \im(g_b)} \left[ \frac{\im(g_b)}{\re(g_b)} \right] + \delta_{ab} \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\partial}{\partial \im(g_a)} \frac{\im(g_a)}{|g_a|^2}  \right) \\
+    &= -2 \lambda \left( \frac{\im(g_a)}{|g_a|^2} \frac{1}{1+\frac{\im^2(g_b)}{\re^2(g_b)}} \left[ \frac{1}{\re(g_b)} \right] + \delta_{ab} \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\partial}{\partial \im(g_a)} \frac{\im(g_a)}{|g_a|^2}  \right) \\
+    &= -2 \lambda \left( \frac{\im(g_a) \re(g_b)}{|g_a|^2 |g_b|^2} + \delta_{ab} \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\re^2(g_a) - \im^2(g_a)}{|g_a|^4}  \right), \\
+\end{align}
+and
+\begin{align}
+    &\frac{\partial}
+    {\partial \im(g_a) \partial \im(g_b)} \lambda \left[ \sum_j \operatorname{Arg}(g_j) \right]^2 \\
+    &= 2 \lambda \frac{\partial}{\partial \im(g_b)} \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\re(g_a)}{|g_a|^2} \\
+    &= 2 \lambda \left( \frac{\re(g_a)}{|g_a|^2} \frac{\partial}{\partial \im(g_b)} \left[ \sum_j \operatorname{Arg}(g_j) \right] + \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\partial}{\partial \im(g_b)} \frac{\re(g_a)}{|g_a|^2}  \right) \\
+    &= 2 \lambda \left( \frac{\re(g_a)}{|g_a|^2} \frac{\partial}{\partial \im(g_b)} \tan^{-1} \left[ \frac{\im(g_b)}{\re(g_b)} \right] + \delta_{ab} \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\partial}{\partial \im(g_a)} \frac{\re(g_a)}{|g_a|^2}  \right) \\
+    &= 2 \lambda \left( \frac{\re(g_a)}{|g_a|^2} \frac{1}{1+\frac{\im^2(g_b)}{\re^2(g_b)}} \frac{\partial}
+    {\partial \im(g_b)} \left[ \frac{\im(g_b)}{\re(g_b)} \right] + \delta_{ab} \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\partial}{\partial \im(g_a)} \frac{\re(g_a)}{|g_a|^2}  \right) \\
+    &= 2 \lambda \left( \frac{\re(g_a)}{|g_a|^2} \frac{1}{1+\frac{\im^2(g_b)}{\re^2(g_b)}} \left[ \frac{1}{\re(g_b)} \right] - 2 \delta_{ab} \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\im(g_a) \re(g_a)}{|g_a|^4}  \right) \\
+    &= 2 \lambda \left( \frac{\re(g_a) \re(g_b)}{|g_a|^2 |g_b|^2} - 2 \delta_{ab} \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\im(g_a) \re(g_a)}{|g_a|^4}  \right). \\
+\end{align}
+
+In summary,
+\begin{align}
+    &\frac{\partial}
+    {\partial \re(g_a) \partial \re(g_b)} \lambda \left[ \sum_j \operatorname{Arg}(g_j) \right]^2 = 2 \lambda \left( \frac{\im(g_a) \im(g_b)}{|g_a|^2 |g_b|^2} + 2 \delta_{ab} \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\im(g_a) \re(g_a)}{|g_a|^4}  \right),
+\end{align}
+\begin{align}
+    &\frac{\partial}
+    {\partial \re(g_a) \partial \im(g_b)} \lambda \left[ \sum_j \operatorname{Arg}(g_j) \right]^2 = 2 \lambda \left( - \frac{\im(g_a) \re(g_b)}{|g_a|^2 |g_b|^2} - \delta_{ab} \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\re^2(g_a) - \im^2(g_a)}{|g_a|^4}  \right), \\
+\end{align}
+and
+\begin{align}
+    &\frac{\partial}
+    {\partial \im(g_a) \partial \im(g_b)} \lambda \left[ \sum_j \operatorname{Arg}(g_j) \right]^2 = 2 \lambda \left( \frac{\re(g_a) \re(g_b)}{|g_a|^2 |g_b|^2} - 2 \delta_{ab} \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\im(g_a) \re(g_a)}{|g_a|^4}  \right).
+\end{align}
+
+\section{Per-Frequency, Per-Polarization Including the Time Axis}
+
+Extending the simple implementation to include time steps is trivial. We assume that the gains do not vary on the timescale of the observation, so only the data and model visibilities are time-dependent. We then get a chi-squared in the form
+\begin{equation}
+    \chi^2(\boldsymbol{g}) = \sum_t \sum_{jk} \frac{1}{\sigma_{jk}^2(t)} \left| m_{jk}(t) - g_j g_k^* v_{jk}(t) \right|^2.
+\end{equation}
+
+The derivatives calculated in \S\ref{s:simplest_jac} then become
+\begin{equation}
+\begin{split}
+    \frac{\partial \chi^2(\boldsymbol{g})}{\partial \re(g_a)} = 2 \re \sum_t \sum_{j \ne a} 
+    & \left( \frac{1}{\sigma_{aj}^2(t)} \left[ g_a |g_j|^2 |v_{aj}(t)|^2 - m_{aj}(t) g_j v_{aj}^*(t) \right] \right. \\
+    &\left. + \frac{1}{\sigma_{ja}^2(t)} \left[ g_a |g_j|^2 |v_{ja}(t)|^2 - m_{ja}^*(t) g_j v_{ja}(t) \right] \right).
+\end{split}
+\end{equation}
+and
+\begin{equation}
+\begin{split}
+    \frac{\partial \chi^2(\boldsymbol{g})}{\partial \im(g_a)} = 2 \im \sum_t \sum_{j \ne a} 
+    & \left( \frac{1}{\sigma_{aj}^2(t)} \left[ g_a |g_j|^2 |v_{aj}(t)|^2 - m_{aj}(t) g_j v_{aj}^*(t) \right] \right. \\
+    &\left. + \frac{1}{\sigma_{ja}^2(t)} \left[ g_a |g_j|^2 |v_{ja}(t)|^2 - m_{ja}^*(t) g_j v_{ja}(t) \right] \right).
+\end{split}
+\end{equation}
+
+The Hessian quantities in \S\ref{s:simplest_hess} become
+\begin{equation}
+\begin{split}
+    \frac{\partial^2 \chi^2(\boldsymbol{g})}{\partial \re^2(g_a)} = \frac{\partial^2 \chi^2(\boldsymbol{g})}{\partial \im^2(g_a)} = 2 \sum_t \sum_{j \ne a} 
+    & \left( \frac{1}{\sigma_{aj}^2(t)} |g_j|^2 |v_{aj}(t)|^2 + \frac{1}{\sigma_{ja}^2(t)} |g_j|^2 |v_{ja}(t)|^2 \right).
+\end{split}
+\end{equation}
+Once again,
+\begin{equation}
+\frac{\partial^2 \chi^2(\boldsymbol{g})}{\partial \re(g_a) \partial \im(g_a)} = \frac{\partial^2 \chi^2(\boldsymbol{g})}{\partial \im(g_a) \partial \re(g_a)} = 0.
+\end{equation}
+For $b \ne a$, we get
+\begin{equation}
+\begin{split}
+    \frac{\partial^2 \chi^2(\boldsymbol{g})}{\partial \re(g_a) \re(g_b)} = 2 \sum_t
+    &\left( \frac{1}{\sigma_{ab}^2(t)} \left[ 2 \re(g_a) \re(g_b) |v_{ab}(t)|^2 - \re[m_{ab}(t) v_{ab}^*(t)] \right] \right. \\
+    &\left. + \frac{1}{\sigma_{ba}^2(t)} \left[ 2\re(g_a) \re(g_b) |v_{ba}(t)|^2 - \re[m_{ba}^*(t) v_{ba}(t)] \right] \right), \\
+\end{split}
+\end{equation}
+\begin{equation}
+\begin{split}
+    \frac{\partial^2 \chi^2(\boldsymbol{g})}{\partial \re(g_a) \im(g_b)} = 2 \sum_t
+    &\left( \frac{1}{\sigma_{ab}^2(t)} \left[ 2 \re(g_a) \im(g_b) |v_{ab}(t)|^2 + \im[m_{ab}(t) v_{ab}^*(t)] \right] \right. \\
+    &\left. + \frac{1}{\sigma_{ba}^2(t)} \left[ 2\re(g_a) \im(g_b) |v_{ba}(t)|^2 + \im[m_{ba}^*(t) v_{ba}(t)] \right] \right), \\
+\end{split}
+\end{equation}
+and
+\begin{equation}
+\begin{split}
+    \frac{\partial^2 \chi^2(\boldsymbol{g})}{\partial \im(g_a) \im(g_b)} = 2 \sum_t
+    &\left( \frac{1}{\sigma_{ab}^2(t)} \left[ 2 \im(g_a) \im(g_b) |v_{ab}(t)|^2 - \re[m_{ab}(t) v_{ab}^*(t)] \right] \right. \\
+    &\left. + \frac{1}{\sigma_{ba}^2(t)} \left[ 2\im(g_a) \im(g_b) |v_{ba}(t)|^2 - \re[m_{ba}^*(t) v_{ba}(t)] \right] \right). \\
+\end{split}
+\end{equation}
+
+The phase regularization term does not depend on either the data or model visibilities, so it is time-independent. We can therefore use the quantities derived in \S\ref{s:phase_regularization}.
+
+\begin{comment}
+\section{Direction-Dependent Calibration}
+
+For direction-dependent calibration, we replace the model visiblities $m_{jk} \rightarrow m_{jk}^\text{const} + \sum_l A_l m_{jk}^{(l)}$. Here $l$ indexes the directions to solve for. $A_l$ is the real-valued amplitude in those directions. We then get a $\chi$-squared of the form
+\begin{equation}
+    \chi^2(\boldsymbol{g}, \boldsymbol{A}) = \sum_{jk} \frac{1}{\sigma_{jk}^2} \left| m_{jk}^\text{const} + \sum_l A_l m_{jk}^{(l)} - g_j g_k^* v_{jk} \right|^2.
+\end{equation}
+
+Taking derivatives gives
+\begin{equation}
+    \frac{\partial \chi^2(\boldsymbol{g}, \boldsymbol{A})}{\partial A_{l'}} = \sum_{jk} \frac{2}{\sigma_{jk}^2} \re \left[ \left(m_{jk}^{(l')}\right)^* \left( m_{jk}^\text{const} + \sum_l A_l m_{jk}^{(l)} - g_j g_k^* v_{jk} \right) \right]
+\end{equation}
+and
+\begin{equation}
+    \frac{\partial^2 \chi^2(\boldsymbol{g}, \boldsymbol{A})}{\partial A_{l'} \partial A_{l''}} = \sum_{jk} \frac{2}{\sigma_{jk}^2} \re \left[ \left(m_{jk}^{(l')}\right)^* m_{jk}^{(l'')} \right].
+\end{equation}
+
+
+\section{Including Polarization}
+
+We can now include polarization, such that we use all the visibility polarizations ($pp$, $qq$, $pq$, and $qp$) in calibration. Here we do not calibrate the crosspol gains. We continue to exclude autocorrelations in calibration and calibrate each frequency independently. Here we once again assume a single time step.
+
+\subsection{Cost Function}
+
+The chi-squared now becomes
+\begin{equation}
+    \chi^2(\boldsymbol{g}) = \sum_{jk} \sum_{pq} \frac{1}{\sigma_{jkpq}^2} \left| m_{jkpq} - g_{jp} g_{kq}^* v_{jkpq} \right|^2.
+\end{equation}
+
+\subsection{Jacobian Calculation}
+
+Now taking derivatives and omitting autocorrelations (assuming $\frac{1}{\sigma_{jk}^2} = 0$ for $j=k$) gives
+\begin{equation}
+\begin{split}
+    \frac{\partial \chi^2(\boldsymbol{g})}{\partial \re(g_{ar})} = \frac{\partial}{\partial \re(g_{ar})} \sum_{j \ne a} \sum_{pq} & \left( \frac{1}{\sigma_{ajpq}^2} \left[ |m_{ajpq}|^2 + |g_{ap}|^2 |g_{jq}|^2 |v_{ajpq}|^2 - 2 \re \left( m_{ajpq}^* g_{ap} g_{jq}^* v_{ajpq} \right) \right] \right. \\
+    &\left. + \frac{1}{\sigma_{japq}^2} \left[ |m_{japq}|^2 + |g_{jp}|^2 |g_{aq}|^2 |v_{japq}|^2 - 2 \re \left( m_{japq}^* g_{jp} g_{aq}^* v_{japq} \right) \right] \right).
+\end{split}
+\end{equation}
+Evaluating the derivative gives
+\begin{equation}
+\begin{split}
+    \frac{\partial \chi^2(\boldsymbol{g})}{\partial \re(g_a)} = \sum_{j \ne a} 
+    & \left( \frac{1}{\sigma_{aj}^2} \left[ 2 \re(g_a) |g_j|^2 |v_{aj}|^2 - 2 \re \left( m_{aj}^* g_j^* v_{aj} \right) \right] \right. \\
+    &\left. + \frac{1}{\sigma_{ja}^2} \left[ 2 \re(g_a) |g_j|^2 |v_{ja}|^2 - 2 \re \left( m_{ja}^* g_j v_{ja} \right) \right] \right).
+\end{split}
+\end{equation}
+
+\end{comment}
+
+\section{Absolute Calibration}
+
+\subsection{Cost Function}
+
+The absolute calibration chi-squared for each frequency and time is
+\begin{equation}
+    \chi^2(A, \Delta_x, \Delta_y) = \sum_{jk} \frac{1}{\sigma_{jk}^2} \left| A^2 e^{i(\Delta_x x_{jk} + \Delta_y y_{jk})} v^\text{rel}_{jk} - m_{jk} \right|^2.
+\end{equation}
+Here $v^\text{rel}_{jk}$ are the relatively calibrated visibilities and $x_{jk}$ and $y_{jk}$ are the coordinates of baseline $\{j, k\}$.
+
+\subsection{Jacobian Calculation}
+
+Expanding the cost function from above gives
+\begin{equation}
+\begin{split}
+    \chi^2(A, \Delta_x, \Delta_y) =& \sum_{jk} \frac{1}{\sigma_{jk}^2} \left| A^2 e^{i(\Delta_x x_{jk} + \Delta_y y_{jk})} v^\text{rel}_{jk} - m_{jk} \right|^2 \\
+    =& \sum_{jk} \frac{1}{\sigma_{jk}^2} \left[ \left( A^2 \re[ e^{i(\Delta_x x_{jk} + \Delta_y y_{jk})} v^\text{rel}_{jk} ] - \re[m_{jk}] \right)^2 \right. \\
+    &+ \left. \left( A^2 \im[ e^{i(\Delta_x x_{jk} + \Delta_y y_{jk})} v^\text{rel}_{jk} ] - \im[m_{jk}] \right)^2 \right] \\
+    =& \sum_{jk} \frac{1}{\sigma_{jk}^2} \left( A^4 |v^\text{rel}_{jk}|^2 + |m_{jk}|^2 \right. \\
+    &- 2 A^2 \re[ e^{i(\Delta_x x_{jk} + \Delta_y y_{jk})} v^\text{rel}_{jk} ] \re[m_{jk}] \\
+    &- \left. 2 A^2 \im[ e^{i(\Delta_x x_{jk} + \Delta_y y_{jk})} v^\text{rel}_{jk} ] \im[m_{jk}] \right) \\
+    =& \sum_{jk} \frac{1}{\sigma_{jk}^2} \left( A^4 |v^\text{rel}_{jk}|^2 + |m_{jk}|^2 \right. \\
+    &- \left. 2 A^2 \re[ e^{i(\Delta_x x_{jk} + \Delta_y y_{jk})} v^\text{rel}_{jk} m^*_{jk}] \right) \\
+    =& \sum_{jk} \frac{1}{\sigma_{jk}^2} \left( A^4 |v^\text{rel}_{jk}|^2 + |m_{jk}|^2 \right. \\
+    &- 2 A^2 \cos(\Delta_x x_{jk} + \Delta_y y_{jk}) \re[v^\text{rel}_{jk} m^*_{jk}] \\
+    &+ \left. 2 A^2 \sin(\Delta_x x_{jk} + \Delta_y y_{jk}) \im[v^\text{rel}_{jk} m^*_{jk}] \right). \\
+\end{split}
+\end{equation}
+
+Taking the derivative with respect to the overall amplitude $A$ gives
+\begin{equation}
+    \frac{\partial \chi^2(A, \Delta_x, \Delta_y)}{\partial A} = \sum_{jk} \frac{1}{\sigma_{jk}^2} \left( 4 A^3 |v^\text{rel}_{jk}|^2 - 4 A \re[ e^{i(\Delta_x x_{jk} + \Delta_y y_{jk})} v^\text{rel}_{jk} m^*_{jk}] \right). \\
+\end{equation}
+
+Taking the derivative with respect to the phase gradient term $\Delta_x$ gives
+\begin{equation}
+\begin{split}
+    \frac{\partial \chi^2(A, \Delta_x, \Delta_y)}{\partial \Delta_x} =& \sum_{jk} \frac{1}{\sigma_{jk}^2} \left( 2 A^2 x_{jk} \sin(\Delta_x x_{jk} + \Delta_y y_{jk}) \re[v^\text{rel}_{jk} m^*_{jk}] \right. \\
+    &+ \left. 2 A^2 x_{jk} \cos(\Delta_x x_{jk} + \Delta_y y_{jk}) \im[v^\text{rel}_{jk} m^*_{jk}] \right) \\
+    =& 2A^2 \sum_{jk} \frac{1}{\sigma_{jk}^2} x_{jk} \im[e^{i(\Delta_x x_{jk} + \Delta_y y_{jk})} v^\text{rel}_{jk} m^*_{jk}].
+\end{split}
+\end{equation}
+It follows that
+\begin{equation}
+\begin{split}
+    \frac{\partial \chi^2(A, \Delta_x, \Delta_y)}{\partial \Delta_y} =& 2A^2 \sum_{jk} \frac{1}{\sigma_{jk}^2} y_{jk} \im[e^{i(\Delta_x x_{jk} + \Delta_y y_{jk})} v^\text{rel}_{jk} m^*_{jk}].
+\end{split}
+\end{equation}
+
+\subsection{Hessian Calculation}
+
+Taking the second derivatives gives
+\begin{equation}
+    \frac{\partial^2 \chi^2(A, \Delta_x, \Delta_y)}{\partial A^2} = \sum_{jk} \frac{1}{\sigma_{jk}^2} \left( 12 A^2 |v^\text{rel}_{jk}|^2 - 4 \re[ e^{i(\Delta_x x_{jk} + \Delta_y y_{jk})} v^\text{rel}_{jk} m^*_{jk}] \right), \\
+\end{equation}
+
+\begin{equation}
+\begin{split}
+    \frac{\partial^2 \chi^2(A, \Delta_x, \Delta_x)}{\partial A \partial \Delta_y} =& 4A \sum_{jk} \frac{1}{\sigma_{jk}^2} x_{jk} \im[e^{i(\Delta_x x_{jk} + \Delta_y y_{jk})} v^\text{rel}_{jk} m^*_{jk}],
+\end{split}
+\end{equation}
+
+and
+\begin{equation}
+\begin{split}
+    \frac{\partial^2 \chi^2(A, \Delta_x, \Delta_y)}{\partial A \partial \Delta_y} =& 4A \sum_{jk} \frac{1}{\sigma_{jk}^2} y_{jk} \im[e^{i(\Delta_x x_{jk} + \Delta_y y_{jk})} v^\text{rel}_{jk} m^*_{jk}].
+\end{split}
+\end{equation}
+
+The second derivatives with respect to the phase gradients are
+\begin{equation}
+\begin{split}
+    \frac{\partial^2 \chi^2(A, \Delta_x, \Delta_y)}{\partial \Delta_x^2} =& \sum_{jk} \frac{1}{\sigma_{jk}^2} \left( 2 A^2 x^2_{jk} \cos(\Delta_x x_{jk} + \Delta_y y_{jk}) \re[v^\text{rel}_{jk} m^*_{jk}] \right. \\
+    &- \left. 2 A^2 x^2_{jk} \sin(\Delta_x x_{jk} + \Delta_y y_{jk}) \im[v^\text{rel}_{jk} m^*_{jk}] \right) \\
+    =& 2A^2 \sum_{jk} \frac{1}{\sigma_{jk}^2} x^2_{jk} \re[e^{i(\Delta_x x_{jk} + \Delta_y y_{jk})} v^\text{rel}_{jk} m^*_{jk}].
+\end{split}
+\end{equation}
+It follows that
+\begin{equation}
+    \frac{\partial^2 \chi^2(A, \Delta_x, \Delta_y)}{\partial \Delta_y^2} = 2A^2 \sum_{jk} \frac{1}{\sigma_{jk}^2} y^2_{jk} \re[e^{i(\Delta_x x_{jk} + \Delta_y y_{jk})} v^\text{rel}_{jk} m^*_{jk}]
+\end{equation}
+and
+\begin{equation}
+    \frac{\partial^2 \chi^2(A, \Delta_x, \Delta_y)}{\partial \Delta_x \Delta_y} = 2A^2 \sum_{jk} \frac{1}{\sigma_{jk}^2} x_{jk} y_{jk} \re[e^{i(\Delta_x x_{jk} + \Delta_y y_{jk})} v^\text{rel}_{jk} m^*_{jk}].
+\end{equation}
+
+
+
+
+\end{document}
