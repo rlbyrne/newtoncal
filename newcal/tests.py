@@ -1218,6 +1218,60 @@ class TestStringMethods(unittest.TestCase):
 
         np.testing.assert_equal(flag_ant_list[0][0], perturb_antenna_name)
 
+    def test_crosspol_phase(self):
+
+        model = pyuvdata.UVData()
+        model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
+        data = model.copy()
+
+        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj.load_data(data, model, gain_init_stddev=0.0)
+
+        # Unflag all
+        caldata_obj.visibility_weights = np.ones(
+            (
+                caldata_obj.Ntimes,
+                caldata_obj.Nbls,
+                caldata_obj.Nfreqs,
+                4,
+            ),
+            dtype=float,
+        )
+
+        # Set crosspol phase
+        crosspol_phase = 0.2
+        caldata_obj.gains[:, :, 0] *= np.exp(1j * crosspol_phase / 2)
+        caldata_obj.gains[:, :, 1] *= np.exp(-1j * crosspol_phase / 2)
+
+        uvcal = caldata_obj.convert_to_uvcal()
+        pyuvdata.utils.uvcalibrate(data, uvcal, inplace=True, time_check=False)
+
+        caldata_obj_new = calibration_wrappers.CalData()
+        caldata_obj_new.load_data(data, model, gain_init_stddev=0.0)
+
+        # Unflag all
+        caldata_obj_new.visibility_weights = np.ones(
+            (
+                caldata_obj_new.Ntimes,
+                caldata_obj_new.Nbls,
+                caldata_obj_new.Nfreqs,
+                4,
+            ),
+            dtype=float,
+        )
+
+        crosspol_phase_new = cost_function_calculations.set_crosspol_phase(
+            caldata_obj_new.gains[:, 0, :],
+            caldata_obj_new.model_visibilities[:, :, 0, 2:],
+            caldata_obj_new.data_visibilities[:, :, 0, 2:],
+            caldata_obj_new.visibility_weights[:, :, 0, 2:],
+            caldata_obj_new.gains_exp_mat_1,
+            caldata_obj_new.gains_exp_mat_2,
+        )
+
+        print(crosspol_phase_new)
+        np.testing.assert_allclose(crosspol_phase_new, crosspol_phase, atol=1e-8)
+
     def test_abscal_amp_jac(self, verbose=False):
 
         test_freq_ind = 0
