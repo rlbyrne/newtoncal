@@ -1269,7 +1269,6 @@ class TestStringMethods(unittest.TestCase):
             caldata_obj_new.gains_exp_mat_2,
         )
 
-        print(crosspol_phase_new)
         np.testing.assert_allclose(crosspol_phase_new, crosspol_phase, atol=1e-8)
 
     def test_abscal_amp_jac(self, verbose=False):
