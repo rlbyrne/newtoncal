@@ -7,7 +7,7 @@
 
 \title{Calibration Cost Functions and Derivatives}
 \author{Ruby Byrne}
-\date{last updated April 2024}
+\date{last updated May 2024}
 
 \begin{document}
 
@@ -151,7 +151,9 @@ and
 \subsection{Phase Regularization}
 \label{s:phase_regularization}
 
-The overall phase of the gains is degenerate. We want to constrain it such that the average phase of the gains is zero. We can do this by adding a regularization term to the chi-squared to produce a cost function of the form
+The overall phase of the gains is degenerate. Here we show how to constrain this phase by requiring that the average phase of the gains is zero. This is in contrast to an approach that uses a reference antenna.
+
+We constrain the phase by adding a regularization term to the chi-squared to produce a cost function of the form
 \begin{equation}
     L(\boldsymbol{g}) = \sum_t \sum_{jk} \frac{1}{\sigma_{jk}^2(t)} \left| m_{jk}(t) - g_j g_k^* v_{jk}(t) \right|^2 + \lambda \left[ \sum_j \operatorname{Arg}(g_j) \right]^2.
 \end{equation}
@@ -241,6 +243,65 @@ and
     &\frac{\partial}
     {\partial \im(g_a) \partial \im(g_b)} \lambda \left[ \sum_j \operatorname{Arg}(g_j) \right]^2 = 2 \lambda \left( \frac{\re(g_a) \re(g_b)}{|g_a|^2 |g_b|^2} - 2 \delta_{ab} \left[ \sum_j \operatorname{Arg}(g_j) \right] \frac{\im(g_a) \re(g_a)}{|g_a|^4}  \right).
 \end{align}
+
+\subsection{Cross-Polarization Phase}
+
+Per-polarization calibration has a degeneracy in the cross-polarization phase, meaning the overall phase between the $p$-polarized and $q$-polarized gains. We can see this by noting that the transformation $g_{jp} \rightarrow g_{jp} e^{-i\phi/2}$ and $g_{jq} \rightarrow g_{jq} e^{i\phi/2}$ leave $\chi^2$ unchanged, where here $p$ and $q$ denote the two feed polarizations.
+
+We can constrain this phase by matching the cross-polarization data and model. We do this by minimizing this chi-squared:
+\begin{equation}
+\chi^2(\phi) = \sum_{jk} \frac{1}{\sigma^2_{jkpq}} \left| e^{-i\phi} v^\text{cal}_{jkpq} - m_{jkpq} \right|^2 + \sum_{jk} \frac{1}{\sigma^2_{jkqp}} \left| e^{i\phi} v^\text{cal}_{jkqp} - m_{jkqp} \right|^2.
+\end{equation}
+Here $v^\text{cal}_{jkpq}$ and $v^\text{cal}_{jkqp}$ are the cross-polarization visibilities, calibrated up to the cross-polarization phase.
+
+Expanding the chi-squared gives
+\begin{equation}
+\begin{split}
+\chi^2(\phi) =& \sum_{jk} \frac{1}{\sigma^2_{jkpq}} \left[ \left( \re[e^{-i\phi} v^\text{cal}_{jkpq}] - \re[ m_{jkpq}] \right)^2 + \left( \im[e^{-i\phi} v^\text{cal}_{jkpq}] - \im[ m_{jkpq}] \right)^2 \right] \\
+&+ \sum_{jk} \frac{1}{\sigma^2_{jkqp}} \left[ \left( \re[e^{i\phi} v^\text{cal}_{jkqp}] - \re[ m_{jkqp}] \right)^2 + \left( \im[e^{i\phi} v^\text{cal}_{jkqp}] - \im[ m_{jkqp}] \right)^2 \right] \\
+=& \sum_{jk} \frac{1}{\sigma^2_{jkpq}} \left[ |v^\text{cal}_{jkpq}|^2 + |m_{jkpq}|^2 - 2\re[e^{-i\phi} v^\text{cal}_{jkpq}]\re[ m_{jkpq}] - 2\im[e^{-i\phi} v^\text{cal}_{jkpq}]\im[ m_{jkpq}] \right] \\
+&+ \sum_{jk} \frac{1}{\sigma^2_{jkqp}} \left[ |v^\text{cal}_{jkqp}|^2 + |m_{jkqp}|^2 - 2\re[e^{i\phi} v^\text{cal}_{jkqp}]\re[ m_{jkqp}] - 2\im[e^{i\phi} v^\text{cal}_{jkqp}]\im[ m_{jkpq}] \right] \\
+=& \sum_{jk} \frac{1}{\sigma^2_{jkpq}} \left[ |v^\text{cal}_{jkpq}|^2 + |m_{jkpq}|^2 - 2\re[e^{-i\phi} v^\text{cal}_{jkpq} m^*_{jkpq}] \right] \\
+&+ \sum_{jk} \frac{1}{\sigma^2_{jkqp}} \left[ |v^\text{cal}_{jkqp}|^2 + |m_{jkqp}|^2 - 2\re[e^{i\phi} v^\text{cal}_{jkqp} m^*_{jkqp}] \right] \\
+=& \sum_{jk} \frac{1}{\sigma^2_{jkpq}} \left[ |v^\text{cal}_{jkpq}|^2 + |m_{jkpq}|^2 - 2\cos[-\phi] \re[ v^\text{cal}_{jkpq} m^*_{jkpq}] + 2\sin[-\phi] \im[ v^\text{cal}_{jkpq} m^*_{jkpq}] \right] \\
+&+ \sum_{jk} \frac{1}{\sigma^2_{jkqp}} \left[ |v^\text{cal}_{jkqp}|^2 + |m_{jkqp}|^2 - 2 \cos\phi \re[v^\text{cal}_{jkqp} m^*_{jkqp}] + 2 \sin\phi \im[v^\text{cal}_{jkqp} m^*_{jkqp}] \right] \\
+=& \sum_{jk} \frac{1}{\sigma^2_{jkpq}} \left[ |v^\text{cal}_{jkpq}|^2 + |m_{jkpq}|^2 - 2\cos\phi \re[ v^\text{cal}_{jkpq} m^*_{jkpq}] - 2\sin\phi \im[ v^\text{cal}_{jkpq} m^*_{jkpq}] \right] \\
+&+ \sum_{jk} \frac{1}{\sigma^2_{jkqp}} \left[ |v^\text{cal}_{jkqp}|^2 + |m_{jkqp}|^2 - 2 \cos\phi \re[v^\text{cal}_{jkqp} m^*_{jkqp}] + 2 \sin\phi \im[v^\text{cal}_{jkqp} m^*_{jkqp}] \right]. \\
+\end{split}
+\end{equation}
+
+Taking the derivative gives
+\begin{equation}
+\begin{split}
+\frac{\partial \chi^2(\phi)}{\partial \phi} =& \sum_{jk} \frac{1}{\sigma^2_{jkpq}} \left[2 \sin\phi \re[ v^\text{cal}_{jkpq} m^*_{jkpq}] - 2 \cos\phi \im[ v^\text{cal}_{jkpq} m^*_{jkpq}] \right] \\
+&+ \sum_{jk} \frac{1}{\sigma^2_{jkqp}} \left[ 2 \sin\phi \re[v^\text{cal}_{jkqp} m^*_{jkqp}] + 2 \cos\phi \im[v^\text{cal}_{jkqp} m^*_{jkqp}] \right]. \\
+\end{split}
+\end{equation}
+Using the extremum condition $\left. \frac{\partial \chi^2(\phi)}{\partial \phi} \right|_{\phi=\phi_0} = 0$ gives
+\begin{equation}
+\begin{split}
+&\sin\phi_0 \sum_{jk} \left( \frac{1}{\sigma^2_{jkpq}} \re[ v^\text{cal}_{jkpq} m^*_{jkpq}] + \frac{1}{\sigma^2_{jkqp}} \re[v^\text{cal}_{jkqp} m^*_{jkqp}] \right) \\
+&= \cos\phi_0 \sum_{jk} \left( \frac{1}{\sigma^2_{jkpq}} \im[ v^\text{cal}_{jkpq} m^*_{jkpq}] - \frac{1}{\sigma^2_{jkqp}} \im[v^\text{cal}_{jkqp} m^*_{jkqp}] \right)
+\end{split}
+\end{equation}
+or
+\begin{equation}
+\begin{split}
+\tan\phi_0 &= \frac{\sum_{jk} \left( \frac{1}{\sigma^2_{jkpq}} \im[ v^\text{cal}_{jkpq} m^*_{jkpq}] - \frac{1}{\sigma^2_{jkqp}} \im[v^\text{cal}_{jkqp} m^*_{jkqp}] \right)}{\sum_{jk} \left( \frac{1}{\sigma^2_{jkpq}} \re[ v^\text{cal}_{jkpq} m^*_{jkpq}] + \frac{1}{\sigma^2_{jkqp}} \re[v^\text{cal}_{jkqp} m^*_{jkqp}] \right)} \\
+&= \frac{\sum_{jk} \left( \frac{1}{\sigma^2_{jkpq}} \im[ v^\text{cal}_{jkpq} m^*_{jkpq}] + \frac{1}{\sigma^2_{jkqp}} \im[(v^\text{cal}_{jkqp})^* m_{jkqp}] \right)}{\sum_{jk} \left( \frac{1}{\sigma^2_{jkpq}} \re[ v^\text{cal}_{jkpq} m^*_{jkpq}] + \frac{1}{\sigma^2_{jkqp}} \re[(v^\text{cal}_{jkqp})^* m_{jkqp}]
+\right)} \\
+&= \frac{\im \left[ \sum_{jk} \left( \frac{1}{\sigma^2_{jkpq}} v^\text{cal}_{jkpq} m^*_{jkpq} + \frac{1}{\sigma^2_{jkqp}} (v^\text{cal}_{jkqp})^* m_{jkqp} \right) \right]}{\re \left[ \sum_{jk} \left( \frac{1}{\sigma^2_{jkpq}} v^\text{cal}_{jkpq} m^*_{jkpq} + \frac{1}{\sigma^2_{jkqp}} (v^\text{cal}_{jkqp})^* m_{jkqp}
+\right) \right]}.\\
+\end{split}
+\end{equation}
+It follows that
+\begin{equation}
+\phi_0 = \operatorname{Arg} \left[ \sum_{jk} \left( \frac{1}{\sigma^2_{jkpq}} v^\text{cal}_{jkpq} m^*_{jkpq} + \frac{1}{\sigma^2_{jkqp}} (v^\text{cal}_{jkqp})^* m_{jkqp} \right) \right],
+\end{equation}
+where Arg denotes the complex argument.
+
+
+
 
 \section{Per-Frequency, Per-Polarization Including the Time Axis}
 
@@ -437,6 +498,28 @@ and
 \begin{equation}
     \frac{\partial^2 \chi^2(A, \Delta_x, \Delta_y)}{\partial \Delta_x \Delta_y} = 2A^2 \sum_{jk} \frac{1}{\sigma_{jk}^2} x_{jk} y_{jk} \re[e^{i(\Delta_x x_{jk} + \Delta_y y_{jk})} v^\text{rel}_{jk} m^*_{jk}].
 \end{equation}
+
+\subsection{Applying Abscal Solutions}
+
+For per-polarization abscal, the outputs are parameters $A_p$, $\Delta_{xp}$, $\Delta_{yp}$, $A_q$, $\Delta_{xq}$, and $\Delta_{yq}$. Applying these solutions to the single-polarization visibilities is simple:
+\begin{equation}
+    v_{jk \, pp}^\text{cal} = A_p^2 e^{i(\Delta_{xp} x_{jk} + \Delta_{yp} y_{jk})} v^\text{rel}_{jk \, pp}
+\end{equation}
+and
+\begin{equation}
+    v_{jk \, qq}^\text{cal} = A_q^2 e^{i(\Delta_{xq} x_{jk} + \Delta_{yq} y_{jk})} v^\text{rel}_{jk \, qq},
+\end{equation}
+where $v_{jk \, pp}^\text{cal}$ and $v_{jk \, qq}^\text{cal}$ are the calibrated visibilities.
+
+However, calibrating the crosspol visibilities is slightly more complicated. Here we get that
+\begin{equation}
+    v_{jk \, pq}^\text{cal} = A_p A_q e^{i(\Delta_{xp} x_j - \Delta_{xq} x_k + \Delta_{yp} y_j - \Delta_{yq} y_k)} v^\text{rel}_{jk \, pq}
+\end{equation}
+and
+\begin{equation}
+    v_{jk \, qp}^\text{cal} = A_p A_q e^{i(\Delta_{xq} x_j - \Delta_{xp} x_k + \Delta_{yq} y_j - \Delta_{yp} y_k)} v^\text{rel}_{jk \, qp}.
+\end{equation}
+Here $\{x_j, y_j\}$ and $\{x_k, y_k\}$ are the coordinates of antennas $j$ and $k$, respectively. Note that we require calibrating with the antenna positions, not with the baseline locations.
 
 
 
