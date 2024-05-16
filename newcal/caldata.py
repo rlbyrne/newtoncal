@@ -41,7 +41,7 @@ class CalData:
         Shape (Ntimes, Nbls, Nfreqs, N_vis_pols,).
     visibility_weights : array of float
         Shape (Ntimes, Nbls, Nfreqs, N_vis_pols,).
-    dwcal_covariance : array of complex
+    dwcal_inv_covariance : array of complex
         Matrix defining frequency-frequency covariances used in delay-weighted
         calibration. Needed only if delay weighting is used in calibration.
         Shape (Ntimes, Nbls, Nfreqs, Nfreqs, N_vis_pols,).
@@ -87,7 +87,7 @@ class CalData:
         self.model_visibilities = None
         self.data_visibilities = None
         self.visibility_weights = None
-        self.dwcal_covariance = None
+        self.dwcal_inv_covariance = None
         self.gains_exp_mat_1 = None
         self.gains_exp_mat_2 = None
         self.antenna_names = None

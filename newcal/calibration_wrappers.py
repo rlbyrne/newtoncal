@@ -343,7 +343,6 @@ def calibrate_caldata_per_pol(
             )
             sys.stdout.flush()
 
-
 def calibration_per_pol(
     data_file_path,
     model_file_path,
@@ -551,3 +550,322 @@ def calibration_per_pol(
         log_file_new.close()
 
     return uvcal
+
+
+def calibrate_caldata_per_pol(
+    caldata_obj,
+    xtol=1e-4,
+    maxiter=100,
+    get_crosspol_phase=True,
+    parallel=True,
+    verbose=False,
+    pool=None,
+):
+    """
+    Run calibration per polarization. Updates the gains attribute of caldata_obj
+    with calibrated values. Here the XX and YY visibilities are calibrated
+    individually and the cross-polarization phase is applied fromthe XY and YX
+    visibilities after the fact. Option to parallelize calibration across frequency.
+
+    Parameters
+    ----------
+    caldata_obj : CalData
+        CalData object containing the data and model visibilities for calibration.
+    xtol : float
+        Accuracy tolerance for optimizer. Default 1e-8.
+    maxiter : int
+        Maximum number of iterations for the optimizer. Default 100.
+    get_crosspol_phase : bool
+        If True, crosspol phase is calculated. Default True.
+    parallel : bool
+        Set to True to parallelize across frequency with multiprocessing.
+        Default True if Nfreqs > 1.
+    verbose : bool
+        Set to True to print optimization outputs. Default False.
+    pool : multiprocessing.pool.Pool or None
+        Pool for multiprocessing. Must not be None if parallel=True.
+    """
+
+    if np.max(caldata_obj.visibility_weights) == 0.0:
+        print("ERROR: All data flagged.")
+        sys.stdout.flush()
+        caldata_obj.gains[:, :, :] = np.nan + 1j * np.nan
+    else:
+
+        # Expand CalData object into per-frequency objects
+        caldata_list = caldata_obj.expand_in_frequency()
+
+        optimization_start_time = time.time()
+
+        if parallel:
+            args_list = []
+            for freq_ind in range(caldata_obj.Nfreqs):
+                args = (
+                    caldata_list[freq_ind],
+                    xtol,
+                    maxiter,
+                    verbose,
+                    get_crosspol_phase,
+                    True,
+                )
+                args_list.append(args)
+            result = pool.starmap(
+                calibration_optimization.run_calibration_optimization_per_pol_single_freq,
+                args_list,
+            )
+            pool.close()
+            for freq_ind in range(caldata_obj.Nfreqs):
+                caldata_obj.gains[:, [freq_ind], :] = result[freq_ind]
+            pool.join()
+        else:
+            for freq_ind in range(caldata_obj.Nfreqs):
+                calibration_optimization.run_calibration_optimization_per_pol_single_freq(
+                    caldata_list[freq_ind],
+                    xtol,
+                    maxiter,
+                    verbose=verbose,
+                    get_crosspol_phase=get_crosspol_phase,
+                )
+                caldata_obj.gains[:, [freq_ind], :] = caldata_list[freq_ind].gains[
+                    :, [0], :
+                ]
+
+        if verbose:
+            print(
+                f"Done. Optimization time: {caldata_obj.Nfreqs} frequency channels in {(time.time() - optimization_start_time)/60.} minutes"
+            )
+            sys.stdout.flush()
+
+
+def absolute_calibration(
+    data,
+    model,
+    data_use_column="DATA",
+    model_use_column="MODEL_DATA",
+    N_feed_pols=None,
+    feed_polarization_array=None,
+    min_cal_baseline_m=None,
+    max_cal_baseline_m=None,
+    min_cal_baseline_lambda=None,
+    max_cal_baseline_lambda=None,
+    xtol=1e-4,
+    maxiter=100,
+    verbose=False,
+    log_file_path=None,
+):
+    """
+    Top-level wrapper for running absolute calibration ("abscal").
+
+    Parameters
+    ----------
+    data : str or UVData
+        Path to the pyuvdata-readable file containing the relatively calibrated
+        data visibilities or a pyuvdata UVData object.
+    model : str or UVData
+        Path to the pyuvdata-readable file containing the model visibilities
+        or a pyuvdata UVData object.
+    data_use_column : str
+        Column in an ms file to use for the data visibilities. Used only if
+        data_file_path points to an ms file. Default "DATA".
+    model_use_column : str
+        Column in an ms file to use for the model visibilities. Used only if
+        data_file_path points to an ms file. Default "MODEL_DATA".
+    N_feed_pols : int
+        Default min(2, N_vis_pols). Number of feed polarizations, equal to
+        the number of gain values to be calculated per antenna.
+    feed_polarization_array : array of int or None
+        Feed polarizations to calibrate. Shape (N_feed_pols,). Options are
+        -5 for X or -6 for Y. Default None. If None, feed_polarization_array
+        is set to ([-5, -6])[:N_feed_pols].
+    min_cal_baseline_m : float or None
+        Minimum baseline length, in meters, to use in calibration. If both
+        min_cal_baseline_m and min_cal_baseline_lambda are None, arbitrarily
+        short baselines are used. Default None.
+    max_cal_baseline_m : float or None
+        Maximum baseline length, in meters, to use in calibration. If both
+        max_cal_baseline_m and max_cal_baseline_lambda are None, arbitrarily
+        long baselines are used. Default None.
+    min_cal_baseline_lambda : float or None
+        Minimum baseline length, in wavelengths, to use in calibration. If
+        both min_cal_baseline_m and min_cal_baseline_lambda are None,
+        arbitrarily short baselines are used. Default None.
+    max_cal_baseline_lambda : float or None
+        Maximum baseline length, in wavelengths, to use in calibration. If
+        both max_cal_baseline_m and max_cal_baseline_lambda are None,
+        arbitrarily long baselines are used. Default None.
+    xtol : float
+        Accuracy tolerance for optimizer. Default 1e-8.
+    maxiter : int
+        Maximum number of iterations for the optimizer. Default 100.
+    verbose : bool
+        Set to True to print optimization outputs. Default False.
+    log_file_path : str or None
+        Path to the log file. Default None.
+    Returns
+    -------
+    abscal_params : array of float
+        Shape (3, Nfreqs, N_feed_pols). abscal_params[0, :, :] are the overall amplitudes,
+        abscal_params[1, :, :] are the x-phase gradients in units 1/m, and abscal_params[2, :, :]
+        are the y-phase gradients in units 1/m.
+    """
+
+    if log_file_path is not None:
+        stdout_orig = sys.stdout
+        stderr_orig = sys.stderr
+        sys.stdout = sys.stderr = log_file_new = open(log_file_path, "w")
+
+    start_time = time.time()
+
+    if verbose:
+        print("Reading data...")
+        sys.stdout.flush()
+        data_read_start_time = time.time()
+
+    print_data_read_time = False
+    if isinstance(data, str):  # Read data
+        print_data_read_time = True
+        data_file_path = np.copy(data)
+        data = pyuvdata.UVData()
+        if data_file_path.endswith(".ms"):
+            data.read_ms(data_file_path, data_column=data_use_column)
+        else:
+            data.read(data_file_path)
+    if isinstance(model, str):  # Read model
+        print_data_read_time = True
+        model_file_path = np.copy(model)
+        model = pyuvdata.UVData()
+        if model_file_path.endswith(".ms"):
+            model.read_ms(model_file_path, data_column=model_use_column)
+        else:
+            model.read(model_file_path)
+
+    if verbose and print_data_read_time:
+        print(
+            f"Done. Data read time {(time.time() - data_read_start_time)/60.} minutes."
+        )
+        sys.stdout.flush()
+    if verbose:
+        print("Formatting data...")
+        sys.stdout.flush()
+        data_format_start_time = time.time()
+
+    caldata_obj = caldata.CalData()
+    caldata_obj.load_data(
+        data,
+        model,
+        N_feed_pols=N_feed_pols,
+        feed_polarization_array=feed_polarization_array,
+        min_cal_baseline_m=min_cal_baseline_m,
+        max_cal_baseline_m=max_cal_baseline_m,
+        min_cal_baseline_lambda=min_cal_baseline_lambda,
+        max_cal_baseline_lambda=max_cal_baseline_lambda,
+    )
+
+    if verbose:
+        print(
+            f"Done. Data formatting time {(time.time() - data_format_start_time)/60.} minutes."
+        )
+        print("Running calibration optimization...")
+        sys.stdout.flush()
+
+    # Expand CalData object into per-frequency objects
+    caldata_list = caldata_obj.expand_in_frequency()
+
+    optimization_start_time = time.time()
+
+    for freq_ind in range(caldata_obj.Nfreqs):
+        calibration_optimization.run_abscal_optimization_single_freq(
+            caldata_list[freq_ind],
+            xtol,
+            maxiter,
+            verbose=verbose,
+        )
+        caldata_obj.abscal_params[:, [freq_ind], :] = caldata_list[
+            freq_ind
+        ].abscal_params[:, [0], :]
+
+    if verbose:
+        print(
+            f"Done. Optimization time: {caldata_obj.Nfreqs} frequency channels in {(time.time() - optimization_start_time)/60.} minutes"
+        )
+        print(f"Total processing time {(time.time() - start_time)/60.} minutes.")
+        sys.stdout.flush()
+
+    if log_file_path is not None:
+        sys.stdout = stdout_orig
+        sys.stderr = stderr_orig
+        log_file_new.close()
+
+    return caldata_obj.abscal_params
+
+
+def get_dwcal_weights_from_delay_spectra(
+    caldata,
+    delay_spectrum_variance,
+    bl_length_bin_edges,
+    delay_axis,
+    oversample_factor=128,
+):
+    """
+    Parameters
+    ----------
+    caldata : CalData object
+    delay_spectrum_variance : array of float
+        Array containing the expected variance as a function of baseline length and delay.
+        Shape (Nbins, Ndelays,).
+    bl_length_bin_edges : array of float
+        Defines the baseline length axis of delay_spectrum_variance. Values correspond to
+        limits of each baseline length bin. Shape (Nbins+1,).
+    delay_axis : array of float
+        Defines the delay axis of delay_spectrum_variance. Shape (Ndelays,).
+    oversample_factor : int
+        Factor by which to oversample the delay axis. Setting > 1 reduces Fourier aliasing
+        effects. Default 128.
+    """
+
+    bl_lengths = np.sqrt(np.sum(caldata.uv_array**2.0, axis=1))
+    delay_array_use = np.fft.fftfreq(
+        caldata.Nfreqs * int(oversample_factor), d=caldata.channel_width
+    )
+    dwcal_variance_use = np.zeros(
+        (
+            caldata.Nbls,
+            caldata.Nfreqs * int(oversample_factor),
+        ),
+        dtype=float,
+    )
+    for bl_ind, bl_length in enumerate(bl_lengths):
+        bin_ind = np.max(np.where(bl_length_bin_edges <= bl_length)[0])
+        if (bin_ind == len(bl_length_bin_edges) - 1) or (
+            not bl_length_bin_edges[bin_ind + 1] > bl_length
+        ):
+            print(
+                f"WARNING: Baseline length range does not cover baseline of length {bl_length} m. Skipping."
+            )
+            continue
+        dwcal_variance_use[bl_ind, :] = np.interp(
+            delay_array_use, delay_axis, delay_spectrum_variance[bin_ind, :]
+        )
+
+    freq_weighting = np.fft.ifft(1.0 / dwcal_variance_use, axis=1)
+    freq_weighting = freq_weighting[
+        :, : caldata.Nfreqs
+    ]  # Truncate frequency axis to remove oversampling
+    weight_mat = np.zeros((caldata.Nbls, caldata.Nfreqs, caldata.Nfreqs), dtype=complex)
+    for freq_ind1 in range(caldata.Nfreqs):
+        for freq_ind2 in range(caldata.Nfreqs):
+            weight_mat[:, freq_ind1, freq_ind2] = freq_weighting[
+                :, np.abs(freq_ind1 - freq_ind2)
+            ]
+
+    # Make normalization match identity matrix weight mat
+    normalization_factor = (
+        caldata.Nfreqs * caldata.Nbls / np.sum(np.trace(weight_mat, axis1=1, axis2=2))
+    )
+    weight_mat *= normalization_factor
+
+    caldata.dwcal_inv_covariance = np.repeat(
+        np.repeat(weight_mat[np.newaxis, :, :, :, np.newaxis], caldata.Ntimes, axis=0),
+        caldata.N_vis_pols,
+        axis=4,
+    )  # Use the same matrix for all times and polarizations

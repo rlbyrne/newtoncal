@@ -568,3 +568,55 @@ def hess_abs_cal(
         hess_phasey_phasey,
         hess_phasex_phasey,
     )
+
+
+def cost_function_dw_abscal(
+    amp,
+    phase_grad,
+    model_visibilities,
+    data_visibilities,
+    uv_array,
+    visibility_weights,
+    dwcal_inv_covariance,
+):
+    """
+    Calculate the cost function (chi-squared) value for absolute calibration
+    with delay weighting.
+
+    Parameters
+    ----------
+    amp : array of float
+        Shape (Nfreqs,). Overall visibility amplitude.
+    phase_grad :  array of float
+        Shape (2, Nfreqs,). Phase gradient terms, in units of 1/m.
+    model_visibilities : array of complex
+        Shape (Ntimes, Nbls, Nfreqs,).
+    data_visibilities : array of complex
+        Relatively calibrated data. Shape (Ntimes, Nbls, Nfreqs,).
+    uv_array : array of float
+        Shape(Nbls, 2,)
+    visibility_weights : array of float
+        Shape (Ntimes, Nbls, Nfreqs,).
+    dwcal_inv_covariance : array of complex
+        Shape (Ntimes, Nbls, Nfreqs, Nfreqs,).
+
+    Returns
+    -------
+    cost : float
+        Value of the cost function.
+    """
+
+    phase_term = np.sum(
+        phase_grad[np.newaxis, :, :] * uv_array[:, :, np.newaxis], axis=1
+    )  # Shape (Nbls, Nfreqs,)
+    res_vec = np.sqrt(visibility_weights) * (
+        (amp[np.newaxis, :] ** 2.0 * np.exp(1j * phase_term))[np.newaxis, :, :]
+        * data_visibilities
+        - model_visibilities
+    )
+    cost = np.sum(
+        dwcal_inv_covariance
+        * np.conj(res_vec[:, :, :, np.newaxis])
+        * res_vec[:, :, np.newaxis, :]
+    )
+    return cost
