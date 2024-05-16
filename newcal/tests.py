@@ -3,6 +3,7 @@ import calibration_optimization
 import calibration_wrappers
 import cost_function_calculations
 import calibration_qa
+import caldata
 import pyuvdata
 import os
 import unittest
@@ -23,7 +24,7 @@ class TestStringMethods(unittest.TestCase):
         model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
         data = model.copy()
 
-        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model)
 
         cost = cost_function_calculations.cost_function_single_pol(
@@ -52,7 +53,7 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model, lambda_val=lambda_val)
 
         np.random.seed(0)
@@ -123,7 +124,7 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model, lambda_val=lambda_val)
 
         np.random.seed(0)
@@ -194,7 +195,7 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model, lambda_val=lambda_val)
 
         caldata_obj.visibility_weights = np.zeros_like(
@@ -269,7 +270,7 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model, lambda_val=lambda_val)
 
         caldata_obj.visibility_weights = np.zeros_like(
@@ -345,7 +346,7 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model, lambda_val=lambda_val)
 
         np.random.seed(0)
@@ -433,7 +434,7 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model, lambda_val=lambda_val)
 
         np.random.seed(0)
@@ -521,7 +522,7 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model, lambda_val=lambda_val)
 
         np.random.seed(0)
@@ -610,7 +611,7 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model, lambda_val=lambda_val)
 
         np.random.seed(0)
@@ -701,7 +702,7 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model, lambda_val=lambda_val)
 
         caldata_obj.visibility_weights = np.zeros_like(
@@ -795,7 +796,7 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model, lambda_val=lambda_val)
 
         caldata_obj.visibility_weights = np.zeros_like(
@@ -887,7 +888,7 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model, lambda_val=lambda_val)
 
         caldata_obj.visibility_weights = np.zeros_like(
@@ -980,7 +981,7 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model, lambda_val=lambda_val)
 
         caldata_obj.visibility_weights = np.zeros_like(
@@ -1070,7 +1071,7 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model, lambda_val=lambda_val)
 
         np.random.seed(0)
@@ -1106,7 +1107,7 @@ class TestStringMethods(unittest.TestCase):
         model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
         data = model.copy()
 
-        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model, gain_init_stddev=0.1, lambda_val=100.0)
 
         # Unflag all
@@ -1135,7 +1136,7 @@ class TestStringMethods(unittest.TestCase):
         model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
         data = model.copy()
 
-        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model, gain_init_stddev=0.1, lambda_val=100.0)
 
         # Unflag all
@@ -1167,7 +1168,7 @@ class TestStringMethods(unittest.TestCase):
         model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
         data = model.copy()
 
-        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model, gain_init_stddev=0.1, lambda_val=100.0)
 
         # Unflag all
@@ -1224,7 +1225,7 @@ class TestStringMethods(unittest.TestCase):
         model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
         data = model.copy()
 
-        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model, gain_init_stddev=0.0)
 
         # Unflag all
@@ -1246,7 +1247,7 @@ class TestStringMethods(unittest.TestCase):
         uvcal = caldata_obj.convert_to_uvcal()
         pyuvdata.utils.uvcalibrate(data, uvcal, inplace=True, time_check=False)
 
-        caldata_obj_new = calibration_wrappers.CalData()
+        caldata_obj_new = caldata.CalData()
         caldata_obj_new.load_data(data, model, gain_init_stddev=0.0)
 
         # Unflag all
@@ -1283,7 +1284,7 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model)
 
         caldata_obj.visibility_weights[:, :, :, :] = 1  # Unflag all
@@ -1334,7 +1335,7 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model)
         caldata_obj.visibility_weights[:, :, :, :] = 1  # Unflag all
 
@@ -1387,7 +1388,7 @@ class TestStringMethods(unittest.TestCase):
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
 
-        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model)
         caldata_obj.visibility_weights[:, :, :, :] = 1  # Unflag all
 
@@ -1444,7 +1445,7 @@ class TestStringMethods(unittest.TestCase):
             )[:, np.newaxis, np.newaxis, np.newaxis]
         )
 
-        caldata_obj = calibration_wrappers.CalData()
+        caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model)
 
         # Unflag all
