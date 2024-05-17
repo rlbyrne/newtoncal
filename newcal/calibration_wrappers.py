@@ -807,6 +807,10 @@ def get_dwcal_weights_from_delay_spectra(
     oversample_factor=128,
 ):
     """
+    This function calculates the matrix that captures delay weighting (or frequency
+    covariance). The input is an array of expected variances as a function of baseline
+    length and delay.
+
     Parameters
     ----------
     caldata : CalData object
@@ -854,11 +858,16 @@ def get_dwcal_weights_from_delay_spectra(
     weight_mat = np.zeros((caldata.Nbls, caldata.Nfreqs, caldata.Nfreqs), dtype=complex)
     for freq_ind1 in range(caldata.Nfreqs):
         for freq_ind2 in range(caldata.Nfreqs):
-            weight_mat[:, freq_ind1, freq_ind2] = freq_weighting[
-                :, np.abs(freq_ind1 - freq_ind2)
-            ]
+            if freq_ind1 < freq_ind2:
+                weight_mat[:, freq_ind1, freq_ind2] = np.conj(
+                    freq_weighting[:, np.abs(freq_ind1 - freq_ind2)]
+                )
+            else:
+                weight_mat[:, freq_ind1, freq_ind2] = freq_weighting[
+                    :, np.abs(freq_ind1 - freq_ind2)
+                ]
 
-    # Make normalization match identity matrix weight mat
+    # Make normalization match that of the identity matrix
     normalization_factor = (
         caldata.Nfreqs * caldata.Nbls / np.sum(np.trace(weight_mat, axis1=1, axis2=2))
     )
@@ -869,3 +878,191 @@ def get_dwcal_weights_from_delay_spectra(
         caldata.N_vis_pols,
         axis=4,
     )  # Use the same matrix for all times and polarizations
+
+
+def dw_absolute_calibration(
+    data,
+    model,
+    delay_spectrum_variance,
+    bl_length_bin_edges,
+    delay_axis,
+    data_use_column="DATA",
+    model_use_column="MODEL_DATA",
+    initial_abscal_params=None,
+    N_feed_pols=None,
+    feed_polarization_array=None,
+    min_cal_baseline_m=None,
+    max_cal_baseline_m=None,
+    min_cal_baseline_lambda=None,
+    max_cal_baseline_lambda=None,
+    xtol=1e-4,
+    maxiter=100,
+    verbose=False,
+    log_file_path=None,
+):
+    """
+    Top-level wrapper for running absolute calibration ("abscal") with delay weighting.
+
+    Parameters
+    ----------
+    data : str or UVData
+        Path to the pyuvdata-readable file containing the relatively calibrated
+        data visibilities or a pyuvdata UVData object.
+    model : str or UVData
+        Path to the pyuvdata-readable file containing the model visibilities
+        or a pyuvdata UVData object.
+    delay_spectrum_variance : array of float
+        Array containing the expected variance as a function of baseline length and delay.
+        Shape (Nbins, Ndelays,).
+    bl_length_bin_edges : array of float
+        Defines the baseline length axis of delay_spectrum_variance. Values correspond to
+        limits of each baseline length bin. Shape (Nbins+1,).
+    delay_axis : array of float
+        Defines the delay axis of delay_spectrum_variance. Shape (Ndelays,).
+    data_use_column : str
+        Column in an ms file to use for the data visibilities. Used only if
+        data_file_path points to an ms file. Default "DATA".
+    model_use_column : str
+        Column in an ms file to use for the model visibilities. Used only if
+        data_file_path points to an ms file. Default "MODEL_DATA".
+    initial_abscal_params : array of float
+        Parameters to initialize with. Shape (3, Nfreqs, N_feed_pols). abscal_params[0, :, :]
+        are the overall amplitudes, abscal_params[1, :, :] are the x-phase gradients in units
+        1/m, and abscal_params[2, :, :] are the y-phase gradients in units 1/m. Currently the
+        frequency and polarization axes must match those in the data (this should be fixed).
+    N_feed_pols : int
+        Default min(2, N_vis_pols). Number of feed polarizations, equal to
+        the number of gain values to be calculated per antenna.
+    feed_polarization_array : array of int or None
+        Feed polarizations to calibrate. Shape (N_feed_pols,). Options are
+        -5 for X or -6 for Y. Default None. If None, feed_polarization_array
+        is set to ([-5, -6])[:N_feed_pols].
+    min_cal_baseline_m : float or None
+        Minimum baseline length, in meters, to use in calibration. If both
+        min_cal_baseline_m and min_cal_baseline_lambda are None, arbitrarily
+        short baselines are used. Default None.
+    max_cal_baseline_m : float or None
+        Maximum baseline length, in meters, to use in calibration. If both
+        max_cal_baseline_m and max_cal_baseline_lambda are None, arbitrarily
+        long baselines are used. Default None.
+    min_cal_baseline_lambda : float or None
+        Minimum baseline length, in wavelengths, to use in calibration. If
+        both min_cal_baseline_m and min_cal_baseline_lambda are None,
+        arbitrarily short baselines are used. Default None.
+    max_cal_baseline_lambda : float or None
+        Maximum baseline length, in wavelengths, to use in calibration. If
+        both max_cal_baseline_m and max_cal_baseline_lambda are None,
+        arbitrarily long baselines are used. Default None.
+    xtol : float
+        Accuracy tolerance for optimizer. Default 1e-8.
+    maxiter : int
+        Maximum number of iterations for the optimizer. Default 100.
+    verbose : bool
+        Set to True to print optimization outputs. Default False.
+    log_file_path : str or None
+        Path to the log file. Default None.
+    Returns
+    -------
+    abscal_params : array of float
+        Shape (3, Nfreqs, N_feed_pols). abscal_params[0, :, :] are the overall amplitudes,
+        abscal_params[1, :, :] are the x-phase gradients in units 1/m, and abscal_params[2, :, :]
+        are the y-phase gradients in units 1/m.
+    """
+
+    if log_file_path is not None:
+        stdout_orig = sys.stdout
+        stderr_orig = sys.stderr
+        sys.stdout = sys.stderr = log_file_new = open(log_file_path, "w")
+
+    start_time = time.time()
+
+    if verbose:
+        print("Reading data...")
+        sys.stdout.flush()
+        data_read_start_time = time.time()
+
+    print_data_read_time = False
+    if isinstance(data, str):  # Read data
+        print_data_read_time = True
+        data_file_path = np.copy(data)
+        data = pyuvdata.UVData()
+        if data_file_path.endswith(".ms"):
+            data.read_ms(data_file_path, data_column=data_use_column)
+        else:
+            data.read(data_file_path)
+    if isinstance(model, str):  # Read model
+        print_data_read_time = True
+        model_file_path = np.copy(model)
+        model = pyuvdata.UVData()
+        if model_file_path.endswith(".ms"):
+            model.read_ms(model_file_path, data_column=model_use_column)
+        else:
+            model.read(model_file_path)
+
+    if verbose and print_data_read_time:
+        print(
+            f"Done. Data read time {(time.time() - data_read_start_time)/60.} minutes."
+        )
+        sys.stdout.flush()
+    if verbose:
+        print("Formatting data...")
+        sys.stdout.flush()
+        data_format_start_time = time.time()
+
+    caldata_obj = caldata.CalData()
+    caldata_obj.load_data(
+        data,
+        model,
+        N_feed_pols=N_feed_pols,
+        feed_polarization_array=feed_polarization_array,
+        min_cal_baseline_m=min_cal_baseline_m,
+        max_cal_baseline_m=max_cal_baseline_m,
+        min_cal_baseline_lambda=min_cal_baseline_lambda,
+        max_cal_baseline_lambda=max_cal_baseline_lambda,
+    )
+
+    if initial_abscal_params is not None:
+        caldata_obj.abscal_params = initial_abscal_params
+
+    if verbose:
+        print(
+            f"Done. Data formatting time {(time.time() - data_format_start_time)/60.} minutes."
+        )
+        print("Calculating delay weighting matrix...")
+        sys.stdout.flush()
+
+    get_dwcal_weights_from_delay_spectra(
+        caldata_obj,
+        delay_spectrum_variance,
+        bl_length_bin_edges,
+        delay_axis,
+    )
+
+    if verbose:
+        print(
+            f"Done. Time calculating delay weighting matrix {(time.time() - data_format_start_time)/60.} minutes."
+        )
+        print("Running calibration optimization...")
+        sys.stdout.flush()
+        optimization_start_time = time.time()
+
+    calibration_optimization.run_abscal_optimization_single_freq(
+        caldata_obj,
+        xtol,
+        maxiter,
+        verbose=verbose,
+    )
+
+    if verbose:
+        print(
+            f"Done. Optimization time: {caldata_obj.Nfreqs} frequency channels in {(time.time() - optimization_start_time)/60.} minutes"
+        )
+        print(f"Total processing time {(time.time() - start_time)/60.} minutes.")
+        sys.stdout.flush()
+
+    if log_file_path is not None:
+        sys.stdout = stdout_orig
+        sys.stderr = stderr_orig
+        log_file_new.close()
+
+    return caldata_obj.abscal_params
