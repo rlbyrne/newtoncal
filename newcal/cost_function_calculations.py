@@ -410,7 +410,7 @@ def jacobian_abs_cal(
     visibility_weights,
 ):
     """
-    Calculate the cost function (chi-squared) value for absolute calibration.
+    Calculate the Jacobian for absolute calibration.
 
     Parameters
     ----------
@@ -473,7 +473,7 @@ def hess_abs_cal(
     visibility_weights,
 ):
     """
-    Calculate the cost function (chi-squared) value for absolute calibration.
+    Calculate the Hessian for absolute calibration.
 
     Parameters
     ----------
@@ -613,10 +613,92 @@ def cost_function_dw_abscal(
         (amp[np.newaxis, :] ** 2.0 * np.exp(1j * phase_term))[np.newaxis, :, :]
         * data_visibilities
         - model_visibilities
-    )
-    cost = np.sum(
-        dwcal_inv_covariance
-        * np.conj(res_vec[:, :, :, np.newaxis])
-        * res_vec[:, :, np.newaxis, :]
+    )  # Shape (Ntimes, Nbls, Nfreqs)
+    cost = np.real(
+        np.sum(
+            dwcal_inv_covariance
+            * np.conj(res_vec[:, :, :, np.newaxis])
+            * res_vec[:, :, np.newaxis, :]
+        )
     )
     return cost
+
+
+def jacobian_dw_abscal(
+    amp,
+    phase_grad,
+    model_visibilities,
+    data_visibilities,
+    uv_array,
+    visibility_weights,
+    dwcal_inv_covariance,
+):
+    """
+    Calculate the Jacobian for absolute calibration with delay weighting.
+
+    Parameters
+    ----------
+    amp : array of float
+        Shape (Nfreqs,). Overall visibility amplitude.
+    phase_grad :  array of float
+        Shape (2, Nfreqs,). Phase gradient terms, in units of 1/m.
+    model_visibilities : array of complex
+        Shape (Ntimes, Nbls, Nfreqs,).
+    data_visibilities : array of complex
+        Relatively calibrated data. Shape (Ntimes, Nbls, Nfreqs,).
+    uv_array : array of float
+        Shape(Nbls, 2,)
+    visibility_weights : array of float
+        Shape (Ntimes, Nbls, Nfreqs,).
+    dwcal_inv_covariance : array of complex
+        Shape (Ntimes, Nbls, Nfreqs, Nfreqs,).
+
+    Returns
+    -------
+    amp_jac : float
+        Derivative of the cost with respect to the visibility amplitude terms. Shape (Nfreqs,).
+    phase_jac : array of float
+        Derivatives of the cost with respect to the phase gradient terms. Shape (2, Nfreqs,).
+
+    """
+
+    phase_term = np.sum(
+        phase_grad[np.newaxis, :, :] * uv_array[:, :, np.newaxis], axis=1
+    )  # Shape (Nbls, Nfreqs,)
+    res_vec = np.sqrt(visibility_weights) * (
+        (amp[np.newaxis, :] ** 2.0 * np.exp(1j * phase_term))[np.newaxis, :, :]
+        * data_visibilities
+        - model_visibilities
+    )  # Shape (Ntimes, Nbls, Nfreqs,)
+    derivative_term = (
+        np.sqrt(visibility_weights)
+        * np.exp(-1j * phase_term)[np.newaxis, :, :]
+        * np.conj(data_visibilities)
+    )
+    amp_jac = (
+        4
+        * amp
+        * np.real(
+            np.sum(
+                dwcal_inv_covariance
+                * derivative_term[:, :, :, np.newaxis]
+                * res_vec[:, :, np.newaxis, :],
+                axis=(0, 1, 3),
+            )
+        )
+    )
+    phase_jac = (
+        2
+        * amp[:, np.newaxis]
+        * np.real(
+            np.sum(
+                dwcal_inv_covariance[:, :, :, :, np.newaxis]
+                * (-1j)
+                * uv_array[np.newaxis, :, np.newaxis, np.newaxis, :]
+                * derivative_term[:, :, :, np.newaxis, np.newaxis]
+                * res_vec[:, :, np.newaxis, :, np.newaxis],
+                axis=(0, 1, 3),
+            )
+        )
+    ).T
+    return amp_jac, phase_jac

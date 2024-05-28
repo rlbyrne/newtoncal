@@ -1315,7 +1315,6 @@ class TestStringMethods(unittest.TestCase):
             caldata_obj.uv_array,
             caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
         )
-        print(cost0)
 
         grad_approx = (cost1 - cost0) / delta_val
         if verbose:
@@ -1472,6 +1471,164 @@ class TestStringMethods(unittest.TestCase):
             inplace=True,
         )
         np.testing.assert_allclose(data.data_array, model.data_array, rtol=1e-3)
+
+    def test_dwabscal_amp_jac(
+        self, verbose=False
+    ):  # Need to update this using multifrequency data
+
+        test_freq_ind = 0
+        test_pol_ind = 0
+        delta_val = 1e-8
+        amplitude_perturbation = 1.3
+
+        model = pyuvdata.UVData()
+        model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
+        data = pyuvdata.UVData()
+        data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
+
+        caldata_obj = caldata.CalData()
+        caldata_obj.load_data(data, model)
+
+        caldata_obj.visibility_weights[:, :, :, :] = 1  # Unflag all
+        caldata_obj.dwcal_inv_covariance = np.random.rand(
+            caldata_obj.Ntimes,
+            caldata_obj.Nbls,
+            caldata_obj.Nfreqs,
+            caldata_obj.Nfreqs,
+            caldata_obj.N_vis_pols,
+        ) + 1j * np.random.rand(
+            caldata_obj.Ntimes,
+            caldata_obj.Nbls,
+            caldata_obj.Nfreqs,
+            caldata_obj.Nfreqs,
+            caldata_obj.N_vis_pols,
+        )
+        caldata_obj.dwcal_inv_covariance = np.transpose(
+            np.matmul(
+                np.transpose(caldata_obj.dwcal_inv_covariance, axes=(0, 1, 4, 2, 3)),
+                np.conj(
+                    np.transpose(caldata_obj.dwcal_inv_covariance, axes=(0, 1, 4, 3, 2))
+                ),
+            ),
+            axes=(0, 1, 3, 4, 2),
+        )  # Enforce that the matrix is Hermitian
+
+        caldata_obj.model_visibilities[:, :, test_freq_ind, :] *= amplitude_perturbation
+
+        cost1 = cost_function_calculations.cost_function_dw_abscal(
+            caldata_obj.abscal_params[0, :, test_pol_ind] + delta_val / 2,
+            caldata_obj.abscal_params[1:, :, test_pol_ind],
+            caldata_obj.model_visibilities[:, :, :, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, :, test_pol_ind],
+            caldata_obj.uv_array,
+            caldata_obj.visibility_weights[:, :, :, test_pol_ind],
+            caldata_obj.dwcal_inv_covariance[:, :, :, :, test_pol_ind],
+        )
+        cost0 = cost_function_calculations.cost_function_dw_abscal(
+            caldata_obj.abscal_params[0, :, test_pol_ind] - delta_val / 2,
+            caldata_obj.abscal_params[1:, :, test_pol_ind],
+            caldata_obj.model_visibilities[:, :, :, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, :, test_pol_ind],
+            caldata_obj.uv_array,
+            caldata_obj.visibility_weights[:, :, :, test_pol_ind],
+            caldata_obj.dwcal_inv_covariance[:, :, :, :, test_pol_ind],
+        )
+
+        amp_jac, phase_jac = cost_function_calculations.jacobian_dw_abscal(
+            caldata_obj.abscal_params[0, :, test_pol_ind],
+            caldata_obj.abscal_params[1:, :, test_pol_ind],
+            caldata_obj.model_visibilities[:, :, :, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, :, test_pol_ind],
+            caldata_obj.uv_array,
+            caldata_obj.visibility_weights[:, :, :, test_pol_ind],
+            caldata_obj.dwcal_inv_covariance[:, :, :, :, test_pol_ind],
+        )
+
+        grad_approx = (cost1 - cost0) / delta_val
+        if verbose:
+            print(f"Gradient approximation value: {grad_approx}")
+            print(f"Jacobian value: {amp_jac[test_freq_ind]}")
+
+        np.testing.assert_allclose(grad_approx, amp_jac[test_freq_ind], rtol=1e-8)
+
+    def test_dwabscal_phase_jac(self, verbose=False):  # Need to update this using multifrequency data
+
+        test_freq_ind = 0
+        test_pol_ind = 0
+        delta_val = 1e-8
+        amplitude_perturbation = 1.3
+
+        model = pyuvdata.UVData()
+        model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
+        data = pyuvdata.UVData()
+        data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
+
+        caldata_obj = caldata.CalData()
+        caldata_obj.load_data(data, model)
+
+        caldata_obj.visibility_weights[:, :, :, :] = 1  # Unflag all
+        caldata_obj.dwcal_inv_covariance = np.random.rand(
+            caldata_obj.Ntimes,
+            caldata_obj.Nbls,
+            caldata_obj.Nfreqs,
+            caldata_obj.Nfreqs,
+            caldata_obj.N_vis_pols,
+        ) + 1j * np.random.rand(
+            caldata_obj.Ntimes,
+            caldata_obj.Nbls,
+            caldata_obj.Nfreqs,
+            caldata_obj.Nfreqs,
+            caldata_obj.N_vis_pols,
+        )
+        caldata_obj.dwcal_inv_covariance = np.transpose(
+            np.matmul(
+                np.transpose(caldata_obj.dwcal_inv_covariance, axes=(0, 1, 4, 2, 3)),
+                np.conj(
+                    np.transpose(caldata_obj.dwcal_inv_covariance, axes=(0, 1, 4, 3, 2))
+                ),
+            ),
+            axes=(0, 1, 3, 4, 2),
+        )  # Enforce that the matrix is Hermitian
+
+        caldata_obj.model_visibilities[:, :, test_freq_ind, :] *= amplitude_perturbation
+
+        for phase_ind in range(2):
+            delta_array = np.zeros((2, caldata_obj.Nfreqs), dtype=float)
+            delta_array[phase_ind, test_freq_ind] = delta_val
+            cost1 = cost_function_calculations.cost_function_dw_abscal(
+                caldata_obj.abscal_params[0, :, test_pol_ind],
+                caldata_obj.abscal_params[1:, :, test_pol_ind] + delta_array / 2,
+                caldata_obj.model_visibilities[:, :, :, test_pol_ind],
+                caldata_obj.data_visibilities[:, :, :, test_pol_ind],
+                caldata_obj.uv_array,
+                caldata_obj.visibility_weights[:, :, :, test_pol_ind],
+                caldata_obj.dwcal_inv_covariance[:, :, :, :, test_pol_ind],
+            )
+            cost0 = cost_function_calculations.cost_function_dw_abscal(
+                caldata_obj.abscal_params[0, :, test_pol_ind],
+                caldata_obj.abscal_params[1:, :, test_pol_ind] - delta_array / 2,
+                caldata_obj.model_visibilities[:, :, :, test_pol_ind],
+                caldata_obj.data_visibilities[:, :, :, test_pol_ind],
+                caldata_obj.uv_array,
+                caldata_obj.visibility_weights[:, :, :, test_pol_ind],
+                caldata_obj.dwcal_inv_covariance[:, :, :, :, test_pol_ind],
+            )
+
+            amp_jac, phase_jac = cost_function_calculations.jacobian_dw_abscal(
+                caldata_obj.abscal_params[0, :, test_pol_ind],
+                caldata_obj.abscal_params[1:, :, test_pol_ind],
+                caldata_obj.model_visibilities[:, :, :, test_pol_ind],
+                caldata_obj.data_visibilities[:, :, :, test_pol_ind],
+                caldata_obj.uv_array,
+                caldata_obj.visibility_weights[:, :, :, test_pol_ind],
+                caldata_obj.dwcal_inv_covariance[:, :, :, :, test_pol_ind],
+            )
+
+            grad_approx = (cost1 - cost0) / delta_val
+
+            np.testing.assert_allclose(
+                grad_approx, phase_jac[phase_ind, test_freq_ind], rtol=1e-5
+            )
 
 
 if __name__ == "__main__":
