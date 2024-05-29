@@ -655,7 +655,7 @@ def jacobian_dw_abscal(
 
     Returns
     -------
-    amp_jac : float
+    amp_jac : array of float
         Derivative of the cost with respect to the visibility amplitude terms. Shape (Nfreqs,).
     phase_jac : array of float
         Derivatives of the cost with respect to the phase gradient terms. Shape (2, Nfreqs,).
