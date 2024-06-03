@@ -689,7 +689,7 @@ def jacobian_dw_abscal(
     )
     phase_jac = (
         2
-        * amp[:, np.newaxis]
+        * amp[:, np.newaxis] ** 2.0
         * np.real(
             np.sum(
                 dwcal_inv_covariance[:, :, :, :, np.newaxis]
@@ -702,3 +702,112 @@ def jacobian_dw_abscal(
         )
     ).T
     return amp_jac, phase_jac
+
+
+def hess_dw_abscal(
+    amp,
+    phase_grad,
+    model_visibilities,
+    data_visibilities,
+    uv_array,
+    visibility_weights,
+    dwcal_inv_covariance,
+):
+    """
+    Calculate the Hessian for absolute calibration with delay weighting.
+
+    Parameters
+    ----------
+    amp : array of float
+        Shape (Nfreqs,). Overall visibility amplitude.
+    phase_grad :  array of float
+        Shape (2, Nfreqs,). Phase gradient terms, in units of 1/m.
+    model_visibilities : array of complex
+        Shape (Ntimes, Nbls, Nfreqs,).
+    data_visibilities : array of complex
+        Relatively calibrated data. Shape (Ntimes, Nbls, Nfreqs,).
+    uv_array : array of float
+        Shape(Nbls, 2,)
+    visibility_weights : array of float
+        Shape (Ntimes, Nbls, Nfreqs,).
+    dwcal_inv_covariance : array of complex
+        Shape (Ntimes, Nbls, Nfreqs, Nfreqs,).
+
+    Returns
+    -------
+
+    """
+
+    phase_term = np.sum(
+        phase_grad[np.newaxis, :, :] * uv_array[:, :, np.newaxis], axis=1
+    )  # Shape (Nbls, Nfreqs,)
+    res_vec = np.sqrt(visibility_weights) * (
+        (amp[np.newaxis, :] ** 2.0 * np.exp(1j * phase_term))[np.newaxis, :, :]
+        * data_visibilities
+        - model_visibilities
+    )  # Shape (Ntimes, Nbls, Nfreqs,)
+    derivative_term = (
+        np.sqrt(visibility_weights)
+        * np.exp(-1j * phase_term)[np.newaxis, :, :]
+        * np.conj(data_visibilities)
+    )  # Shape (Ntimes, Nbls, Nfreqs,)
+
+    hess_amp_amp_diagonal_term = 4 * np.real(
+        np.sum(
+            dwcal_inv_covariance
+            * derivative_term[:, :, :, np.newaxis]
+            * res_vec[:, :, np.newaxis, :],
+            axis=(0, 1, 3),
+        )
+    )
+    hess_amp_amp = (
+        8
+        * amp[:, np.newaxis]
+        * amp[np.newaxis, :]
+        * np.real(
+            np.sum(
+                dwcal_inv_covariance
+                * derivative_term[:, :, :, np.newaxis]
+                * np.conj(derivative_term[:, :, np.newaxis, :]),
+                axis=(0, 1),
+            )
+        )
+    ) + np.diag(hess_amp_amp_diagonal_term)
+
+    hess_amp_phase_diagonal_term = (
+        4
+        * amp[:, np.newaxis]
+        * np.real(
+            np.sum(
+                dwcal_inv_covariance[:, :, :, :, np.newaxis]
+                * (-1j)
+                * uv_array[np.newaxis, :, np.newaxis, np.newaxis, :]
+                * derivative_term[:, :, :, np.newaxis, np.newaxis]
+                * res_vec[:, :, np.newaxis, :, np.newaxis],
+                axis=(0, 1, 3),
+            )
+        )
+    )
+    hess_amp_phase = (
+        4
+        * amp[:, np.newaxis, np.newaxis] ** 2.0
+        * amp[np.newaxis, :, np.newaxis]
+        * np.real(
+            np.sum(
+                dwcal_inv_covariance[:, :, :, :, np.newaxis]
+                * (-1j)
+                * uv_array[np.newaxis, :, np.newaxis, np.newaxis, :]
+                * derivative_term[:, :, np.newaxis, :, np.newaxis]
+                * np.conj(derivative_term[:, :, :, np.newaxis, np.newaxis]),
+                axis=(0, 1),
+            )
+        )
+    )
+    hess_amp_phasex = hess_amp_phase[:, :, 0] + np.diag(
+        hess_amp_phase_diagonal_term[:, 0]
+    )
+    hess_amp_phasey = hess_amp_phase[:, :, 1] + np.diag(
+        hess_amp_phase_diagonal_term[:, 1]
+    )
+
+    return hess_amp_amp, hess_amp_phasex, hess_amp_phasey
