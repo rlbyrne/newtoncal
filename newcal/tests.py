@@ -1638,8 +1638,6 @@ class TestStringMethods(unittest.TestCase):
 
         test_freq_ind = 0
         test_pol_ind = 0
-        delta_val = 1e-8
-        amplitude_perturbation = 1.3
 
         model = pyuvdata.UVData()
         model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
@@ -1743,16 +1741,21 @@ class TestStringMethods(unittest.TestCase):
             caldata_obj.uv_array,
             caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
         )
-        (hess_amp_amp_dwabscal, hess_amp_phasex_dwabscal, hess_amp_phasey_dwabscal) = (
-            cost_function_calculations.hess_dw_abscal(
-                caldata_obj.abscal_params[0, :, test_pol_ind],
-                caldata_obj.abscal_params[1:, :, test_pol_ind],
-                caldata_obj.model_visibilities[:, :, :, test_pol_ind],
-                caldata_obj.data_visibilities[:, :, :, test_pol_ind],
-                caldata_obj.uv_array,
-                caldata_obj.visibility_weights[:, :, :, test_pol_ind],
-                caldata_obj.dwcal_inv_covariance[:, :, :, :, test_pol_ind],
-            )
+        (
+            hess_amp_amp_dwabscal,
+            hess_amp_phasex_dwabscal,
+            hess_amp_phasey_dwabscal,
+            hess_phasex_phasex_dwabscal,
+            hess_phasey_phasey_dwabscal,
+            hess_phasex_phasey_dwabscal,
+        ) = cost_function_calculations.hess_dw_abscal(
+            caldata_obj.abscal_params[0, :, test_pol_ind],
+            caldata_obj.abscal_params[1:, :, test_pol_ind],
+            caldata_obj.model_visibilities[:, :, :, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, :, test_pol_ind],
+            caldata_obj.uv_array,
+            caldata_obj.visibility_weights[:, :, :, test_pol_ind],
+            caldata_obj.dwcal_inv_covariance[:, :, :, :, test_pol_ind],
         )
 
         np.testing.assert_allclose(
@@ -1763,6 +1766,21 @@ class TestStringMethods(unittest.TestCase):
         )
         np.testing.assert_allclose(
             hess_amp_phasey_abscal, hess_amp_phasey_dwabscal[test_freq_ind], rtol=1e-7
+        )
+        np.testing.assert_allclose(
+            hess_phasex_phasex_abscal,
+            hess_phasex_phasex_dwabscal[test_freq_ind],
+            rtol=1e-7,
+        )
+        np.testing.assert_allclose(
+            hess_phasey_phasey_abscal,
+            hess_phasey_phasey_dwabscal[test_freq_ind],
+            rtol=1e-7,
+        )
+        np.testing.assert_allclose(
+            hess_phasex_phasey_abscal,
+            hess_phasex_phasey_dwabscal[test_freq_ind],
+            rtol=1e-7,
         )
 
 

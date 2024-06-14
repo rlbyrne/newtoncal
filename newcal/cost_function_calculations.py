@@ -734,6 +734,24 @@ def hess_dw_abscal(
         Shape (Ntimes, Nbls, Nfreqs, Nfreqs,).
 
     Returns
+    hess_amp_amp : array of float
+        Shape (Nfreqs, Nfreqs,). Second derivative of the cost with respect to the
+        amplitude term.
+    hess_amp_phasex : array of float
+        Shape (Nfreqs, Nfreqs,). Second derivative of the cost with respect to the
+        amplitude term and the phase gradient in x.
+    hess_amp_phasey : array of float
+        Shape (Nfreqs, Nfreqs,). Second derivative of the cost with respect to the
+        amplitude term and the phase gradient in y.
+    hess_phasex_phasex : array of float
+        Shape (Nfreqs, Nfreqs,). Second derivative of the cost with respect to the
+        phase gradient in x.
+    hess_phasey_phasey : array of float
+        Shape (Nfreqs, Nfreqs,). Second derivative of the cost with respect to the
+        phase gradient in x.
+    hess_phasex_phasey : array of float
+        Shape (Nfreqs, Nfreqs,). Second derivative of the cost with respect to the
+        phase gradient in x and y.
     -------
 
     """
@@ -810,4 +828,98 @@ def hess_dw_abscal(
         hess_amp_phase_diagonal_term[:, 1]
     )
 
-    return hess_amp_amp, hess_amp_phasex, hess_amp_phasey
+    hess_phasex_phasex = (
+        2
+        * amp[:, np.newaxis] ** 2.0
+        * amp[np.newaxis, :] ** 2.0
+        * np.real(
+            np.sum(
+                dwcal_inv_covariance
+                * uv_array[np.newaxis, :, np.newaxis, np.newaxis, 0] ** 2.0
+                * derivative_term[:, :, np.newaxis, :]
+                * np.conj(derivative_term[:, :, :, np.newaxis]),
+                axis=(0, 1),
+            )
+        )
+    )
+    hess_phasey_phasey = (
+        2
+        * amp[:, np.newaxis] ** 2.0
+        * amp[np.newaxis, :] ** 2.0
+        * np.real(
+            np.sum(
+                dwcal_inv_covariance
+                * uv_array[np.newaxis, :, np.newaxis, np.newaxis, 1] ** 2.0
+                * derivative_term[:, :, np.newaxis, :]
+                * np.conj(derivative_term[:, :, :, np.newaxis]),
+                axis=(0, 1),
+            )
+        )
+    )
+    hess_phasex_phasey = (
+        2
+        * amp[:, np.newaxis] ** 2.0
+        * amp[np.newaxis, :] ** 2.0
+        * np.real(
+            np.sum(
+                dwcal_inv_covariance
+                * uv_array[np.newaxis, :, np.newaxis, np.newaxis, 0]
+                * uv_array[np.newaxis, :, np.newaxis, np.newaxis, 1]
+                * derivative_term[:, :, np.newaxis, :]
+                * np.conj(derivative_term[:, :, :, np.newaxis]),
+                axis=(0, 1),
+            )
+        )
+    )
+    hess_phasex_phasex_diagonal_term = (
+        -2
+        * amp[:, np.newaxis] ** 2.0
+        * np.real(
+            np.sum(
+                dwcal_inv_covariance
+                * uv_array[np.newaxis, :, np.newaxis, np.newaxis, 0] ** 2.0
+                * derivative_term[:, :, :, np.newaxis]
+                * res_vec[:, :, np.newaxis, :],
+                axis=(0, 1, 3),
+            )
+        )
+    )
+    hess_phasey_phasey_diagonal_term = (
+        -2
+        * amp[:, np.newaxis] ** 2.0
+        * np.real(
+            np.sum(
+                dwcal_inv_covariance
+                * uv_array[np.newaxis, :, np.newaxis, np.newaxis, 1] ** 2.0
+                * derivative_term[:, :, :, np.newaxis]
+                * res_vec[:, :, np.newaxis, :],
+                axis=(0, 1, 3),
+            )
+        )
+    )
+    hess_phasex_phasey_diagonal_term = (
+        -2
+        * amp[:, np.newaxis] ** 2.0
+        * np.real(
+            np.sum(
+                dwcal_inv_covariance
+                * uv_array[np.newaxis, :, np.newaxis, np.newaxis, 0]
+                * uv_array[np.newaxis, :, np.newaxis, np.newaxis, 1]
+                * derivative_term[:, :, :, np.newaxis]
+                * res_vec[:, :, np.newaxis, :],
+                axis=(0, 1, 3),
+            )
+        )
+    )
+    hess_phasex_phasex += hess_phasex_phasex_diagonal_term
+    hess_phasey_phasey += hess_phasey_phasey_diagonal_term
+    hess_phasex_phasey += hess_phasex_phasey_diagonal_term
+
+    return (
+        hess_amp_amp,
+        hess_amp_phasex,
+        hess_amp_phasey,
+        hess_phasex_phasex,
+        hess_phasey_phasey,
+        hess_phasex_phasey,
+    )
