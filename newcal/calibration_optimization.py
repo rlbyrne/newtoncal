@@ -612,7 +612,7 @@ def run_dw_abscal_optimization(
 
     caldata_list = caldata_obj.expand_in_polarization()
     for feed_pol_ind, caldata_per_pol in enumerate(caldata_list):
-        abscal_params_flattened = np.flatten(caldata_per_pol.abscal_params[:, :, 0])
+        abscal_params_flattened = caldata_per_pol.abscal_params[:, :, 0].flatten()
         # Minimize the cost function
         start_optimize = time.time()
         result = scipy.optimize.minimize(

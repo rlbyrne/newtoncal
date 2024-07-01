@@ -620,6 +620,10 @@ class CalData:
             caldata_per_pol.lst = self.lst
             caldata_per_pol.telescope_location = self.telescope_location
             caldata_per_pol.lambda_val = self.lambda_val
+            if self.dwcal_inv_covariance is not None:
+                caldata_per_pol.dwcal_inv_covariance = self.dwcal_inv_covariance[
+                    :, :, :, :, [sky_pol_ind]
+                ]
 
             """
             if np.max(caldata_per_pol.visibility_weights) > 0.0:
