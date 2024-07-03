@@ -294,14 +294,18 @@ def hessian_abscal_wrapper(abscal_parameters, caldata_obj):
     return hess
 
 
-def cost_dw_abscal_wrapper(abscal_parameters_flattened, caldata_obj):
+def cost_dw_abscal_wrapper(
+    abscal_parameters_flattened, unflagged_freq_inds, caldata_obj
+):
     """
     Wrapper for function cost_function_dw_abscal.
 
     Parameters
     ----------
     abscal_parameters_flattened : array of float
-        Abscal parameters, flattened across the frequency axis. Shape (3 * Nfreqs,).
+        Abscal parameters, flattened across the frequency axis. Shape (3 * Nfreqs_unflagged,).
+    unflagged_freq_inds : array of int
+        Array of indices of frequency channels that are not fully flagged. Shape (Nfreqs_unflagged,).
     caldata_obj : CalData
 
     Returns
@@ -310,7 +314,10 @@ def cost_dw_abscal_wrapper(abscal_parameters_flattened, caldata_obj):
         Value of the cost function.
     """
 
-    abscal_parameters = np.reshape(abscal_parameters_flattened, (3, caldata_obj.Nfreqs))
+    abscal_parameters = np.full((3, caldata_obj.Nfreqs), np.nan)
+    abscal_parameters[:, unflagged_freq_inds] = np.reshape(
+        abscal_parameters_flattened, (3, len(unflagged_freq_inds))
+    )
     cost = cost_function_calculations.cost_function_dw_abscal(
         abscal_parameters[0, :],
         abscal_parameters[1:, :],
@@ -323,7 +330,9 @@ def cost_dw_abscal_wrapper(abscal_parameters_flattened, caldata_obj):
     return cost
 
 
-def jacobian_dw_abscal_wrapper(abscal_parameters_flattened, caldata_obj):
+def jacobian_dw_abscal_wrapper(
+    abscal_parameters_flattened, unflagged_freq_inds, caldata_obj
+):
     """
     Wrapper for function jacobian_dw_abscal.
 
@@ -331,6 +340,8 @@ def jacobian_dw_abscal_wrapper(abscal_parameters_flattened, caldata_obj):
     ----------
     abscal_parameters_flattened : array of float
         Abscal parameters, flattened across the frequency axis. Shape (3 * Nfreqs,).
+    unflagged_freq_inds : array of int
+        Array of indices of frequency channels that are not fully flagged. Shape (Nfreqs_unflagged,).
     caldata_obj : CalData
 
     Returns
@@ -340,7 +351,10 @@ def jacobian_dw_abscal_wrapper(abscal_parameters_flattened, caldata_obj):
         parameters. Shape (3 * Nfreqs,).
     """
 
-    abscal_parameters = np.reshape(abscal_parameters_flattened, (3, caldata_obj.Nfreqs))
+    abscal_parameters = np.full((3, caldata_obj.Nfreqs), np.nan)
+    abscal_parameters[:, unflagged_freq_inds] = np.reshape(
+        abscal_parameters_flattened, (3, len(unflagged_freq_inds))
+    )
     amp_jac, phase_jac = cost_function_calculations.jacobian_dw_abscal(
         abscal_parameters[0, :],
         abscal_parameters[1:, :],
@@ -356,7 +370,9 @@ def jacobian_dw_abscal_wrapper(abscal_parameters_flattened, caldata_obj):
     return jac_array.flatten()
 
 
-def hessian_dw_abscal_wrapper(abscal_parameters_flattened, caldata_obj):
+def hessian_dw_abscal_wrapper(
+    abscal_parameters_flattened, unflagged_freq_inds, caldata_obj
+):
     """
     Wrapper for function hess_dw_abscal.
 
@@ -364,6 +380,8 @@ def hessian_dw_abscal_wrapper(abscal_parameters_flattened, caldata_obj):
     ----------
     abscal_parameters_flattened : array of float
         Abscal parameters, flattened across the frequency axis. Shape (3 * Nfreqs,).
+    unflagged_freq_inds : array of int
+        Array of indices of frequency channels that are not fully flagged. Shape (Nfreqs_unflagged,).
     caldata_obj : CalData
 
     Returns
@@ -373,7 +391,10 @@ def hessian_dw_abscal_wrapper(abscal_parameters_flattened, caldata_obj):
         parameters. Shape (3 * Nfreqs, 3 * Nfreqs,).
     """
 
-    abscal_parameters = np.reshape(abscal_parameters_flattened, (3, caldata_obj.Nfreqs))
+    abscal_parameters = np.full((3, caldata_obj.Nfreqs), np.nan)
+    abscal_parameters[:, unflagged_freq_inds] = np.reshape(
+        abscal_parameters_flattened, (3, len(unflagged_freq_inds))
+    )
     (
         hess_amp_amp,
         hess_amp_phasex,
@@ -612,21 +633,36 @@ def run_dw_abscal_optimization(
 
     caldata_list = caldata_obj.expand_in_polarization()
     for feed_pol_ind, caldata_per_pol in enumerate(caldata_list):
-        abscal_params_flattened = caldata_per_pol.abscal_params[:, :, 0].flatten()
+        unflagged_freq_inds = np.where(
+            np.sum(caldata_per_pol.visibility_weights, axis=(0, 1, 3)) > 0
+        )[0]
+        if len(unflagged_freq_inds) == 0:
+            print(f"ERROR: Data all flagged.")
+            sys.stdout.flush()
+            continue
+        abscal_params_flattened = caldata_per_pol.abscal_params[
+            :, unflagged_freq_inds, 0
+        ].flatten()
         # Minimize the cost function
         start_optimize = time.time()
         result = scipy.optimize.minimize(
             cost_dw_abscal_wrapper,
             abscal_params_flattened,
-            args=(caldata_per_pol),
+            args=(unflagged_freq_inds, caldata_per_pol),
             method="Newton-CG",
             jac=jacobian_dw_abscal_wrapper,
             hess=hessian_dw_abscal_wrapper,
             options={"disp": verbose, "xtol": xtol, "maxiter": maxiter},
         )
-        caldata_obj.abscal_params[:, :, feed_pol_ind] = np.reshape(
-            result.x, (3, caldata_per_pol.Nfreqs)
+        caldata_obj.abscal_params[:, unflagged_freq_inds, feed_pol_ind] = np.reshape(
+            result.x, (3, len(unflagged_freq_inds))
         )
+        fully_flagged_freq_inds = np.array(
+            [ind for ind in range(caldata_obj.Nfreqs) if ind not in unflagged_freq_inds]
+        )
+        caldata_obj.abscal_params[:, fully_flagged_freq_inds, feed_pol_ind] = (
+            np.nan
+        )  # Set unconstrained values to nan
         if verbose:
             print(result.message)
             print(f"Optimization time: {(time.time() - start_optimize)/60.} minutes")

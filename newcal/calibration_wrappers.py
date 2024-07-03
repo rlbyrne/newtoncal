@@ -648,7 +648,7 @@ def absolute_calibration(
     max_cal_baseline_m=None,
     min_cal_baseline_lambda=None,
     max_cal_baseline_lambda=None,
-    xtol=1e-10,
+    xtol=1e-6,
     maxiter=100,
     verbose=False,
     log_file_path=None,
@@ -694,7 +694,7 @@ def absolute_calibration(
         both max_cal_baseline_m and max_cal_baseline_lambda are None,
         arbitrarily long baselines are used. Default None.
     xtol : float
-        Accuracy tolerance for optimizer. Default 1e-10.
+        Accuracy tolerance for optimizer. Default 1e-6.
     maxiter : int
         Maximum number of iterations for the optimizer. Default 100.
     verbose : bool
@@ -895,7 +895,7 @@ def dw_absolute_calibration(
     max_cal_baseline_m=None,
     min_cal_baseline_lambda=None,
     max_cal_baseline_lambda=None,
-    xtol=1e-10,
+    xtol=1e-6,
     maxiter=100,
     verbose=False,
     log_file_path=None,
@@ -954,7 +954,7 @@ def dw_absolute_calibration(
         both max_cal_baseline_m and max_cal_baseline_lambda are None,
         arbitrarily long baselines are used. Default None.
     xtol : float
-        Accuracy tolerance for optimizer. Default 1e-10.
+        Accuracy tolerance for optimizer. Default 1e-6.
     maxiter : int
         Maximum number of iterations for the optimizer. Default 100.
     verbose : bool
@@ -1047,28 +1047,29 @@ def dw_absolute_calibration(
         optimization_start_time = time.time()
 
     initial_cost = calibration_optimization.cost_dw_abscal_wrapper(
-        caldata_obj.abscal_params.flatten(), caldata_obj
+        caldata_obj.abscal_params.flatten(), range(caldata_obj.Nfreqs), caldata_obj
     )
     print(f"Initial cost: {initial_cost}")
+    sys.stdout.flush()
 
     # Perturb abscal parameters
-    caldata_obj.abscal_params[0, :, :] += np.random.normal(
-        0.0,
-        0.1,
-        size=(
-            caldata_obj.Nfreqs,
-            caldata_obj.N_feed_pols,
-        ),
-    )
-    caldata_obj.abscal_params[1:, :, :] += np.random.normal(
-        0.0,
-        5e-4,
-        size=(
-            2,
-            caldata_obj.Nfreqs,
-            caldata_obj.N_feed_pols,
-        ),
-    )
+    # caldata_obj.abscal_params[0, :, :] += np.random.normal(
+    #    0.0,
+    #    0.1,
+    #    size=(
+    #        caldata_obj.Nfreqs,
+    #        caldata_obj.N_feed_pols,
+    #    ),
+    # )
+    # caldata_obj.abscal_params[1:, :, :] += np.random.normal(
+    #    0.0,
+    #    5e-4,
+    #    size=(
+    #        2,
+    #        caldata_obj.Nfreqs,
+    #        caldata_obj.N_feed_pols,
+    #    ),
+    # )
 
     calibration_optimization.run_dw_abscal_optimization(
         caldata_obj,
@@ -1078,13 +1079,10 @@ def dw_absolute_calibration(
     )
 
     final_cost = calibration_optimization.cost_dw_abscal_wrapper(
-        caldata_obj.abscal_params.flatten(), caldata_obj
+        caldata_obj.abscal_params.flatten(), range(caldata_obj.Nfreqs), caldata_obj
     )
     print(f"Final cost: {final_cost}")
-    final_jac = calibration_optimization.jacobian_dw_abscal_wrapper(
-        caldata_obj.abscal_params.flatten(), caldata_obj
-    )
-    print(f"Final Jacobian: {final_jac}")
+    sys.stdout.flush()
 
     if verbose:
         print(
