@@ -367,6 +367,7 @@ def jacobian_dw_abscal_wrapper(
     jac_array = np.zeros((3, caldata_obj.Nfreqs), dtype=float)
     jac_array[0, :] = amp_jac
     jac_array[1:, :] = phase_jac
+    jac_array = np.take(jac_array, unflagged_freq_inds, axis=1)
     return jac_array.flatten()
 
 
@@ -418,7 +419,12 @@ def hessian_dw_abscal_wrapper(
     hess[1, :, 1, :] = hess_phasex_phasex
     hess[2, :, 2, :] = hess_phasey_phasey
     hess[1, :, 2, :] = hess[2, :, 1, :] = hess_phasex_phasey
-    hess = np.reshape(hess, (3 * caldata_obj.Nfreqs, 3 * caldata_obj.Nfreqs))
+    hess = np.take(
+        np.take(hess, unflagged_freq_inds, axis=1), unflagged_freq_inds, axis=3
+    )
+    hess = np.reshape(
+        hess, (3 * len(unflagged_freq_inds), 3 * len(unflagged_freq_inds))
+    )
     return hess
 
 
@@ -660,9 +666,6 @@ def run_dw_abscal_optimization(
         fully_flagged_freq_inds = np.array(
             [ind for ind in range(caldata_obj.Nfreqs) if ind not in unflagged_freq_inds]
         )
-        caldata_obj.abscal_params[:, fully_flagged_freq_inds, feed_pol_ind] = (
-            np.nan
-        )  # Set unconstrained values to nan
         if verbose:
             print(result.message)
             print(f"Optimization time: {(time.time() - start_optimize)/60.} minutes")

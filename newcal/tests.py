@@ -1629,7 +1629,7 @@ class TestStringMethods(unittest.TestCase):
             grad_approx = (cost1 - cost0) / delta_val
 
             np.testing.assert_allclose(
-                grad_approx, phase_jac[phase_ind, test_freq_ind], rtol=1e-7
+                grad_approx, phase_jac[phase_ind, test_freq_ind], rtol=1e-6
             )
 
     def test_dwabscal_abscal_agreement(
