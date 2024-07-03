@@ -314,7 +314,7 @@ def cost_dw_abscal_wrapper(
         Value of the cost function.
     """
 
-    abscal_parameters = np.full((3, caldata_obj.Nfreqs), np.nan)
+    abscal_parameters = np.zeros((3, caldata_obj.Nfreqs))
     abscal_parameters[:, unflagged_freq_inds] = np.reshape(
         abscal_parameters_flattened, (3, len(unflagged_freq_inds))
     )
@@ -351,7 +351,7 @@ def jacobian_dw_abscal_wrapper(
         parameters. Shape (3 * Nfreqs,).
     """
 
-    abscal_parameters = np.full((3, caldata_obj.Nfreqs), np.nan)
+    abscal_parameters = np.zeros((3, caldata_obj.Nfreqs))
     abscal_parameters[:, unflagged_freq_inds] = np.reshape(
         abscal_parameters_flattened, (3, len(unflagged_freq_inds))
     )
@@ -392,7 +392,7 @@ def hessian_dw_abscal_wrapper(
         parameters. Shape (3 * Nfreqs, 3 * Nfreqs,).
     """
 
-    abscal_parameters = np.full((3, caldata_obj.Nfreqs), np.nan)
+    abscal_parameters = np.zeros((3, caldata_obj.Nfreqs))
     abscal_parameters[:, unflagged_freq_inds] = np.reshape(
         abscal_parameters_flattened, (3, len(unflagged_freq_inds))
     )
