@@ -768,6 +768,12 @@ def absolute_calibration(
         print("Running calibration optimization...")
         sys.stdout.flush()
 
+    initial_cost = calibration_optimization.cost_dw_abscal_wrapper(
+        caldata_obj.abscal_params.flatten(), range(caldata_obj.Nfreqs), caldata_obj
+    )
+    print(f"Initial cost: {initial_cost}")
+    sys.stdout.flush()
+
     # Expand CalData object into per-frequency objects
     caldata_list = caldata_obj.expand_in_frequency()
 
@@ -867,17 +873,39 @@ def get_dwcal_weights_from_delay_spectra(
                     :, np.abs(freq_ind1 - freq_ind2)
                 ]
 
-    # Make normalization match that of the identity matrix
-    normalization_factor = (
-        caldata.Nfreqs * caldata.Nbls / np.sum(np.trace(weight_mat, axis1=1, axis2=2))
-    )
-    weight_mat *= normalization_factor
-
-    caldata.dwcal_inv_covariance = np.repeat(
+    weight_mat = np.repeat(
         np.repeat(weight_mat[np.newaxis, :, :, :, np.newaxis], caldata.Ntimes, axis=0),
         caldata.N_vis_pols,
         axis=4,
     )  # Use the same matrix for all times and polarizations
+
+    # Fix normalization
+    for time_ind in range(caldata.Ntimes):
+        for vis_pol_ind in range(caldata.N_vis_pols):
+            normalization_factor = np.sum(
+                caldata.visibility_weights[time_ind, :, :, vis_pol_ind]
+            ) / np.real(
+                np.sum(
+                    np.trace(
+                        np.sqrt(
+                            caldata.visibility_weights[
+                                time_ind, :, :, np.newaxis, vis_pol_ind
+                            ]
+                        )
+                        * np.sqrt(
+                            caldata.visibility_weights[
+                                time_ind, :, np.newaxis, :, vis_pol_ind
+                            ]
+                        )
+                        * weight_mat[time_ind, :, :, :, vis_pol_ind],
+                        axis1=1,
+                        axis2=2,
+                    )
+                )
+            )
+            weight_mat[time_ind, :, :, :, vis_pol_ind] *= normalization_factor
+
+    caldata.dwcal_inv_covariance = weight_mat
 
 
 def dw_absolute_calibration(
@@ -1038,6 +1066,10 @@ def dw_absolute_calibration(
         delay_axis,
     )
 
+    # Added for debugging
+    with open(f"/safepool/rbyrne/hera_abscal_Jun2024/dwcal_cov_matrix.npy", "wb") as f:
+        np.save(f, caldata_obj.dwcal_inv_covariance)
+
     if verbose:
         print(
             f"Done. Time calculating delay weighting matrix {(time.time() - data_format_start_time)/60.} minutes."
@@ -1046,6 +1078,7 @@ def dw_absolute_calibration(
         sys.stdout.flush()
         optimization_start_time = time.time()
 
+    # Added for debugging
     initial_cost = calibration_optimization.cost_dw_abscal_wrapper(
         caldata_obj.abscal_params.flatten(), range(caldata_obj.Nfreqs), caldata_obj
     )

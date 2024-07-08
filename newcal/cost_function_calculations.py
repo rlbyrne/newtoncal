@@ -621,6 +621,7 @@ def cost_function_dw_abscal(
             * res_vec[:, :, np.newaxis, :]
         )
     )
+    print(f"DWAbscal cost: {cost}")
     return cost
 
 
