@@ -339,7 +339,7 @@ def jacobian_dw_abscal_wrapper(
     Parameters
     ----------
     abscal_parameters_flattened : array of float
-        Abscal parameters, flattened across the frequency axis. Shape (3 * Nfreqs,).
+        Abscal parameters, flattened across the frequency axis. Shape (3 * Nfreqs_unflagged,).
     unflagged_freq_inds : array of int
         Array of indices of frequency channels that are not fully flagged. Shape (Nfreqs_unflagged,).
     caldata_obj : CalData
@@ -380,7 +380,7 @@ def hessian_dw_abscal_wrapper(
     Parameters
     ----------
     abscal_parameters_flattened : array of float
-        Abscal parameters, flattened across the frequency axis. Shape (3 * Nfreqs,).
+        Abscal parameters, flattened across the frequency axis. Shape (3 * Nfreqs_unflagged,).
     unflagged_freq_inds : array of int
         Array of indices of frequency channels that are not fully flagged. Shape (Nfreqs_unflagged,).
     caldata_obj : CalData

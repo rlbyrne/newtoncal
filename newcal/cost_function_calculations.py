@@ -874,7 +874,7 @@ def hess_dw_abscal(
     )
     hess_phasex_phasex_diagonal_term = (
         -2
-        * amp[:, np.newaxis] ** 2.0
+        * amp**2.0
         * np.real(
             np.sum(
                 dwcal_inv_covariance
@@ -887,7 +887,7 @@ def hess_dw_abscal(
     )
     hess_phasey_phasey_diagonal_term = (
         -2
-        * amp[:, np.newaxis] ** 2.0
+        * amp**2.0
         * np.real(
             np.sum(
                 dwcal_inv_covariance
@@ -900,7 +900,7 @@ def hess_dw_abscal(
     )
     hess_phasex_phasey_diagonal_term = (
         -2
-        * amp[:, np.newaxis] ** 2.0
+        * amp**2.0
         * np.real(
             np.sum(
                 dwcal_inv_covariance
@@ -912,9 +912,9 @@ def hess_dw_abscal(
             )
         )
     )
-    hess_phasex_phasex += hess_phasex_phasex_diagonal_term
-    hess_phasey_phasey += hess_phasey_phasey_diagonal_term
-    hess_phasex_phasey += hess_phasex_phasey_diagonal_term
+    hess_phasex_phasex += np.diag(hess_phasex_phasex_diagonal_term)
+    hess_phasey_phasey += np.diag(hess_phasey_phasey_diagonal_term)
+    hess_phasex_phasey += np.diag(hess_phasex_phasey_diagonal_term)
 
     return (
         hess_amp_amp,
