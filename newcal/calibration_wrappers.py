@@ -768,12 +768,6 @@ def absolute_calibration(
         print("Running calibration optimization...")
         sys.stdout.flush()
 
-    initial_cost = calibration_optimization.cost_dw_abscal_wrapper(
-        caldata_obj.abscal_params.flatten(), range(caldata_obj.Nfreqs), caldata_obj
-    )
-    print(f"Initial cost: {initial_cost}")
-    sys.stdout.flush()
-
     # Expand CalData object into per-frequency objects
     caldata_list = caldata_obj.expand_in_frequency()
 
