@@ -1,4 +1,5 @@
 import numpy as np
+import sys
 
 
 def cost_function_single_pol(
@@ -622,6 +623,7 @@ def cost_function_dw_abscal(
         )
     )
     print(f"DWAbscal cost: {cost}")
+    sys.stdout.flush()
     return cost
 
 
