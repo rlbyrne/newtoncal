@@ -2042,6 +2042,175 @@ class TestStringMethods(unittest.TestCase):
             rtol=1e-7,
         )
 
+    def test_dwabscal_jac_wrapper(self, verbose=False):
+
+        delta_val = 1e-8
+        amplitude_perturbation = 1.3
+        use_Nfreqs = 5
+
+        model = pyuvdata.UVData()
+        model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
+        data = pyuvdata.UVData()
+        data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
+        data.select(polarizations=-5)
+        model.select(polarizations=-5)
+
+        data_copy = data.copy()
+        model_copy = model.copy()
+        for ind in range(1, use_Nfreqs):
+            data_copy.freq_array += 1e6
+            model_copy.freq_array += 1e6 * ind
+            data.fast_concat(data_copy, "freq", inplace=True)
+            model.fast_concat(model_copy, "freq", inplace=True)
+
+        caldata_obj = caldata.CalData()
+        caldata_obj.load_data(data, model)
+
+        caldata_obj.visibility_weights[:, :, :, :] = 1  # Unflag all
+        caldata_obj.visibility_weights[:, :, 1, :] = (
+            0  # Completely flag one frequency channel
+        )
+
+        caldata_obj.dwcal_inv_covariance = np.random.rand(
+            caldata_obj.Ntimes,
+            caldata_obj.Nbls,
+            caldata_obj.Nfreqs,
+            caldata_obj.Nfreqs,
+            caldata_obj.N_vis_pols,
+        ) + 1j * np.random.rand(
+            caldata_obj.Ntimes,
+            caldata_obj.Nbls,
+            caldata_obj.Nfreqs,
+            caldata_obj.Nfreqs,
+            caldata_obj.N_vis_pols,
+        )
+        caldata_obj.dwcal_inv_covariance = np.transpose(
+            np.matmul(
+                np.transpose(caldata_obj.dwcal_inv_covariance, axes=(0, 1, 4, 2, 3)),
+                np.conj(
+                    np.transpose(caldata_obj.dwcal_inv_covariance, axes=(0, 1, 4, 3, 2))
+                ),
+            ),
+            axes=(0, 1, 3, 4, 2),
+        )  # Enforce that the matrix is Hermitian
+
+        unflagged_freq_inds = np.where(
+            np.sum(caldata_obj.visibility_weights, axis=(0, 1, 3)) > 0
+        )[0]
+        test_parameter_ind = np.random.randint(3 * len(unflagged_freq_inds))
+        abscal_params_flattened = caldata_obj.abscal_params[
+            :, unflagged_freq_inds, 0
+        ].flatten()
+
+        use_params_1 = np.copy(abscal_params_flattened)
+        use_params_1[test_parameter_ind] += delta_val / 2
+        cost1 = calibration_optimization.cost_dw_abscal_wrapper(
+            use_params_1, unflagged_freq_inds, caldata_obj
+        )
+        use_params_0 = np.copy(abscal_params_flattened)
+        use_params_0[test_parameter_ind] -= delta_val / 2
+        cost0 = calibration_optimization.cost_dw_abscal_wrapper(
+            use_params_0, unflagged_freq_inds, caldata_obj
+        )
+
+        jac = calibration_optimization.jacobian_dw_abscal_wrapper(
+            abscal_params_flattened, unflagged_freq_inds, caldata_obj
+        )
+
+        grad_approx = (cost1 - cost0) / delta_val
+        if verbose:
+            print(f"Gradient approximation value: {grad_approx}")
+            print(f"Jacobian value: {jac[test_parameter_ind]}")
+
+        np.testing.assert_allclose(grad_approx, jac[test_parameter_ind], rtol=1e-6)
+
+    def test_dwabscal_hess_wrapper(self, verbose=False):
+
+        delta_val = 1e-8
+        amplitude_perturbation = 1.3
+        use_Nfreqs = 5
+
+        model = pyuvdata.UVData()
+        model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
+        data = pyuvdata.UVData()
+        data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
+        data.select(polarizations=-5)
+        model.select(polarizations=-5)
+
+        data_copy = data.copy()
+        model_copy = model.copy()
+        for ind in range(1, use_Nfreqs):
+            data_copy.freq_array += 1e6
+            model_copy.freq_array += 1e6 * ind
+            data.fast_concat(data_copy, "freq", inplace=True)
+            model.fast_concat(model_copy, "freq", inplace=True)
+
+        caldata_obj = caldata.CalData()
+        caldata_obj.load_data(data, model)
+
+        caldata_obj.visibility_weights[:, :, :, :] = 1  # Unflag all
+        caldata_obj.visibility_weights[:, :, 1, :] = (
+            0  # Completely flag one frequency channel
+        )
+
+        caldata_obj.dwcal_inv_covariance = np.random.rand(
+            caldata_obj.Ntimes,
+            caldata_obj.Nbls,
+            caldata_obj.Nfreqs,
+            caldata_obj.Nfreqs,
+            caldata_obj.N_vis_pols,
+        ) + 1j * np.random.rand(
+            caldata_obj.Ntimes,
+            caldata_obj.Nbls,
+            caldata_obj.Nfreqs,
+            caldata_obj.Nfreqs,
+            caldata_obj.N_vis_pols,
+        )
+        caldata_obj.dwcal_inv_covariance = np.transpose(
+            np.matmul(
+                np.transpose(caldata_obj.dwcal_inv_covariance, axes=(0, 1, 4, 2, 3)),
+                np.conj(
+                    np.transpose(caldata_obj.dwcal_inv_covariance, axes=(0, 1, 4, 3, 2))
+                ),
+            ),
+            axes=(0, 1, 3, 4, 2),
+        )  # Enforce that the matrix is Hermitian
+
+        unflagged_freq_inds = np.where(
+            np.sum(caldata_obj.visibility_weights, axis=(0, 1, 3)) > 0
+        )[0]
+        abscal_params_flattened = caldata_obj.abscal_params[
+            :, unflagged_freq_inds, 0
+        ].flatten()
+
+        hess = calibration_optimization.hessian_dw_abscal_wrapper(
+            abscal_params_flattened, unflagged_freq_inds, caldata_obj
+        )
+        np.testing.assert_allclose(
+            hess, hess.T, rtol=1e-8
+        )  # Make sure the Hessian is symmetric
+
+        for test_parameter_ind in range(3 * len(unflagged_freq_inds)):
+            use_params_1 = np.copy(abscal_params_flattened)
+            use_params_1[test_parameter_ind] += delta_val / 2
+            jac1 = calibration_optimization.jacobian_dw_abscal_wrapper(
+                use_params_1, unflagged_freq_inds, caldata_obj
+            )
+            use_params_0 = np.copy(abscal_params_flattened)
+            use_params_0[test_parameter_ind] -= delta_val / 2
+            jac0 = calibration_optimization.jacobian_dw_abscal_wrapper(
+                use_params_0, unflagged_freq_inds, caldata_obj
+            )
+
+            hess_approx = (jac1 - jac0) / delta_val
+
+            np.testing.assert_allclose(
+                hess_approx, hess[test_parameter_ind, :], rtol=1e-5
+            )
+            np.testing.assert_allclose(
+                hess_approx, hess[:, test_parameter_ind], rtol=1e-5
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -414,11 +414,14 @@ def hessian_dw_abscal_wrapper(
     )
     hess = np.zeros((3, caldata_obj.Nfreqs, 3, caldata_obj.Nfreqs), dtype=float)
     hess[0, :, 0, :] = hess_amp_amp
-    hess[0, :, 1, :] = hess[1, :, 0, :] = hess_amp_phasex
-    hess[0, :, 2, :] = hess[2, :, 0, :] = hess_amp_phasey
+    hess[0, :, 1, :] = hess_amp_phasex.T
+    hess[1, :, 0, :] = hess_amp_phasex
+    hess[0, :, 2, :] = hess_amp_phasey.T
+    hess[2, :, 0, :] = hess_amp_phasey
     hess[1, :, 1, :] = hess_phasex_phasex
     hess[2, :, 2, :] = hess_phasey_phasey
-    hess[1, :, 2, :] = hess[2, :, 1, :] = hess_phasex_phasey
+    hess[1, :, 2, :] = hess_phasex_phasey.T
+    hess[2, :, 1, :] = hess_phasex_phasey
     hess = np.take(
         np.take(hess, unflagged_freq_inds, axis=1), unflagged_freq_inds, axis=3
     )
