@@ -1472,19 +1472,26 @@ class TestStringMethods(unittest.TestCase):
         )
         np.testing.assert_allclose(data.data_array, model.data_array, rtol=1e-3)
 
-    def test_dwabscal_amp_jac(
-        self, verbose=False
-    ):  # Need to update this using multifrequency data
+    def test_dwabscal_amp_jac(self, verbose=False):
 
         test_freq_ind = 0
         test_pol_ind = 0
         delta_val = 1e-8
         amplitude_perturbation = 1.3
+        use_Nfreqs = 3
 
         model = pyuvdata.UVData()
         model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
+
+        data_copy = data.copy()
+        model_copy = model.copy()
+        for ind in range(1, use_Nfreqs):
+            data_copy.freq_array += 1e6
+            model_copy.freq_array += 1e6 * ind
+            data.fast_concat(data_copy, "freq", inplace=True)
+            model.fast_concat(model_copy, "freq", inplace=True)
 
         caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model)
@@ -1515,8 +1522,10 @@ class TestStringMethods(unittest.TestCase):
 
         caldata_obj.model_visibilities[:, :, test_freq_ind, :] *= amplitude_perturbation
 
+        use_amps_1 = np.copy(caldata_obj.abscal_params[0, :, test_pol_ind])
+        use_amps_1[test_freq_ind] += delta_val / 2
         cost1 = cost_function_calculations.cost_function_dw_abscal(
-            caldata_obj.abscal_params[0, :, test_pol_ind] + delta_val / 2,
+            use_amps_1,
             caldata_obj.abscal_params[1:, :, test_pol_ind],
             caldata_obj.model_visibilities[:, :, :, test_pol_ind],
             caldata_obj.data_visibilities[:, :, :, test_pol_ind],
@@ -1524,8 +1533,10 @@ class TestStringMethods(unittest.TestCase):
             caldata_obj.visibility_weights[:, :, :, test_pol_ind],
             caldata_obj.dwcal_inv_covariance[:, :, :, :, test_pol_ind],
         )
+        use_amps_0 = np.copy(caldata_obj.abscal_params[0, :, test_pol_ind])
+        use_amps_0[test_freq_ind] -= delta_val / 2
         cost0 = cost_function_calculations.cost_function_dw_abscal(
-            caldata_obj.abscal_params[0, :, test_pol_ind] - delta_val / 2,
+            use_amps_0,
             caldata_obj.abscal_params[1:, :, test_pol_ind],
             caldata_obj.model_visibilities[:, :, :, test_pol_ind],
             caldata_obj.data_visibilities[:, :, :, test_pol_ind],
@@ -1551,19 +1562,26 @@ class TestStringMethods(unittest.TestCase):
 
         np.testing.assert_allclose(grad_approx, amp_jac[test_freq_ind], rtol=1e-8)
 
-    def test_dwabscal_phase_jac(
-        self, verbose=False
-    ):  # Need to update this using multifrequency data
+    def test_dwabscal_phase_jac(self, verbose=False):
 
         test_freq_ind = 0
         test_pol_ind = 0
-        delta_val = 1e-8
+        delta_val = 1e-6
         amplitude_perturbation = 1.3
+        use_Nfreqs = 3
 
         model = pyuvdata.UVData()
         model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
+
+        data_copy = data.copy()
+        model_copy = model.copy()
+        for ind in range(1, use_Nfreqs):
+            data_copy.freq_array += 1e6
+            model_copy.freq_array += 1e6 * ind
+            data.fast_concat(data_copy, "freq", inplace=True)
+            model.fast_concat(model_copy, "freq", inplace=True)
 
         caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model)
@@ -1632,17 +1650,24 @@ class TestStringMethods(unittest.TestCase):
                 grad_approx, phase_jac[phase_ind, test_freq_ind], rtol=1e-6
             )
 
-    def test_dwabscal_abscal_agreement(
-        self, verbose=False
-    ):  # Need to update this using multifrequency data
+    def test_dwabscal_abscal_agreement(self, verbose=False):
 
         test_freq_ind = 0
         test_pol_ind = 0
+        use_Nfreqs = 3
 
         model = pyuvdata.UVData()
         model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
         data = pyuvdata.UVData()
         data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
+
+        data_copy = data.copy()
+        model_copy = model.copy()
+        for ind in range(1, use_Nfreqs):
+            data_copy.freq_array += 1e6
+            model_copy.freq_array += 1e6 * ind
+            data.fast_concat(data_copy, "freq", inplace=True)
+            model.fast_concat(model_copy, "freq", inplace=True)
 
         caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model)
@@ -1681,14 +1706,16 @@ class TestStringMethods(unittest.TestCase):
             ),
         )  # Perturb model
 
-        cost_abscal = cost_function_calculations.cost_function_abs_cal(
-            caldata_obj.abscal_params[0, test_freq_ind, test_pol_ind],
-            caldata_obj.abscal_params[1:, test_freq_ind, test_pol_ind],
-            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
-            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
-            caldata_obj.uv_array,
-            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
-        )
+        cost_abscal = 0
+        for freq_ind in range(use_Nfreqs):
+            cost_abscal += cost_function_calculations.cost_function_abs_cal(
+                caldata_obj.abscal_params[0, freq_ind, test_pol_ind],
+                caldata_obj.abscal_params[1:, freq_ind, test_pol_ind],
+                caldata_obj.model_visibilities[:, :, freq_ind, test_pol_ind],
+                caldata_obj.data_visibilities[:, :, freq_ind, test_pol_ind],
+                caldata_obj.uv_array,
+                caldata_obj.visibility_weights[:, :, freq_ind, test_pol_ind],
+            )
         cost_dwabscal = cost_function_calculations.cost_function_dw_abscal(
             caldata_obj.abscal_params[0, :, test_pol_ind],
             caldata_obj.abscal_params[1:, :, test_pol_ind],
@@ -1759,27 +1786,33 @@ class TestStringMethods(unittest.TestCase):
         )
 
         np.testing.assert_allclose(
-            hess_amp_amp_abscal, hess_amp_amp_dwabscal[test_freq_ind], rtol=1e-7
+            hess_amp_amp_abscal,
+            hess_amp_amp_dwabscal[test_freq_ind, test_freq_ind],
+            rtol=1e-7,
         )
         np.testing.assert_allclose(
-            hess_amp_phasex_abscal, hess_amp_phasex_dwabscal[test_freq_ind], rtol=1e-7
+            hess_amp_phasex_abscal,
+            hess_amp_phasex_dwabscal[test_freq_ind, test_freq_ind],
+            rtol=1e-7,
         )
         np.testing.assert_allclose(
-            hess_amp_phasey_abscal, hess_amp_phasey_dwabscal[test_freq_ind], rtol=1e-7
+            hess_amp_phasey_abscal,
+            hess_amp_phasey_dwabscal[test_freq_ind, test_freq_ind],
+            rtol=1e-7,
         )
         np.testing.assert_allclose(
             hess_phasex_phasex_abscal,
-            hess_phasex_phasex_dwabscal[test_freq_ind],
+            hess_phasex_phasex_dwabscal[test_freq_ind, test_freq_ind],
             rtol=1e-7,
         )
         np.testing.assert_allclose(
             hess_phasey_phasey_abscal,
-            hess_phasey_phasey_dwabscal[test_freq_ind],
+            hess_phasey_phasey_dwabscal[test_freq_ind, test_freq_ind],
             rtol=1e-7,
         )
         np.testing.assert_allclose(
             hess_phasex_phasey_abscal,
-            hess_phasex_phasey_dwabscal[test_freq_ind],
+            hess_phasex_phasey_dwabscal[test_freq_ind, test_freq_ind],
             rtol=1e-7,
         )
 

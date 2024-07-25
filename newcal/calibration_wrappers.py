@@ -1079,25 +1079,6 @@ def dw_absolute_calibration(
     print(f"Initial cost: {initial_cost}")
     sys.stdout.flush()
 
-    # Perturb abscal parameters
-    # caldata_obj.abscal_params[0, :, :] += np.random.normal(
-    #    0.0,
-    #    0.1,
-    #    size=(
-    #        caldata_obj.Nfreqs,
-    #        caldata_obj.N_feed_pols,
-    #    ),
-    # )
-    # caldata_obj.abscal_params[1:, :, :] += np.random.normal(
-    #    0.0,
-    #    5e-4,
-    #    size=(
-    #        2,
-    #        caldata_obj.Nfreqs,
-    #        caldata_obj.N_feed_pols,
-    #    ),
-    # )
-
     calibration_optimization.run_dw_abscal_optimization(
         caldata_obj,
         xtol,

@@ -657,7 +657,7 @@ def run_dw_abscal_optimization(
             args=(unflagged_freq_inds, caldata_per_pol),
             method="Newton-CG",
             jac=jacobian_dw_abscal_wrapper,
-            # hess=hessian_dw_abscal_wrapper,
+            hess=hessian_dw_abscal_wrapper,
             options={"disp": verbose, "xtol": xtol, "maxiter": maxiter},
         )
         caldata_obj.abscal_params[:, unflagged_freq_inds, feed_pol_ind] = np.reshape(
