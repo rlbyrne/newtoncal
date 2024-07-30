@@ -1,5 +1,6 @@
 import numpy as np
 import pyuvdata
+from astropy.units import Quantity
 
 
 class CalData:
@@ -271,10 +272,8 @@ class CalData:
             (self.Ntimes, self.Nbls, self.Nfreqs, self.N_vis_pols), dtype=bool
         )
         for time_ind, time_val in enumerate(np.unique(data.time_array)):
-            data_copy = data.copy()
-            model_copy = model.copy()
-            data_copy.select(times=time_val)
-            model_copy.select(times=time_val)
+            data_copy = data.select(times=time_val, inplace=False)
+            model_copy = model.select(times=time_val, inplace=False)
             data_copy.reorder_blts()
             model_copy.reorder_blts()
             data_copy.reorder_pols(order="AIPS")
@@ -283,17 +282,25 @@ class CalData:
             model_copy.reorder_freqs(channel_order="freq")
             if time_ind == 0:
                 metadata_reference = data_copy.copy(metadata_only=True)
-            self.model_visibilities[time_ind, :, :, :] = np.squeeze(
-                model_copy.data_array, axis=(1,)
+            self.model_visibilities[time_ind, :, :, :] = np.reshape(
+                model_copy.data_array,
+                (model_copy.Nblts, model_copy.Nfreqs, model_copy.Npols),
             )
-            self.data_visibilities[time_ind, :, :, :] = np.squeeze(
-                data_copy.data_array, axis=(1,)
+            self.data_visibilities[time_ind, :, :, :] = np.reshape(
+                data_copy.data_array,
+                (data_copy.Nblts, data_copy.Nfreqs, data_copy.Npols),
             )
             flag_array[time_ind, :, :, :] = np.max(
                 np.stack(
                     [
-                        np.squeeze(model_copy.flag_array, axis=(1,)),
-                        np.squeeze(data_copy.flag_array, axis=(1,)),
+                        np.reshape(
+                            model_copy.flag_array,
+                            (model_copy.Nblts, model_copy.Nfreqs, model_copy.Npols),
+                        ),
+                        np.reshape(
+                            data_copy.flag_array,
+                            (data_copy.Nblts, data_copy.Nfreqs, data_copy.Npols),
+                        ),
                     ]
                 ),
                 axis=0,
@@ -319,7 +326,7 @@ class CalData:
             )
             baseline_lengths_lambda = (
                 baseline_lengths_m[:, np.newaxis]
-                * metadata_reference.freq_array[0, np.newaxis, :]
+                * np.reshape(metadata_reference.freq_array, (1, metadata_reference.Nfreqs))
                 / 3e8
             )
             flag_array[
@@ -371,10 +378,10 @@ class CalData:
 
         # Get UV locations
         antpos_ecef = (
-            self.antenna_positions + metadata_reference.telescope_location
+            self.antenna_positions + Quantity(metadata_reference.telescope.location.geocentric).to_value("m")
         )  # Get antennas positions in ECEF
         antpos_enu = pyuvdata.utils.ENU_from_ECEF(
-            antpos_ecef, *metadata_reference.telescope_location_lat_lon_alt
+            antpos_ecef, center_loc=metadata_reference.telescope.location
         )  # Convert to topocentric (East, North, Up or ENU) coords.
         uvw_array = np.matmul(self.gains_exp_mat_1, antpos_enu) - np.matmul(
             self.gains_exp_mat_2, antpos_enu
@@ -665,25 +672,25 @@ class CalData:
         uvcal.cal_style = "sky"
         uvcal.cal_type = "gain"
         uvcal.channel_width = self.channel_width
-        uvcal.freq_array = self.freq_array[np.newaxis, :]
+        uvcal.freq_array = self.freq_array
         uvcal.gain_convention = "multiply"
         uvcal.history = "calibrated with newcal"
-        uvcal.integration_time = self.integration_time
+        uvcal.integration_time = np.array([self.integration_time])
         uvcal.jones_array = self.feed_polarization_array
         uvcal.spw_array = np.array([0])
         uvcal.telescope_name = self.telescope_name
         uvcal.lst_array = np.array([self.lst])
         uvcal.telescope_location = self.telescope_location
         uvcal.time_array = np.array([self.time])
-        uvcal.time_range = np.array([self.time, self.time])
-        uvcal.lst_range = np.array([self.lst, self.lst])[np.newaxis, :]
         uvcal.x_orientation = "east"
-        uvcal.gain_array = self.gains[:, np.newaxis, :, np.newaxis, :]
+        uvcal.gain_array = self.gains[:, :, np.newaxis, :]
         uvcal.ref_antenna_name = "none"
         uvcal.sky_catalog = ""
+        uvcal.wide_band = False
+        uvcal.flex_spw_id_array = np.zeros(self.Nfreqs, dtype=int)
 
         # Get flags from nan-ed gains and zeroed weights
-        uvcal.flag_array = (np.isnan(self.gains))[:, np.newaxis, :, np.newaxis, :]
+        uvcal.flag_array = (np.isnan(self.gains))[:, :, np.newaxis, :]
         # Flag antennas
         antenna_weights = np.sum(
             np.matmul(
@@ -696,14 +703,14 @@ class CalData:
             ),
             axis=1,
         )
-        uvcal.flag_array[np.where(antenna_weights == 0)[0], :, :, :, :] = True
+        uvcal.flag_array[np.where(antenna_weights == 0)[0], :, :, :] = True
         # Flag frequencies
         freq_weights = np.sum(self.visibility_weights, axis=(0, 1, 3))
-        uvcal.flag_array[:, :, np.where(freq_weights == 0)[0], :, :] = True
+        uvcal.flag_array[:, np.where(freq_weights == 0)[0], :, :] = True
 
-        uvcal.use_future_array_shapes()
-
-        if not uvcal.check():
+        try:
+            uvcal.check()
+        except:
             print("ERROR: UVCal check failed.")
 
         return uvcal

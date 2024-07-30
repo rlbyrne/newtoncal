@@ -352,6 +352,7 @@ def calibration_per_pol(
     model_file_path,
     data_use_column="DATA",
     model_use_column="MODEL_DATA",
+    conjugate_model=False,
     gain_init_calfile=None,
     gain_init_to_vis_ratio=True,
     gain_init_stddev=0.0,
@@ -390,6 +391,9 @@ def calibration_per_pol(
     model_use_column : str
         Column in an ms file to use for the model visibilities. Used only if
         data_file_path points to an ms file. Default "MODEL_DATA".
+    conjugate_model : bool
+        Option to conjugate model baselines, needed sometimes when the data
+        and model convention does not match. Default False.
     gain_init_calfile : str or None
         Default None. If not None, provides a path to a pyuvdata-formatted
         calfits file containing gains values for calibration initialization.
@@ -484,6 +488,8 @@ def calibration_per_pol(
         print(
             f"ERROR: Unsupported file type for model file {model_file_path}. Exiting."
         )
+    if conjugate_model:
+        model.conjugate_bls()
 
     if verbose:
         print(
