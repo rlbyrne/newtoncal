@@ -488,8 +488,12 @@ def calibration_per_pol(
         print(
             f"ERROR: Unsupported file type for model file {model_file_path}. Exiting."
         )
+        sys.exit(1)
+
     if conjugate_model:
-        model.conjugate_bls()
+        print("Conjugating model baselines.")
+        sys.stdout.flush()
+        model.data_array = np.conj(model.data_array)
 
     if verbose:
         print(
