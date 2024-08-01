@@ -44,9 +44,18 @@ def cost_function_single_pol_wrapper(
     gains = gains[0, :] + 1.0j * gains[1, :]
     cost = cost_function_calculations.cost_function_single_pol(
         gains,
-        caldata_obj.model_visibilities[:, :, freq_ind, vis_pol_ind],
-        caldata_obj.data_visibilities[:, :, freq_ind, vis_pol_ind],
-        caldata_obj.visibility_weights[:, :, freq_ind, vis_pol_ind],
+        np.reshape(
+            caldata_obj.model_visibilities[:, :, freq_ind, vis_pol_ind],
+            (caldata_obj.Ntimes, caldata_obj.Nbls),
+        ),
+        np.reshape(
+            caldata_obj.data_visibilities[:, :, freq_ind, vis_pol_ind],
+            (caldata_obj.Ntimes, caldata_obj.Nbls),
+        ),
+        np.reshape(
+            caldata_obj.visibility_weights[:, :, freq_ind, vis_pol_ind],
+            (caldata_obj.Ntimes, caldata_obj.Nbls),
+        ),
         caldata_obj.gains_exp_mat_1,
         caldata_obj.gains_exp_mat_2,
         caldata_obj.lambda_val,
@@ -95,9 +104,18 @@ def jacobian_single_pol_wrapper(
     gains = gains[0, :] + 1.0j * gains[1, :]
     jac = cost_function_calculations.jacobian_single_pol(
         gains,
-        caldata_obj.model_visibilities[:, :, freq_ind, vis_pol_ind],
-        caldata_obj.data_visibilities[:, :, freq_ind, vis_pol_ind],
-        caldata_obj.visibility_weights[:, :, freq_ind, vis_pol_ind],
+        np.reshape(
+            caldata_obj.model_visibilities[:, :, freq_ind, vis_pol_ind],
+            (caldata_obj.Ntimes, caldata_obj.Nbls),
+        ),
+        np.reshape(
+            caldata_obj.data_visibilities[:, :, freq_ind, vis_pol_ind],
+            (caldata_obj.Ntimes, caldata_obj.Nbls),
+        ),
+        np.reshape(
+            caldata_obj.visibility_weights[:, :, freq_ind, vis_pol_ind],
+            (caldata_obj.Ntimes, caldata_obj.Nbls),
+        ),
         caldata_obj.gains_exp_mat_1,
         caldata_obj.gains_exp_mat_2,
         caldata_obj.lambda_val,
@@ -150,9 +168,18 @@ def hessian_single_pol_wrapper(
         gains,
         caldata_obj.Nants,
         caldata_obj.Nbls,
-        caldata_obj.model_visibilities[:, :, freq_ind, vis_pol_ind],
-        caldata_obj.data_visibilities[:, :, freq_ind, vis_pol_ind],
-        caldata_obj.visibility_weights[:, :, freq_ind, vis_pol_ind],
+        np.reshape(
+            caldata_obj.model_visibilities[:, :, freq_ind, vis_pol_ind],
+            (caldata_obj.Ntimes, caldata_obj.Nbls),
+        ),
+        np.reshape(
+            caldata_obj.data_visibilities[:, :, freq_ind, vis_pol_ind],
+            (caldata_obj.Ntimes, caldata_obj.Nbls),
+        ),
+        np.reshape(
+            caldata_obj.visibility_weights[:, :, freq_ind, vis_pol_ind],
+            (caldata_obj.Ntimes, caldata_obj.Nbls),
+        ),
         caldata_obj.gains_exp_mat_1,
         caldata_obj.gains_exp_mat_2,
         caldata_obj.lambda_val,
@@ -329,7 +356,9 @@ def run_calibration_optimization_per_pol_single_freq(
     for feed_pol_ind, feed_pol in enumerate(caldata_obj.feed_polarization_array):
         vis_pol_ind = np.where(caldata_obj.vis_polarization_array == feed_pol)[0]
 
-        if np.max(caldata_obj.visibility_weights[:, :, freq_ind, vis_pol_ind]) == 0.0:  # All flagged
+        if (
+            np.max(caldata_obj.visibility_weights[:, :, freq_ind, vis_pol_ind]) == 0.0
+        ):  # All flagged
             gains_fit[:, feed_pol_ind] = np.nan + 1j * np.nan
         else:
             gains_init_flattened = np.stack(
@@ -359,7 +388,9 @@ def run_calibration_optimization_per_pol_single_freq(
                 )
             sys.stdout.flush()
             gains_fit_single_pol = np.reshape(result.x, (2, caldata_obj.Nants))
-            gains_fit[:, feed_pol_ind] = gains_fit_single_pol[0, :] + 1j * gains_fit_single_pol[1, :]
+            gains_fit[:, feed_pol_ind] = (
+                gains_fit_single_pol[0, :] + 1j * gains_fit_single_pol[1, :]
+            )
 
             # Ensure that the phase of the gains is mean-zero
             # This adds should be handled by the phase regularization term, but
