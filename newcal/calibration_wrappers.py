@@ -302,43 +302,40 @@ def calibrate_caldata_per_pol(
         caldata_obj.gains[:, :, :] = np.nan + 1j * np.nan
     else:
 
-        # Expand CalData object into per-frequency objects
-        caldata_list = caldata_obj.expand_in_frequency()
-
         optimization_start_time = time.time()
 
         if parallel:
             args_list = []
             for freq_ind in range(caldata_obj.Nfreqs):
                 args = (
-                    caldata_list[freq_ind],
+                    caldata_obj,
                     xtol,
                     maxiter,
+                    freq_ind,
                     verbose,
                     get_crosspol_phase,
                     True,
                 )
                 args_list.append(args)
-            result = pool.starmap(
+            gains_fit = pool.starmap(
                 calibration_optimization.run_calibration_optimization_per_pol_single_freq,
                 args_list,
             )
             pool.close()
             for freq_ind in range(caldata_obj.Nfreqs):
-                caldata_obj.gains[:, [freq_ind], :] = result[freq_ind]
+                caldata_obj.gains[:, [freq_ind], :] = gains_fit[freq_ind][:, np.newaxis, :]
             pool.join()
         else:
             for freq_ind in range(caldata_obj.Nfreqs):
-                calibration_optimization.run_calibration_optimization_per_pol_single_freq(
-                    caldata_list[freq_ind],
+                gains_fit = calibration_optimization.run_calibration_optimization_per_pol_single_freq(
+                    caldata_obj,
                     xtol,
                     maxiter,
+                    freq_ind,
                     verbose=verbose,
                     get_crosspol_phase=get_crosspol_phase,
                 )
-                caldata_obj.gains[:, [freq_ind], :] = caldata_list[freq_ind].gains[
-                    :, [0], :
-                ]
+                caldata_obj.gains[:, [freq_ind], :] = gains_fit[:, np.newaxis, :]
 
         if verbose:
             print(
