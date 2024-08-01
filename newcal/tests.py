@@ -1096,7 +1096,7 @@ class TestStringMethods(unittest.TestCase):
         ).flatten()
 
         hess = calibration_optimization.hessian_single_pol_wrapper(
-            gains_flattened, caldata_obj
+            gains_flattened, caldata_obj, 0, 0
         )
 
         np.testing.assert_allclose(hess - np.conj(hess.T), 0.0 + 1j * 0.0)
