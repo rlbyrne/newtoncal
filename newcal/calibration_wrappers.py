@@ -331,7 +331,7 @@ def calibrate_caldata_per_pol(
                     caldata_obj,
                     xtol,
                     maxiter,
-                    freq_ind,
+                    freq_ind=freq_ind,
                     verbose=verbose,
                     get_crosspol_phase=get_crosspol_phase,
                 )
