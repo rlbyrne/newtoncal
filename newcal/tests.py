@@ -1127,8 +1127,8 @@ class TestStringMethods(unittest.TestCase):
             parallel=False,
         )
 
-        np.testing.assert_allclose(np.abs(caldata_obj.gains), 1.0, atol=1e-6)
-        np.testing.assert_allclose(np.angle(caldata_obj.gains), 0.0, atol=1e-6)
+        np.testing.assert_allclose(np.abs(caldata_obj.gains), np.full((caldata_obj.Nants, caldata_obj.Nfreqs, caldata_obj.N_feed_pols), 1.0), atol=1e-6)
+        np.testing.assert_allclose(np.angle(caldata_obj.gains), np.full((caldata_obj.Nants, caldata_obj.Nfreqs, caldata_obj.N_feed_pols), 0.0), atol=1e-6)
 
     def test_calibration_single_pol_identical_data_with_flags(self):
 

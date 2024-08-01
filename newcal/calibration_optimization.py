@@ -424,10 +424,10 @@ def run_calibration_optimization_per_pol_single_freq(
             ]
         )
         crosspol_phase = cost_function_calculations.set_crosspol_phase(
-            caldata_obj.gains[:, 0, :],
-            caldata_obj.model_visibilities[:, :, 0, crosspol_indices],
-            caldata_obj.data_visibilities[:, :, 0, crosspol_indices],
-            caldata_obj.visibility_weights[:, :, 0, crosspol_indices],
+            gains_fit,
+            caldata_obj.model_visibilities[:, :, freq_ind, crosspol_indices],
+            caldata_obj.data_visibilities[:, :, freq_ind, crosspol_indices],
+            caldata_obj.visibility_weights[:, :, freq_ind, crosspol_indices],
             caldata_obj.gains_exp_mat_1,
             caldata_obj.gains_exp_mat_2,
         )
