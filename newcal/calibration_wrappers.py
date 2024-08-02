@@ -305,16 +305,16 @@ def calibrate_caldata_per_pol(
         optimization_start_time = time.time()
 
         if parallel:
+            caldata_list = caldata_obj.expand_in_frequency()
             args_list = []
             for freq_ind in range(caldata_obj.Nfreqs):
                 args = (
-                    caldata_obj,
+                    caldata_list[freq_ind],
                     xtol,
                     maxiter,
-                    freq_ind,
+                    0,
                     verbose,
                     get_crosspol_phase,
-                    True,
                 )
                 args_list.append(args)
             gains_fit = pool.starmap(

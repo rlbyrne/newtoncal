@@ -387,7 +387,9 @@ def plot_gains(
 
     # Plot amplitudes
     if ymax is None:
-        ymax = np.nanmax(np.abs(cal.gain_array))
+        ymax = np.nanmean(np.abs(cal.gain_array)) + 3 * np.nanstd(
+            np.abs(cal.gain_array)
+        )
     y_range = [ymin, ymax]
     x_range = [np.min(freq_axis_mhz), np.max(freq_axis_mhz)]
     subplot_ind = 0
