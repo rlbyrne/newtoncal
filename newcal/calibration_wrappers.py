@@ -264,8 +264,8 @@ def absolute_calibration(
 
 def calibrate_caldata_per_pol(
     caldata_obj,
-    xtol=1e-4,
-    maxiter=100,
+    xtol=1e-5,
+    maxiter=200,
     get_crosspol_phase=True,
     parallel=True,
     verbose=False,
@@ -282,9 +282,9 @@ def calibrate_caldata_per_pol(
     caldata_obj : CalData
         CalData object containing the data and model visibilities for calibration.
     xtol : float
-        Accuracy tolerance for optimizer. Default 1e-8.
+        Accuracy tolerance for optimizer. Default 1e-5.
     maxiter : int
-        Maximum number of iterations for the optimizer. Default 100.
+        Maximum number of iterations for the optimizer. Default 200.
     get_crosspol_phase : bool
         If True, crosspol phase is calculated. Default True.
     parallel : bool
@@ -360,8 +360,8 @@ def calibration_per_pol(
     min_cal_baseline_lambda=None,
     max_cal_baseline_lambda=None,
     lambda_val=100,
-    xtol=1e-4,
-    maxiter=100,
+    xtol=1e-5,
+    maxiter=200,
     get_crosspol_phase=True,
     parallel=True,
     max_processes=40,
@@ -429,9 +429,9 @@ def calibration_per_pol(
         Weight of the phase regularization term; must be positive. Default
         100.
     xtol : float
-        Accuracy tolerance for optimizer. Default 1e-8.
+        Accuracy tolerance for optimizer. Default 1e-5.
     maxiter : int
-        Maximum number of iterations for the optimizer. Default 100.
+        Maximum number of iterations for the optimizer. Default 200.
     get_crosspol_phase : bool
         If True, crosspol phase is calculated. Default True.
     parallel : bool
