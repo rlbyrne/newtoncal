@@ -50,7 +50,7 @@ def apply_abscal(uvdata, abscal_params, feed_polarization_array, inplace=False):
         uvdata.antenna_positions + uvdata.telescope_location
     )  # Get antennas positions in ECEF
     antpos_enu = pyuvdata.utils.ENU_from_ECEF(
-        antpos_ecef, *uvdata.telescope_location_lat_lon_alt
+        antpos_ecef, center_loc=uvdata.telescope.location
     )  # Convert to topocentric (East, North, Up or ENU) coords.
     antpos_en = antpos_enu[:, :2]
     ant1_positions = np.matmul(gains_exp_mat_1, antpos_en)
@@ -88,12 +88,12 @@ def apply_abscal(uvdata, abscal_params, feed_polarization_array, inplace=False):
         )  # Shape (Nbls, Nfreqs,)
 
         if inplace:
-            uvdata.data_array[:, :, :, vis_pol_ind] *= (
-                amp_term[np.newaxis, np.newaxis, :] * phase_correction[:, np.newaxis, :]
+            uvdata.data_array[:, :, vis_pol_ind] *= (
+                amp_term[np.newaxis, :] * phase_correction
             )
         else:
-            uvdata_new.data_array[:, :, :, vis_pol_ind] *= (
-                amp_term[np.newaxis, np.newaxis, :] * phase_correction[:, np.newaxis, :]
+            uvdata_new.data_array[:, :, vis_pol_ind] *= (
+                amp_term[np.newaxis, :] * phase_correction
             )
 
     if not inplace:

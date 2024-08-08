@@ -1442,7 +1442,7 @@ class TestStringMethods(unittest.TestCase):
             1.2
             * np.exp(
                 1j * (0.001 * data.uvw_array[:, 0] - 0.002 * data.uvw_array[:, 1])
-            )[:, np.newaxis, np.newaxis, np.newaxis]
+            )[:, np.newaxis, np.newaxis]
         )
 
         caldata_obj = caldata.CalData()
@@ -1465,7 +1465,6 @@ class TestStringMethods(unittest.TestCase):
             100,
             verbose=True,
         )
-        print(caldata_obj.abscal_params)
         calibration_wrappers.apply_abscal(
             data,
             caldata_obj.abscal_params,
