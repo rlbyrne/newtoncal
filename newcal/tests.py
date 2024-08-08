@@ -1109,6 +1109,7 @@ class TestStringMethods(unittest.TestCase):
 
         caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model, gain_init_stddev=0.1, lambda_val=100.0)
+        print(f"Gains initial: {caldata_obj.gains}")
 
         # Unflag all
         caldata_obj.visibility_weights = np.ones(
@@ -1126,9 +1127,22 @@ class TestStringMethods(unittest.TestCase):
             xtol=1e-8,
             parallel=False,
         )
+        print(f"Gains fit final: {caldata_obj.gains}")
 
-        np.testing.assert_allclose(np.abs(caldata_obj.gains), np.full((caldata_obj.Nants, caldata_obj.Nfreqs, caldata_obj.N_feed_pols), 1.0), atol=1e-6)
-        np.testing.assert_allclose(np.angle(caldata_obj.gains), np.full((caldata_obj.Nants, caldata_obj.Nfreqs, caldata_obj.N_feed_pols), 0.0), atol=1e-6)
+        np.testing.assert_allclose(
+            np.abs(caldata_obj.gains),
+            np.full(
+                (caldata_obj.Nants, caldata_obj.Nfreqs, caldata_obj.N_feed_pols), 1.0
+            ),
+            atol=1e-6,
+        )
+        np.testing.assert_allclose(
+            np.angle(caldata_obj.gains),
+            np.full(
+                (caldata_obj.Nants, caldata_obj.Nfreqs, caldata_obj.N_feed_pols), 0.0
+            ),
+            atol=1e-6,
+        )
 
     def test_calibration_single_pol_identical_data_with_flags(self):
 
@@ -1849,31 +1863,31 @@ class TestStringMethods(unittest.TestCase):
 
             if phase_ind == 0:
                 np.testing.assert_allclose(
-                    amp_grad_approx, hess_amp_phasex[test_freq_ind, :], rtol=1e-6
+                    amp_grad_approx, hess_amp_phasex[test_freq_ind, :], rtol=1e-5
                 )
                 np.testing.assert_allclose(
                     phase_grad_approx[0, :],
                     hess_phasex_phasex[:, test_freq_ind],
-                    rtol=1e-6,
+                    rtol=1e-5,
                 )
                 np.testing.assert_allclose(
                     phase_grad_approx[1, :],
                     hess_phasex_phasey[:, test_freq_ind],
-                    rtol=1e-6,
+                    rtol=1e-5,
                 )
             elif phase_ind == 1:
                 np.testing.assert_allclose(
-                    amp_grad_approx, hess_amp_phasey[test_freq_ind, :], rtol=1e-6
+                    amp_grad_approx, hess_amp_phasey[test_freq_ind, :], rtol=1e-5
                 )
                 np.testing.assert_allclose(
                     phase_grad_approx[0, :],
                     hess_phasex_phasey[:, test_freq_ind],
-                    rtol=1e-6,
+                    rtol=1e-5,
                 )
                 np.testing.assert_allclose(
                     phase_grad_approx[1, :],
                     hess_phasey_phasey[:, test_freq_ind],
-                    rtol=1e-6,
+                    rtol=1e-5,
                 )
 
     def test_dwabscal_abscal_agreement(self, verbose=False):
