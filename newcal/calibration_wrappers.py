@@ -323,7 +323,9 @@ def calibrate_caldata_per_pol(
             )
             pool.close()
             for freq_ind in range(caldata_obj.Nfreqs):
-                caldata_obj.gains[:, [freq_ind], :] = gains_fit[freq_ind][:, np.newaxis, :]
+                caldata_obj.gains[:, [freq_ind], :] = gains_fit[freq_ind][
+                    :, np.newaxis, :
+                ]
             pool.join()
         else:
             for freq_ind in range(caldata_obj.Nfreqs):
@@ -342,6 +344,7 @@ def calibrate_caldata_per_pol(
                 f"Done. Optimization time: {caldata_obj.Nfreqs} frequency channels in {(time.time() - optimization_start_time)/60.} minutes"
             )
             sys.stdout.flush()
+
 
 def calibration_per_pol(
     data_file_path,
