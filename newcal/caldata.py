@@ -315,7 +315,7 @@ class CalData:
         data = model = data_copy = model_copy = None
 
         # Grab other metadata from uvfits
-        self.channel_width = metadata_reference.channel_width
+        self.channel_width = np.mean(metadata_reference.channel_width)
         self.freq_array = np.reshape(metadata_reference.freq_array, (self.Nfreqs))
         self.integration_time = np.mean(metadata_reference.integration_time)
         self.time = np.mean(metadata_reference.time_array)
@@ -331,7 +331,9 @@ class CalData:
             )
             baseline_lengths_lambda = (
                 baseline_lengths_m[:, np.newaxis]
-                * np.reshape(metadata_reference.freq_array, (1, metadata_reference.Nfreqs))
+                * np.reshape(
+                    metadata_reference.freq_array, (1, metadata_reference.Nfreqs)
+                )
                 / 3e8
             )
             flag_array[
@@ -382,8 +384,10 @@ class CalData:
         )
 
         # Get UV locations
-        antpos_ecef = (
-            self.antenna_positions + Quantity(metadata_reference.telescope.location.geocentric).to_value("m")
+        antpos_ecef = self.antenna_positions + Quantity(
+            metadata_reference.telescope.location.geocentric
+        ).to_value(
+            "m"
         )  # Get antennas positions in ECEF
         antpos_enu = pyuvdata.utils.ENU_from_ECEF(
             antpos_ecef, center_loc=metadata_reference.telescope.location
