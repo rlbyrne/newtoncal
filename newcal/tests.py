@@ -1127,8 +1127,20 @@ class TestStringMethods(unittest.TestCase):
             parallel=False,
         )
 
-        np.testing.assert_allclose(np.abs(caldata_obj.gains), np.full((caldata_obj.Nants, caldata_obj.Nfreqs, caldata_obj.N_feed_pols), 1.0), atol=1e-6)
-        np.testing.assert_allclose(np.angle(caldata_obj.gains), np.full((caldata_obj.Nants, caldata_obj.Nfreqs, caldata_obj.N_feed_pols), 0.0), atol=1e-6)
+        np.testing.assert_allclose(
+            np.abs(caldata_obj.gains),
+            np.full(
+                (caldata_obj.Nants, caldata_obj.Nfreqs, caldata_obj.N_feed_pols), 1.0
+            ),
+            atol=1e-6,
+        )
+        np.testing.assert_allclose(
+            np.angle(caldata_obj.gains),
+            np.full(
+                (caldata_obj.Nants, caldata_obj.Nfreqs, caldata_obj.N_feed_pols), 0.0
+            ),
+            atol=1e-6,
+        )
 
     def test_calibration_single_pol_identical_data_with_flags(self):
 
@@ -1264,6 +1276,61 @@ class TestStringMethods(unittest.TestCase):
         crosspol_phase_new = cost_function_calculations.set_crosspol_phase(
             caldata_obj_new.gains[:, 0, :],
             caldata_obj_new.model_visibilities[:, :, 0, 2:],
+            caldata_obj_new.data_visibilities[:, :, 0, 2:],
+            caldata_obj_new.visibility_weights[:, :, 0, 2:],
+            caldata_obj_new.gains_exp_mat_1,
+            caldata_obj_new.gains_exp_mat_2,
+        )
+
+        np.testing.assert_allclose(crosspol_phase_new, crosspol_phase, atol=1e-8)
+
+    def test_crosspol_phase_pseudoV(self):
+
+        model = pyuvdata.UVData()
+        model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
+        model.data_array[:, :, 2] = model.data_array[
+            :, :, 3
+        ]  # Enforce that PQ and QP visibilities are identical
+        data = model.copy()
+
+        caldata_obj = caldata.CalData()
+        caldata_obj.load_data(data, model, gain_init_stddev=0.0)
+
+        # Unflag all
+        caldata_obj.visibility_weights = np.ones(
+            (
+                caldata_obj.Ntimes,
+                caldata_obj.Nbls,
+                caldata_obj.Nfreqs,
+                4,
+            ),
+            dtype=float,
+        )
+
+        # Set crosspol phase
+        crosspol_phase = 0.2
+        caldata_obj.gains[:, :, 0] *= np.exp(1j * crosspol_phase / 2)
+        caldata_obj.gains[:, :, 1] *= np.exp(-1j * crosspol_phase / 2)
+
+        uvcal = caldata_obj.convert_to_uvcal()
+        pyuvdata.utils.uvcalibrate(data, uvcal, inplace=True, time_check=False)
+
+        caldata_obj_new = caldata.CalData()
+        caldata_obj_new.load_data(data, model, gain_init_stddev=0.0)
+
+        # Unflag all
+        caldata_obj_new.visibility_weights = np.ones(
+            (
+                caldata_obj_new.Ntimes,
+                caldata_obj_new.Nbls,
+                caldata_obj_new.Nfreqs,
+                4,
+            ),
+            dtype=float,
+        )
+
+        crosspol_phase_new = cost_function_calculations.set_crosspol_phase_pseudoV(
+            caldata_obj_new.gains[:, 0, :],
             caldata_obj_new.data_visibilities[:, :, 0, 2:],
             caldata_obj_new.visibility_weights[:, :, 0, 2:],
             caldata_obj_new.gains_exp_mat_1,

@@ -361,6 +361,67 @@ def set_crosspol_phase(
     return crosspol_phase
 
 
+def set_crosspol_phase_pseudoV(
+    gains,
+    crosspol_data_visibilities,
+    crosspol_visibility_weights,
+    gains_exp_mat_1,
+    gains_exp_mat_2,
+):
+    """
+    Calculate the cross-polarization phase between the P and Q gains. This
+    quantity is not constrained in typical per-polarization calibration but is
+    required for polarized imaging. See Byrne et al. 2022 for details of the
+    calculation.
+
+    Parameters
+    ----------
+    gains : array of complex
+        Shape (Nants, 2,). gains[:, 0] corresponds to the P-polarized gains and
+        gains[:, 1] corresponds to the Q-polarized gains.
+    crosspol_data_visibilities : array of complex
+        Shape (Ntimes, Nbls, 2,). Cross-polarized data visibilities.
+        model_visilibities[:, :, 0] corresponds to the PQ-polarized visibilities
+        and model_visilibities[:, :, 1] corresponds to the QP-polarized
+        visibilities.
+    crosspol_visibility_weights : array of float
+        Shape (Ntimes, Nbls, 2).
+    gains_exp_mat_1 : array of int
+        Shape (Nbls, Nants,).
+    gains_exp_mat_2 : array of int
+        Shape (Nbls, Nants,).
+
+    Returns
+    -------
+    crosspol_phase : float
+        Cross-polarization phase, in radians.
+    """
+
+    gains_expanded_1 = np.matmul(gains_exp_mat_1, gains)[np.newaxis, :, :]
+    gains_expanded_2 = np.matmul(gains_exp_mat_2, gains)[np.newaxis, :, :]
+    crosspol_data_visibilities_calibrated = crosspol_data_visibilities
+    crosspol_data_visibilities_calibrated[:, :, 0] *= gains_expanded_1[
+        :, :, 0
+    ] * np.conj(
+        gains_expanded_2[:, :, 1]
+    )  # Apply gains to PQ visibilities
+    crosspol_data_visibilities_calibrated[:, :, 1] *= gains_expanded_1[
+        :, :, 1
+    ] * np.conj(
+        gains_expanded_2[:, :, 0]
+    )  # Apply gains to QP visibilities
+    visibility_weights = np.nanmean(
+        crosspol_visibility_weights, axis=2
+    )  # Doesn't support different weights for PQ and QP
+    sum_term = np.nansum(
+        visibility_weights
+        * crosspol_data_visibilities_calibrated[:, :, 0]
+        * np.conj(crosspol_data_visibilities_calibrated[:, :, 1])
+    )
+    crosspol_phase = np.angle(sum_term) / 2
+    return crosspol_phase
+
+
 def cost_function_abs_cal(
     amp,
     phase_grad,
