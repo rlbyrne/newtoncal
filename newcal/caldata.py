@@ -684,7 +684,7 @@ class CalData:
         uvcal.antenna_positions = self.antenna_positions
         uvcal.cal_style = "sky"
         uvcal.cal_type = "gain"
-        uvcal.channel_width = self.channel_width
+        uvcal.channel_width = np.full((self.Nfreqs), self.channel_width)
         uvcal.freq_array = self.freq_array
         uvcal.gain_convention = "multiply"
         uvcal.history = "calibrated with newcal"
