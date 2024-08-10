@@ -267,6 +267,7 @@ def calibrate_caldata_per_pol(
     xtol=1e-5,
     maxiter=200,
     get_crosspol_phase=True,
+    crosspol_phase_strategy="crosspol model",
     parallel=True,
     verbose=False,
     pool=None,
@@ -287,6 +288,11 @@ def calibrate_caldata_per_pol(
         Maximum number of iterations for the optimizer. Default 200.
     get_crosspol_phase : bool
         If True, crosspol phase is calculated. Default True.
+    crosspol_phase_strategy : str
+        Options are "crosspol model" or "pseudo Stokes V". Used only if
+        get_crosspol_phase is True. If "crosspol model", contrains the crosspol
+        phase using the crosspol model visibilities. If "pseudo Stokes V", constrains
+        crosspol phase by minimizing pseudo Stokes V. Default "crosspol model".
     parallel : bool
         Set to True to parallelize across frequency with multiprocessing.
         Default True if Nfreqs > 1.
@@ -336,6 +342,7 @@ def calibrate_caldata_per_pol(
                     freq_ind=freq_ind,
                     verbose=verbose,
                     get_crosspol_phase=get_crosspol_phase,
+                    crosspol_phase_strategy=crosspol_phase_strategy,
                 )
                 caldata_obj.gains[:, [freq_ind], :] = gains_fit[:, np.newaxis, :]
 
@@ -365,6 +372,7 @@ def calibration_per_pol(
     xtol=1e-5,
     maxiter=200,
     get_crosspol_phase=True,
+    crosspol_phase_strategy="crosspol model",
     parallel=True,
     max_processes=40,
     verbose=False,
@@ -436,6 +444,11 @@ def calibration_per_pol(
         Maximum number of iterations for the optimizer. Default 200.
     get_crosspol_phase : bool
         If True, crosspol phase is calculated. Default True.
+    crosspol_phase_strategy : str
+        Options are "crosspol model" or "pseudo Stokes V". Used only if
+        get_crosspol_phase is True. If "crosspol model", contrains the crosspol
+        phase using the crosspol model visibilities. If "pseudo Stokes V", constrains
+        crosspol phase by minimizing pseudo Stokes V. Default "crosspol model".
     parallel : bool
         Set to True to parallelize across frequency with multiprocessing.
         Default True if Nfreqs > 1.
@@ -535,6 +548,7 @@ def calibration_per_pol(
         xtol=xtol,
         maxiter=maxiter,
         get_crosspol_phase=get_crosspol_phase,
+        crosspol_phase_strategy=crosspol_phase_strategy,
         parallel=parallel,
         verbose=verbose,
         pool=pool,
