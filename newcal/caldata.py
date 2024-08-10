@@ -41,6 +41,10 @@ class CalData:
         Shape (Ntimes, Nbls, Nfreqs, N_vis_pols,).
     visibility_weights : array of float
         Shape (Ntimes, Nbls, Nfreqs, N_vis_pols,).
+    dwcal_inv_covariance : array of complex
+        Matrix defining frequency-frequency covariances used in delay-weighted
+        calibration. Needed only if delay weighting is used in calibration.
+        Shape (Ntimes, Nbls, Nfreqs, Nfreqs, N_vis_pols,).
     gains_exp_mat_1 : array of int
         Shape (Nbls, Nants,).
     gains_exp_mat_2 : array of int
@@ -83,6 +87,7 @@ class CalData:
         self.model_visibilities = None
         self.data_visibilities = None
         self.visibility_weights = None
+        self.dwcal_inv_covariance = None
         self.gains_exp_mat_1 = None
         self.gains_exp_mat_2 = None
         self.antenna_names = None
@@ -310,7 +315,7 @@ class CalData:
         data = model = data_copy = model_copy = None
 
         # Grab other metadata from uvfits
-        self.channel_width = metadata_reference.channel_width
+        self.channel_width = np.mean(metadata_reference.channel_width)
         self.freq_array = np.reshape(metadata_reference.freq_array, (self.Nfreqs))
         self.integration_time = np.mean(metadata_reference.integration_time)
         self.time = np.mean(metadata_reference.time_array)
@@ -326,7 +331,9 @@ class CalData:
             )
             baseline_lengths_lambda = (
                 baseline_lengths_m[:, np.newaxis]
-                * np.reshape(metadata_reference.freq_array, (1, metadata_reference.Nfreqs))
+                * np.reshape(
+                    metadata_reference.freq_array, (1, metadata_reference.Nfreqs)
+                )
                 / 3e8
             )
             flag_array[
@@ -377,8 +384,10 @@ class CalData:
         )
 
         # Get UV locations
-        antpos_ecef = (
-            self.antenna_positions + Quantity(metadata_reference.telescope.location.geocentric).to_value("m")
+        antpos_ecef = self.antenna_positions + Quantity(
+            metadata_reference.telescope.location.geocentric
+        ).to_value(
+            "m"
         )  # Get antennas positions in ECEF
         antpos_enu = pyuvdata.utils.ENU_from_ECEF(
             antpos_ecef, center_loc=metadata_reference.telescope.location
@@ -615,6 +624,10 @@ class CalData:
             caldata_per_pol.lst = self.lst
             caldata_per_pol.telescope_location = self.telescope_location
             caldata_per_pol.lambda_val = self.lambda_val
+            if self.dwcal_inv_covariance is not None:
+                caldata_per_pol.dwcal_inv_covariance = self.dwcal_inv_covariance[
+                    :, :, :, :, [sky_pol_ind]
+                ]
 
             """
             if np.max(caldata_per_pol.visibility_weights) > 0.0:
