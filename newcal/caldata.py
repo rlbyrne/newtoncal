@@ -1,6 +1,8 @@
 import numpy as np
+import sys
 import pyuvdata
 from astropy.units import Quantity
+from newcal import calibration_qa
 
 
 class CalData:
@@ -727,3 +729,88 @@ class CalData:
             print("ERROR: UVCal check failed.")
 
         return uvcal
+
+    def flag_antennas_from_per_ant_cost(
+        self,
+        flagging_threshold=2.5,
+        parallel=False,
+        max_processes=40,
+        pool=None,
+        verbose=True,
+    ):
+        """
+        Flags antennas based on the per-antenna cost function. Updates
+        visibility_weights according to the flags.
+
+        Parameters
+        ----------
+        caldata_obj : CalData
+        flagging_threshold : float
+            Flagging threshold. Per antenna cost values equal to flagging_threshold
+            times the mean value will be flagged. Default 2.5.
+        parallel : bool
+            Set to True to parallelize cost evaluation with multiprocessing. Default
+            False.
+        max_processes : int
+            Maximum number of multithreaded processes to use. Applicable only if
+            parallel is True. If None, uses the multiprocessing default. Default 40.
+        pool : multiprocessing.pool.Pool or None
+            Pool for multiprocessing. If None and parallel=True, a new pool will be
+            created.
+        verbose : bool
+        """
+
+        per_ant_cost = calibration_qa.calculate_per_antenna_cost(
+            self, parallel=parallel
+        )
+
+        where_finite = np.isfinite(per_ant_cost)
+        if np.sum(where_finite) > 0:
+            mean_per_ant_cost = np.mean(per_ant_cost[where_finite])
+            flag_antenna_list = []
+            for pol_ind in range(self.N_feed_pols):
+                flag_antenna_inds = np.where(
+                    np.logical_or(
+                        per_ant_cost[:, pol_ind]
+                        > flagging_threshold * mean_per_ant_cost,
+                        ~np.isfinite(per_ant_cost[:, pol_ind]),
+                    )
+                )[0]
+                flag_antenna_list.append(self.antenna_names[flag_antenna_inds])
+
+                for ant_ind in flag_antenna_inds:
+                    bl_inds_1 = np.where(self.gains_exp_mat_1[:, ant_ind])[0]
+                    bl_inds_2 = np.where(self.gains_exp_mat_2[:, ant_ind])[0]
+                    if self.feed_polarization_array[pol_ind] == -5:
+                        if -5 in self.vis_polarization_array:
+                            vis_pol_ind = np.where(self.vis_polarization_array == -5)[0]
+                            self.visibility_weights[:, bl_inds_1, :, vis_pol_ind] = 0
+                            self.visibility_weights[:, bl_inds_2, :, vis_pol_ind] = 0
+                        if -7 in self.vis_polarization_array:
+                            vis_pol_ind = np.where(self.vis_polarization_array == -7)[0]
+                            self.visibility_weights[:, bl_inds_1, :, vis_pol_ind] = 0
+                        if -8 in self.vis_polarization_array:
+                            vis_pol_ind = np.where(self.vis_polarization_array == -8)[0]
+                            self.visibility_weights[:, bl_inds_2, :, vis_pol_ind] = 0
+                    elif self.feed_polarization_array[pol_ind] == -6:
+                        if -6 in self.vis_polarization_array:
+                            vis_pol_ind = np.where(self.vis_polarization_array == -6)[0]
+                            self.visibility_weights[:, bl_inds_1, :, vis_pol_ind] = 0
+                            self.visibility_weights[:, bl_inds_2, :, vis_pol_ind] = 0
+                        if -7 in self.vis_polarization_array:
+                            vis_pol_ind = np.where(self.vis_polarization_array == -7)[0]
+                            self.visibility_weights[:, bl_inds_2, :, vis_pol_ind] = 0
+                        if -8 in self.vis_polarization_array:
+                            vis_pol_ind = np.where(self.vis_polarization_array == -8)[0]
+                            self.visibility_weights[:, bl_inds_1, :, vis_pol_ind] = 0
+
+        else:  # Flag everything
+            flag_antenna_list = []
+            for pol_ind in range(self.N_feed_pols):
+                flag_antenna_list.append(self.antenna_names)
+            self.visibility_weights[:, :, :, :] = 0
+
+        if verbose:
+            print("Completed antenna flagging based on per-antenna cost function.")
+            print(f"Flagged antennas: {flag_antenna_list}")
+            sys.stdout.flush()

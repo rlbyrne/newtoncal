@@ -373,6 +373,8 @@ def calibration_per_pol(
     maxiter=200,
     get_crosspol_phase=True,
     crosspol_phase_strategy="crosspol model",
+    antenna_flagging_iterations=1,
+    antenna_flagging_threshold=2.5,
     parallel=True,
     max_processes=40,
     verbose=False,
@@ -449,6 +451,11 @@ def calibration_per_pol(
         get_crosspol_phase is True. If "crosspol model", contrains the crosspol
         phase using the crosspol model visibilities. If "pseudo Stokes V", constrains
         crosspol phase by minimizing pseudo Stokes V. Default "crosspol model".
+    antenna_flagging_iterations : int
+        If >0, pre-calibrate and flag antennas based on the residual per-antenna cost.
+    antenna_flagging_threshold : float
+        Used only if antenna_flagging_iterations>0. Per antenna cost values equal to
+        flagging_threshold times the mean value will be flagged. Default 2.5.
     parallel : bool
         Set to True to parallelize across frequency with multiprocessing.
         Default True if Nfreqs > 1.
@@ -542,6 +549,23 @@ def calibration_per_pol(
         )
         print("Running calibration optimization...")
         sys.stdout.flush()
+
+    for ant_flag_iter in range(antenna_flagging_iterations):
+        calibrate_caldata_per_pol(
+            caldata_obj,
+            xtol=xtol / 10,  # Lower tolerance for antenna flagging
+            maxiter=int(maxiter / 2),  # Lower maxiter for antenna flagging
+            get_crosspol_phase=False,  # No crosspol phase needed for antenna flagging
+            parallel=parallel,
+            verbose=verbose,
+            pool=pool,
+        )
+        caldata_obj.flag_antennas_from_per_ant_cost(
+            flagging_threshold=antenna_flagging_threshold,
+            parallel=True,
+            pool=pool,
+            verbose=verbose,
+        )
 
     calibrate_caldata_per_pol(
         caldata_obj,

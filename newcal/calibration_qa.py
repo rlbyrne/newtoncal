@@ -9,7 +9,9 @@ import multiprocessing
 
 def calculate_per_antenna_cost(
     caldata_obj,
-    parallel=True,
+    parallel=False,
+    max_processes=40,
+    pool=None,
 ):
     """
     Calculate the contribution of each antenna to the cost function.
@@ -18,7 +20,14 @@ def calculate_per_antenna_cost(
     ----------
     caldata_obj : CalData
     parallel : bool
-        Set to True to parallelize with multiprocessing. Default True.
+        Set to True to parallelize with multiprocessing. Default False.
+    max_processes : int
+        Maximum number of multithreaded processes to use. Applicable only if
+        parallel is True and pool is None. If None, uses the multiprocessing
+        default. Default 40.
+    pool : multiprocessing.pool.Pool or None
+        Pool for multiprocessing. If None and parallel=True, a new pool will be
+        created.
 
     Returns
     -------
@@ -99,7 +108,11 @@ def calculate_per_antenna_cost(
                     )
 
     if parallel:
-        pool = multiprocessing.Pool()
+        if pool is None:
+            if max_processes is None:
+                pool = multiprocessing.Pool()
+            else:
+                pool = multiprocessing.Pool(processes=max_processes)
         result = pool.starmap(
             calibration_optimization.run_calibration_optimization_per_pol_single_freq,
             args_list,
@@ -116,113 +129,6 @@ def calculate_per_antenna_cost(
 
     per_ant_cost_normalized = np.abs(per_ant_cost / per_ant_baselines)
     return per_ant_cost_normalized
-
-
-def get_antenna_flags_from_per_ant_cost(
-    caldata_obj,
-    flagging_threshold=2.5,
-    update_flags=True,
-    parallel=True,
-):
-    """
-    Create a list of antennas to flag based on the per-antenna cost function.
-    Option to update visibility_weights according to the flags.
-
-    Parameters
-    ----------
-    caldata_obj : CalData
-    flagging_threshold : float
-        Flagging threshold. Per antenna cost values equal to flagging_threshold
-        times the mean value will be flagged. Default 2.5.
-    parallel : bool
-        Set to True to parallelize cost evaluation with multiprocessing. Default
-        True.
-
-    Returns
-    -------
-    flag_antenna_list : list of arrays of str
-        Length N_feed_pols. flag_antenna_list[pol_ind] provides an array of
-        antenna names identified for flagging.
-    """
-
-    per_ant_cost = calculate_per_antenna_cost(caldata_obj, parallel=parallel)
-
-    where_finite = np.isfinite(per_ant_cost)
-    if np.sum(where_finite) > 0:
-        mean_per_ant_cost = np.mean(per_ant_cost[where_finite])
-        flag_antenna_list = []
-        for pol_ind in range(caldata_obj.N_feed_pols):
-            flag_antenna_inds = np.where(
-                np.logical_or(
-                    per_ant_cost[:, pol_ind] > flagging_threshold * mean_per_ant_cost,
-                    ~np.isfinite(per_ant_cost[:, pol_ind]),
-                )
-            )[0]
-            flag_antenna_list.append(caldata_obj.antenna_names[flag_antenna_inds])
-
-            if update_flags:
-                for ant_ind in flag_antenna_inds:
-                    bl_inds_1 = np.where(caldata_obj.gains_exp_mat_1[:, ant_ind])[0]
-                    bl_inds_2 = np.where(caldata_obj.gains_exp_mat_2[:, ant_ind])[0]
-                    if caldata_obj.feed_polarization_array[pol_ind] == -5:
-                        if -5 in caldata_obj.vis_polarization_array:
-                            vis_pol_ind = np.where(
-                                caldata_obj.vis_polarization_array == -5
-                            )[0]
-                            caldata_obj.visibility_weights[
-                                :, bl_inds_1, :, vis_pol_ind
-                            ] = 0
-                            caldata_obj.visibility_weights[
-                                :, bl_inds_2, :, vis_pol_ind
-                            ] = 0
-                        if -7 in caldata_obj.vis_polarization_array:
-                            vis_pol_ind = np.where(
-                                caldata_obj.vis_polarization_array == -7
-                            )[0]
-                            caldata_obj.visibility_weights[
-                                :, bl_inds_1, :, vis_pol_ind
-                            ] = 0
-                        if -8 in caldata_obj.vis_polarization_array:
-                            vis_pol_ind = np.where(
-                                caldata_obj.vis_polarization_array == -8
-                            )[0]
-                            caldata_obj.visibility_weights[
-                                :, bl_inds_2, :, vis_pol_ind
-                            ] = 0
-                    elif caldata_obj.feed_polarization_array[pol_ind] == -6:
-                        if -6 in caldata_obj.vis_polarization_array:
-                            vis_pol_ind = np.where(
-                                caldata_obj.vis_polarization_array == -6
-                            )[0]
-                            caldata_obj.visibility_weights[
-                                :, bl_inds_1, :, vis_pol_ind
-                            ] = 0
-                            caldata_obj.visibility_weights[
-                                :, bl_inds_2, :, vis_pol_ind
-                            ] = 0
-                        if -7 in caldata_obj.vis_polarization_array:
-                            vis_pol_ind = np.where(
-                                caldata_obj.vis_polarization_array == -7
-                            )[0]
-                            caldata_obj.visibility_weights[
-                                :, bl_inds_2, :, vis_pol_ind
-                            ] = 0
-                        if -8 in caldata_obj.vis_polarization_array:
-                            vis_pol_ind = np.where(
-                                caldata_obj.vis_polarization_array == -8
-                            )[0]
-                            caldata_obj.visibility_weights[
-                                :, bl_inds_1, :, vis_pol_ind
-                            ] = 0
-
-    else:  # Flag everything
-        flag_antenna_list = []
-        for pol_ind in range(caldata_obj.N_feed_pols):
-            flag_antenna_list.append(caldata_obj.antenna_names)
-        if update_flags:
-            caldata_obj.visibility_weights[:, :, :, :] = 0
-
-    return flag_antenna_list
 
 
 def plot_per_ant_cost(per_ant_cost, antenna_names, plot_output_dir, plot_prefix=""):
