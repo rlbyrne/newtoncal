@@ -761,7 +761,7 @@ class CalData:
         """
 
         per_ant_cost = calibration_qa.calculate_per_antenna_cost(
-            self, parallel=parallel
+            self, parallel=parallel, max_processes=max_processes, pool=pool
         )
 
         where_finite = np.isfinite(per_ant_cost)

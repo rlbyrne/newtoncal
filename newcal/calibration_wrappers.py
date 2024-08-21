@@ -327,12 +327,11 @@ def calibrate_caldata_per_pol(
                 calibration_optimization.run_calibration_optimization_per_pol_single_freq,
                 args_list,
             )
-            pool.close()
+            pool.join()
             for freq_ind in range(caldata_obj.Nfreqs):
                 caldata_obj.gains[:, [freq_ind], :] = gains_fit[freq_ind][
                     :, np.newaxis, :
                 ]
-            pool.join()
         else:
             for freq_ind in range(caldata_obj.Nfreqs):
                 gains_fit = calibration_optimization.run_calibration_optimization_per_pol_single_freq(
@@ -483,6 +482,8 @@ def calibration_per_pol(
             pool = multiprocessing.Pool()
         else:
             pool = multiprocessing.Pool(processes=max_processes)
+    else:
+        pool = None
 
     if verbose:
         print("Reading data...")
@@ -540,8 +541,9 @@ def calibration_per_pol(
 
     if caldata_obj.Nfreqs < 2:
         parallel = False
-        pool.close()
         pool.join()
+        pool.close()
+        pool = None
 
     if verbose:
         print(
@@ -562,7 +564,7 @@ def calibration_per_pol(
         )
         caldata_obj.flag_antennas_from_per_ant_cost(
             flagging_threshold=antenna_flagging_threshold,
-            parallel=True,
+            parallel=parallel,
             pool=pool,
             verbose=verbose,
         )
@@ -577,6 +579,9 @@ def calibration_per_pol(
         verbose=verbose,
         pool=pool,
     )
+    if parallel:
+        pool.close()
+        pool.join()
 
     # Convert to UVCal object
     uvcal = caldata_obj.convert_to_uvcal()
