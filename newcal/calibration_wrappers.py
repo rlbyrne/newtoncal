@@ -327,7 +327,6 @@ def calibrate_caldata_per_pol(
                 calibration_optimization.run_calibration_optimization_per_pol_single_freq,
                 args_list,
             )
-            pool.join()
             for freq_ind in range(caldata_obj.Nfreqs):
                 caldata_obj.gains[:, [freq_ind], :] = gains_fit[freq_ind][
                     :, np.newaxis, :
@@ -541,8 +540,7 @@ def calibration_per_pol(
 
     if caldata_obj.Nfreqs < 2:
         parallel = False
-        pool.join()
-        pool.close()
+        pool.terminate()
         pool = None
 
     if verbose:
@@ -580,8 +578,7 @@ def calibration_per_pol(
         pool=pool,
     )
     if parallel:
-        pool.close()
-        pool.join()
+        pool.terminate()
 
     # Convert to UVCal object
     uvcal = caldata_obj.convert_to_uvcal()

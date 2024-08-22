@@ -117,7 +117,6 @@ def calculate_per_antenna_cost(
             calibration_optimization.run_calibration_optimization_per_pol_single_freq,
             args_list,
         )
-        pool.join()
         result = result.reshape(
             (caldata_obj.N_feed_pols, caldata_obj.Nants + 1, caldata_obj.Nfreqs)
         )
