@@ -1224,11 +1224,10 @@ class TestStringMethods(unittest.TestCase):
             parallel=False,
         )
 
-        flag_ant_list = calibration_qa.get_antenna_flags_from_per_ant_cost(
-            caldata_obj,
+        flag_ant_list = caldata_obj.flag_antennas_from_per_ant_cost(
             flagging_threshold=2.5,
-            update_flags=False,
             parallel=False,
+            return_antenna_flag_list=True,
         )
 
         np.testing.assert_equal(flag_ant_list[0][0], perturb_antenna_name)

@@ -736,6 +736,7 @@ class CalData:
         parallel=False,
         max_processes=40,
         pool=None,
+        return_antenna_flag_list=False,
         verbose=True,
     ):
         """
@@ -757,7 +758,14 @@ class CalData:
         pool : multiprocessing.pool.Pool or None
             Pool for multiprocessing. If None and parallel=True, a new pool will be
             created.
+        return_antenna_flag_list : bool
+            If True, returns list of flagged antennas.
         verbose : bool
+
+        Returns
+        -------
+        flag_antenna_list : list of str or None
+            If return_antenna_flag_list is True, returns a list of flagged antenna names.
         """
 
         per_ant_cost = calibration_qa.calculate_per_antenna_cost(
@@ -814,3 +822,6 @@ class CalData:
             print("Completed antenna flagging based on per-antenna cost function.")
             print(f"Flagged antennas: {flag_antenna_list}")
             sys.stdout.flush()
+
+        if return_antenna_flag_list:
+            return flag_antenna_list

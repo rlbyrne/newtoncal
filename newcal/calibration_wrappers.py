@@ -164,6 +164,7 @@ def absolute_calibration(
         Set to True to print optimization outputs. Default False.
     log_file_path : str or None
         Path to the log file. Default None.
+
     Returns
     -------
     abscal_params : array of float
@@ -464,6 +465,7 @@ def calibration_per_pol(
         Set to True to print optimization outputs. Default False.
     log_file_path : str or None
         Path to the log file. Default None.
+
     Returns
     -------
     uvcal : pyuvdata UVCal object
@@ -779,6 +781,7 @@ def dw_absolute_calibration(
         Set to True to print optimization outputs. Default False.
     log_file_path : str or None
         Path to the log file. Default None.
+
     Returns
     -------
     abscal_params : array of float
