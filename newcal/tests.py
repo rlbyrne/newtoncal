@@ -1232,6 +1232,45 @@ class TestStringMethods(unittest.TestCase):
 
         np.testing.assert_equal(flag_ant_list[0][0], perturb_antenna_name)
 
+    def test_per_ant_cost_calc(self):
+
+        model = pyuvdata.UVData()
+        model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
+        data = model.copy()
+        use_Nfreqs = 3
+
+        # Create more frequencies
+        data_copy = data.copy()
+        model_copy = model.copy()
+        for ind in range(1, use_Nfreqs):
+            data_copy.freq_array += 1e6 * ind
+            model_copy.freq_array += 1e6 * ind
+            data.fast_concat(data_copy, "freq", inplace=True)
+            model.fast_concat(model_copy, "freq", inplace=True)
+
+        caldata_obj = caldata.CalData()
+        caldata_obj.load_data(data, model, gain_init_stddev=0.1, lambda_val=100.0)
+
+        # Unflag all
+        caldata_obj.visibility_weights = np.ones(
+            (
+                caldata_obj.Ntimes,
+                caldata_obj.Nbls,
+                caldata_obj.Nfreqs,
+                4,
+            ),
+            dtype=float,
+        )
+
+        per_ant_cost = calibration_qa.calculate_per_antenna_cost(
+            caldata_obj, parallel=False
+        )
+        per_ant_cost_parallelized = calibration_qa.calculate_per_antenna_cost(
+            caldata_obj, parallel=True, max_processes=10
+        )
+
+        np.testing.assert_allclose(per_ant_cost, per_ant_cost_parallelized, atol=1e-8)
+
     def test_crosspol_phase(self):
 
         model = pyuvdata.UVData()
@@ -1556,7 +1595,7 @@ class TestStringMethods(unittest.TestCase):
         data_copy = data.copy()
         model_copy = model.copy()
         for ind in range(1, use_Nfreqs):
-            data_copy.freq_array += 1e6
+            data_copy.freq_array += 1e6 * ind
             model_copy.freq_array += 1e6 * ind
             data.fast_concat(data_copy, "freq", inplace=True)
             model.fast_concat(model_copy, "freq", inplace=True)
@@ -1646,7 +1685,7 @@ class TestStringMethods(unittest.TestCase):
         data_copy = data.copy()
         model_copy = model.copy()
         for ind in range(1, use_Nfreqs):
-            data_copy.freq_array += 1e6
+            data_copy.freq_array += 1e6 * ind
             model_copy.freq_array += 1e6 * ind
             data.fast_concat(data_copy, "freq", inplace=True)
             model.fast_concat(model_copy, "freq", inplace=True)
@@ -1734,7 +1773,7 @@ class TestStringMethods(unittest.TestCase):
         data_copy = data.copy()
         model_copy = model.copy()
         for ind in range(1, use_Nfreqs):
-            data_copy.freq_array += 1e6
+            data_copy.freq_array += 1e6 * ind
             model_copy.freq_array += 1e6 * ind
             data.fast_concat(data_copy, "freq", inplace=True)
             model.fast_concat(model_copy, "freq", inplace=True)
@@ -1837,7 +1876,7 @@ class TestStringMethods(unittest.TestCase):
         data_copy = data.copy()
         model_copy = model.copy()
         for ind in range(1, use_Nfreqs):
-            data_copy.freq_array += 1e6
+            data_copy.freq_array += 1e6 * ind
             model_copy.freq_array += 1e6 * ind
             data.fast_concat(data_copy, "freq", inplace=True)
             model.fast_concat(model_copy, "freq", inplace=True)
@@ -1958,7 +1997,7 @@ class TestStringMethods(unittest.TestCase):
         data_copy = data.copy()
         model_copy = model.copy()
         for ind in range(1, use_Nfreqs):
-            data_copy.freq_array += 1e6
+            data_copy.freq_array += 1e6 * ind
             model_copy.freq_array += 1e6 * ind
             data.fast_concat(data_copy, "freq", inplace=True)
             model.fast_concat(model_copy, "freq", inplace=True)
@@ -2126,7 +2165,7 @@ class TestStringMethods(unittest.TestCase):
         data_copy = data.copy()
         model_copy = model.copy()
         for ind in range(1, use_Nfreqs):
-            data_copy.freq_array += 1e6
+            data_copy.freq_array += 1e6 * ind
             model_copy.freq_array += 1e6 * ind
             data.fast_concat(data_copy, "freq", inplace=True)
             model.fast_concat(model_copy, "freq", inplace=True)
@@ -2208,7 +2247,7 @@ class TestStringMethods(unittest.TestCase):
         data_copy = data.copy()
         model_copy = model.copy()
         for ind in range(1, use_Nfreqs):
-            data_copy.freq_array += 1e6
+            data_copy.freq_array += 1e6 * ind
             model_copy.freq_array += 1e6 * ind
             data.fast_concat(data_copy, "freq", inplace=True)
             model.fast_concat(model_copy, "freq", inplace=True)
