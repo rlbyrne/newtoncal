@@ -468,9 +468,8 @@ def run_calibration_optimization_per_pol_single_freq(
 
     Returns
     -------
-    gains : array of complex
-        Fit gain values. Shape (Nants, 1, N_feed_pols,). Returned only if
-        return_gains is True.
+    gains_fit : array of complex
+        Fit gain values. Shape (Nants, 1, N_feed_pols,).
     """
 
     gains_fit = np.ones((caldata_obj.Nants, caldata_obj.N_feed_pols), dtype=complex)
