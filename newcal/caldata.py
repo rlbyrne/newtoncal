@@ -869,7 +869,7 @@ class CalData:
             self,
             xtol,
             maxiter,
-            verbose=True,
+            verbose=verbose,
         )
 
     def flag_antennas_from_per_ant_cost(
