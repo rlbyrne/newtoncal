@@ -14,7 +14,9 @@ def calculate_per_antenna_cost(
     pool=None,
 ):
     """
-    Calculate the contribution of each antenna to the cost function.
+    Calculate the contribution of each antenna to the cost function. The cost
+    function used is the standard "sky-based" per frequency, per polarization
+    cost function evaluated in cost_function_calculations.cost_function_single_pol.
 
     Parameters
     ----------
@@ -27,7 +29,7 @@ def calculate_per_antenna_cost(
         default. Default 40.
     pool : multiprocessing.pool.Pool or None
         Pool for multiprocessing. If None and parallel=True, a new pool will be
-        created.
+        created for this process and then terminated.
 
     Returns
     -------
@@ -35,6 +37,9 @@ def calculate_per_antenna_cost(
         Shape (Nants, N_feed_pols). Encodes the contribution to the cost from
         each antenna and feed, normalized by the number of unflagged baselines.
     """
+
+    if pool is not None:
+        parallel = True
 
     per_ant_cost = np.zeros((caldata_obj.Nants, caldata_obj.N_feed_pols), dtype=float)
     per_ant_baselines = np.zeros(
@@ -123,10 +128,12 @@ def calculate_per_antenna_cost(
     if parallel:
         if pool is None:
             if max_processes is None:
-                pool = multiprocessing.Pool()
+                use_pool = multiprocessing.Pool()
             else:
-                pool = multiprocessing.Pool(processes=max_processes)
-        result = pool.starmap(
+                use_pool = multiprocessing.Pool(processes=max_processes)
+        else:
+            use_pool = pool
+        result = use_pool.starmap(
             cost_function_calculations.cost_function_single_pol,
             args_list,
         )
@@ -134,6 +141,8 @@ def calculate_per_antenna_cost(
             (caldata_obj.N_feed_pols, caldata_obj.Nants + 1, caldata_obj.Nfreqs),
             dtype=float,
         )
+        if pool is None:
+            use_pool.terminate()
 
         list_ind = 0
         for pol_ind in range(caldata_obj.N_feed_pols):

@@ -583,7 +583,6 @@ def run_abscal_optimization_single_freq(
     xtol,
     maxiter,
     verbose=True,
-    return_abscal_params=False,
 ):
     """
     Run absolute calibration ("abscal").
@@ -597,16 +596,14 @@ def run_abscal_optimization_single_freq(
         Maximum number of iterations for the optimizer.
     verbose : bool
         Set to True to print optimization outputs. Default True.
-    return_abscal_params : bool
-        Set to True to return abscal parameter values as an array. Default False.
 
     Returns
     -------
     abscal_params : array of complex
-        Fit abscal parameter values. Shape (3, 1, N_feed_pols,). Returned only if
-        return_abscal_params is True.
+        Fit abscal parameter values. Shape (3, 1, N_feed_pols,).
     """
 
+    abscal_params = np.zeros((3, 1, caldata_obj.N_feed_pols), dtype=float)
     caldata_list = caldata_obj.expand_in_polarization()
     for feed_pol_ind, caldata_per_pol in enumerate(caldata_list):
         # Minimize the cost function
@@ -620,15 +617,14 @@ def run_abscal_optimization_single_freq(
             hess=hessian_abscal_wrapper,
             options={"disp": verbose, "xtol": xtol, "maxiter": maxiter},
         )
-        caldata_obj.abscal_params[:, 0, feed_pol_ind] = result.x
+        abscal_params[:, 0, feed_pol_ind] = result.x
         end_optimize = time.time()
         if verbose:
             print(result.message)
             print(f"Optimization time: {(end_optimize - start_optimize)/60.} minutes")
         sys.stdout.flush()
 
-    if return_abscal_params:
-        return caldata_obj.abscal_params
+    return abscal_params
 
 
 def run_dw_abscal_optimization(
@@ -636,7 +632,6 @@ def run_dw_abscal_optimization(
     xtol,
     maxiter,
     verbose=True,
-    return_abscal_params=False,
 ):
     """
     Run absolute calibration with delay weighting.
@@ -650,16 +645,14 @@ def run_dw_abscal_optimization(
         Maximum number of iterations for the optimizer.
     verbose : bool
         Set to True to print optimization outputs. Default True.
-    return_abscal_params : bool
-        Set to True to return abscal parameter values as an array. Default False.
 
     Returns
     -------
     abscal_params : array of complex
-        Fit abscal parameter values. Shape (3, Nfreqs, N_feed_pols,). Returned only if
-        return_abscal_params is True.
+        Fit abscal parameter values. Shape (3, Nfreqs, N_feed_pols,).
     """
 
+    abscal_params = np.zeros_like(caldata_obj.abscal_params)
     caldata_list = caldata_obj.expand_in_polarization()
     for feed_pol_ind, caldata_per_pol in enumerate(caldata_list):
         unflagged_freq_inds = np.where(
@@ -683,16 +676,12 @@ def run_dw_abscal_optimization(
             hess=hessian_dw_abscal_wrapper,
             options={"disp": verbose, "xtol": xtol, "maxiter": maxiter},
         )
-        caldata_obj.abscal_params[:, unflagged_freq_inds, feed_pol_ind] = np.reshape(
+        abscal_params[:, unflagged_freq_inds, feed_pol_ind] = np.reshape(
             result.x, (3, len(unflagged_freq_inds))
-        )
-        fully_flagged_freq_inds = np.array(
-            [ind for ind in range(caldata_obj.Nfreqs) if ind not in unflagged_freq_inds]
         )
         if verbose:
             print(result.message)
             print(f"Optimization time: {(time.time() - start_optimize)/60.} minutes")
         sys.stdout.flush()
 
-    if return_abscal_params:
-        return caldata_obj.abscal_params
+    return abscal_params

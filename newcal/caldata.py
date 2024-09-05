@@ -2,7 +2,8 @@ import numpy as np
 import sys
 import pyuvdata
 from astropy.units import Quantity
-from newcal import calibration_qa
+from newcal import calibration_qa, calibration_optimization
+import multiprocessing
 
 
 class CalData:
@@ -730,6 +731,147 @@ class CalData:
 
         return uvcal
 
+    def calibration_per_pol(
+        self,
+        xtol=1e-5,
+        maxiter=200,
+        get_crosspol_phase=True,
+        crosspol_phase_strategy="crosspol model",
+        parallel=False,
+        max_processes=40,
+        pool=None,
+        verbose=False,
+    ):
+        """
+        Run calibration per polarization. Updates the gains attribute with calibrated values.
+        Here the XX and YY visibilities are calibrated individually and the cross-polarization
+        phase is applied from the XY and YX visibilities after the fact. Option to parallelize
+        calibration across frequency.
+
+        Parameters
+        ----------
+        xtol : float
+            Accuracy tolerance for optimizer. Default 1e-5.
+        maxiter : int
+            Maximum number of iterations for the optimizer. Default 200.
+        get_crosspol_phase : bool
+            If True, crosspol phase is calculated. Default True.
+        crosspol_phase_strategy : str
+            Options are "crosspol model" or "pseudo Stokes V". Used only if
+            get_crosspol_phase is True. If "crosspol model", contrains the crosspol
+            phase using the crosspol model visibilities. If "pseudo Stokes V", constrains
+            crosspol phase by minimizing pseudo Stokes V. Default "crosspol model".
+        parallel : bool
+            Set to True to parallelize across frequency with multiprocessing.
+            Default False if pool is None.
+        max_processes : int
+            Maximum number of multithreaded processes to use. Applicable only if
+            parallel is True and pool is None. If None, uses the multiprocessing
+            default. Default 40.
+        pool : multiprocessing.pool.Pool or None
+            Pool for multiprocessing. If None and parallel is True, a new pool will be
+            created. Default None.
+        verbose : bool
+            Set to True to print optimization outputs. Default False.
+        """
+
+        if np.max(self.visibility_weights) == 0.0:
+            print("ERROR: All data flagged.")
+            sys.stdout.flush()
+            self.gains[:, :, :] = np.nan + 1j * np.nan
+        else:
+            if pool is not None:
+                parallel = True
+                use_pool = pool
+            if parallel:
+                caldata_list = self.expand_in_frequency()
+                args_list = []
+                for freq_ind in range(self.Nfreqs):
+                    args = (
+                        caldata_list[freq_ind],
+                        xtol,
+                        maxiter,
+                        0,
+                        verbose,
+                        get_crosspol_phase,
+                    )
+                    args_list.append(args)
+                if pool is None:
+                    if max_processes is None:
+                        use_pool = multiprocessing.Pool()
+                    else:
+                        use_pool = multiprocessing.Pool(processes=max_processes)
+                gains_fit = use_pool.starmap(
+                    calibration_optimization.run_calibration_optimization_per_pol_single_freq,
+                    args_list,
+                )
+                for freq_ind in range(self.Nfreqs):
+                    self.gains[:, [freq_ind], :] = gains_fit[freq_ind][:, np.newaxis, :]
+                if pool is None:  # Leave things how we found them
+                    use_pool.terminate()
+            else:
+                for freq_ind in range(self.Nfreqs):
+                    gains_fit = calibration_optimization.run_calibration_optimization_per_pol_single_freq(
+                        self,
+                        xtol,
+                        maxiter,
+                        freq_ind=freq_ind,
+                        verbose=verbose,
+                        get_crosspol_phase=get_crosspol_phase,
+                        crosspol_phase_strategy=crosspol_phase_strategy,
+                    )
+                    self.gains[:, [freq_ind], :] = gains_fit[:, np.newaxis, :]
+
+    def abscal(self, xtol=1e-5, maxiter=200, verbose=False):
+        """
+        Run absolute calibration ("abscal"). Updates the abscal_params attribute with calibrated values.
+
+        Parameters
+        ----------
+        xtol : float
+            Accuracy tolerance for optimizer. Default 1e-5.
+        maxiter : int
+            Maximum number of iterations for the optimizer. Default 200.
+        verbose : bool
+            Set to True to print optimization outputs. Default False.
+        """
+
+        # Expand CalData object into per-frequency objects
+        caldata_list = self.expand_in_frequency()
+
+        for freq_ind in range(self.Nfreqs):
+            abscal_params = (
+                calibration_optimization.run_abscal_optimization_single_freq(
+                    caldata_list[freq_ind],
+                    xtol,
+                    maxiter,
+                    verbose=verbose,
+                )
+            )
+            self.abscal_params[:, [freq_ind], :] = abscal_params[:, [0], :]
+
+    def dw_abscal(self, xtol=1e-5, maxiter=200, verbose=False):
+        """
+        Run absolute calibration ("abscal") with delay weighting. Updates the
+        abscal_params attribute with calibrated values.
+
+        Parameters
+        ----------
+        xtol : float
+            Accuracy tolerance for optimizer. Default 1e-5.
+        maxiter : int
+            Maximum number of iterations for the optimizer. Default 200.
+        verbose : bool
+            Set to True to print optimization outputs. Default False.
+        """
+
+        self.abscal_params = calibration_optimization.run_dw_abscal_optimization(
+            self,
+            xtol,
+            maxiter,
+            verbose=True,
+        )
+
     def flag_antennas_from_per_ant_cost(
         self,
         flagging_threshold=2.5,
@@ -741,23 +883,26 @@ class CalData:
     ):
         """
         Flags antennas based on the per-antenna cost function. Updates
-        visibility_weights according to the flags.
+        visibility_weights according to the flags. The cost function used is the
+        standard "sky-based" per frequency, per polarization cost function evaluated
+        in cost_function_calculations.cost_function_single_pol.
 
         Parameters
         ----------
-        caldata_obj : CalData
+        self : CalData
         flagging_threshold : float
             Flagging threshold. Per antenna cost values equal to flagging_threshold
             times the mean value will be flagged. Default 2.5.
         parallel : bool
             Set to True to parallelize cost evaluation with multiprocessing. Default
-            False.
+            False if pool is None.
         max_processes : int
             Maximum number of multithreaded processes to use. Applicable only if
-            parallel is True. If None, uses the multiprocessing default. Default 40.
+            parallel is True and pool is None. If None, uses the multiprocessing
+            default. Default 40.
         pool : multiprocessing.pool.Pool or None
-            Pool for multiprocessing. If None and parallel=True, a new pool will be
-            created.
+            Pool for multiprocessing. If None and parallel is True, a new pool will be
+            created for this process and terminated.
         return_antenna_flag_list : bool
             If True, returns list of flagged antennas.
         verbose : bool
