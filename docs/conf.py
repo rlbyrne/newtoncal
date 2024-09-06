@@ -21,7 +21,9 @@ sys.path.insert(0, os.path.abspath("."))
 sys.path.insert(0, os.path.abspath("../"))
 sys.path.insert(0, os.path.abspath("../newcal/"))
 
-extensions = ["sphinx.ext.autoapi"]
+extensions = ["autoapi.extension"]
+
+autoapi_dirs = [os.path.abspath("../newcal/")]
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
