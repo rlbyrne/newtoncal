@@ -206,7 +206,32 @@ class CalData:
         data.select(ant_str="cross")
         model.select(ant_str="cross")
 
-        # Add check to make sure data and model frequencies and times align
+        # Ensure polarizations match
+        if model.Npols > data.Npols:
+            model.select(polarizations=data.polarization_array)
+
+        # Ensure times match
+        time_match_tol = 1e-5
+        if (
+            np.max(
+                np.abs(
+                    np.sort(list(set(data.time_array)))
+                    - np.sort(list(set(model.time_array)))
+                )
+            )
+            > time_match_tol
+        ):
+            print("ERROR: Data and model times do not match. Exiting.")
+            sys.exit(1)
+
+        # Ensure frequencies match
+        freq_match_tol = 1e-5
+        if (
+            np.max(np.abs(np.sort(data.freq_array) - np.sort(model.freq_array)))
+            > freq_match_tol
+        ):
+            print("ERROR: Data and model frequencies do not match. Exiting.")
+            sys.exit(1)
 
         # Downselect baselines
         if (
@@ -250,6 +275,32 @@ class CalData:
                 & (model_baseline_lengths_m <= max_cal_baseline_m)
             )
             model.select(blt_inds=model_use_baselines)
+
+        # Ensure baselines match
+        data.conjugate_bls()
+        data.reorder_blts()
+        model.conjugate_bls()
+        model.reorder_blts()
+        if data.Nblts != model.Nblts:
+            select_baselines = True
+        elif (np.max(np.abs(data.ant_1_array - model.ant_1_array)) > 0) or (
+            np.max(np.abs(data.ant_2_array - model.ant_2_array)) > 0
+        ):
+            select_baselines = True
+        else:
+            select_baselines = False
+        if select_baselines:
+            data_baselines = list(set(zip(data.ant_1_array, data.ant_2_array)))
+            model_baselines = list(set(zip(model.ant_1_array, model.ant_2_array)))
+            use_baselines = [
+                baseline for baseline in data_baselines if baseline in model_baselines
+            ]
+            if len(use_baselines) < data.Nbls:
+                print(
+                    f"WARNING: Model does not contain all baselines. Downselecting from {data.Nbls} to {len(use_baselines)}."
+                )
+            data.select(bls=use_baselines)
+            model.select(bls=use_baselines)
 
         self.Nants = data.Nants_data
         self.Nbls = data.Nbls
