@@ -344,13 +344,12 @@ def abscal_wrapper(
 
     start_time = time.time()
 
-    if verbose:
-        print("Reading data...")
-        sys.stdout.flush()
-        data_read_start_time = time.time()
-
+    data_read_start_time = time.time()
     print_data_read_time = False
     if isinstance(data, str):  # Read data
+        if verbose:
+            print("Reading data...")
+            sys.stdout.flush()
         print_data_read_time = True
         data_file_path = np.copy(data)
         data = pyuvdata.UVData()
@@ -359,6 +358,9 @@ def abscal_wrapper(
         else:
             data.read(data_file_path)
     if isinstance(model, str):  # Read model
+        if verbose:
+            print("Reading model...")
+            sys.stdout.flush()
         print_data_read_time = True
         model_file_path = np.copy(model)
         model = pyuvdata.UVData()

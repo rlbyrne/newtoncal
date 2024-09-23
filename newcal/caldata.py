@@ -332,13 +332,25 @@ class CalData:
         )
         for time_ind, time_val in enumerate(np.unique(data.time_array)):
             data_copy = data.select(times=time_val, inplace=False)
-            model_copy = model.select(times=time_val, inplace=False)
+            model_times = list(set(model.time_array))
+            model_copy = model.select(
+                times=model_times[
+                    np.where(
+                        np.abs(model_times - time_val)
+                        == np.min(np.abs(model_times - time_val))
+                    )[0][
+                        0
+                    ]  # Account for times that are close but not exactly equal
+                ],
+                inplace=False,
+            )
             data_copy.reorder_blts()
             model_copy.reorder_blts()
             data_copy.reorder_pols(order="AIPS")
             model_copy.reorder_pols(order="AIPS")
             data_copy.reorder_freqs(channel_order="freq")
             model_copy.reorder_freqs(channel_order="freq")
+
             if time_ind == 0:
                 metadata_reference = data_copy.copy(metadata_only=True)
             self.model_visibilities[time_ind, :, :, :] = np.reshape(
