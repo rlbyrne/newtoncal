@@ -1033,3 +1033,118 @@ class CalData:
 
         if return_antenna_flag_list:
             return flag_antenna_list
+
+    def get_dwcal_weights_from_delay_spectra(
+        self,
+        delay_spectrum_variance,
+        bl_length_bin_edges,
+        delay_axis,
+        oversample_factor=128,
+    ):
+        """
+        This function calculates the matrix that captures delay weighting (or frequency
+        covariance). The input is an array of expected variances as a function of baseline
+        length and delay.
+
+        Parameters
+        ----------
+        delay_spectrum_variance : array of float
+            Array containing the expected variance as a function of baseline length and delay.
+            Shape (Nbins, Ndelays,).
+        bl_length_bin_edges : array of float
+            Defines the baseline length axis of delay_spectrum_variance. Values correspond to
+            limits of each baseline length bin. Shape (Nbins+1,).
+        delay_axis : array of float
+            Defines the delay axis of delay_spectrum_variance. Shape (Ndelays,).
+        oversample_factor : int
+            Factor by which to oversample the delay axis. Setting > 1 reduces Fourier aliasing
+            effects. Default 128.
+        """
+
+        bl_lengths = np.sqrt(np.sum(self.uv_array**2.0, axis=1))
+        delay_array_use = np.fft.fftfreq(
+            self.Nfreqs * int(oversample_factor), d=self.channel_width
+        )
+        dwcal_variance_use = np.zeros(
+            (
+                self.Nbls,
+                self.Nfreqs * int(oversample_factor),
+            ),
+            dtype=float,
+        )
+        for bl_ind, bl_length in enumerate(bl_lengths):
+            bin_ind = np.max(np.where(bl_length_bin_edges <= bl_length)[0])
+            if (bin_ind == len(bl_length_bin_edges) - 1) or (
+                not bl_length_bin_edges[bin_ind + 1] > bl_length
+            ):
+                print(
+                    f"WARNING: Baseline length range does not cover baseline of length {bl_length} m. Skipping."
+                )
+                continue
+            dwcal_variance_use[bl_ind, :] = np.interp(
+                delay_array_use, delay_axis, delay_spectrum_variance[bin_ind, :]
+            )
+
+        freq_weighting = np.fft.ifft(1.0 / dwcal_variance_use, axis=1)
+        freq_weighting = freq_weighting[
+            :, : self.Nfreqs
+        ]  # Truncate frequency axis to remove oversampling
+        weight_mat = np.zeros((self.Nbls, self.Nfreqs, self.Nfreqs), dtype=complex)
+        for freq_ind1 in range(self.Nfreqs):
+            for freq_ind2 in range(self.Nfreqs):
+                if freq_ind1 < freq_ind2:
+                    weight_mat[:, freq_ind1, freq_ind2] = np.conj(
+                        freq_weighting[:, np.abs(freq_ind1 - freq_ind2)]
+                    )
+                else:
+                    weight_mat[:, freq_ind1, freq_ind2] = freq_weighting[
+                        :, np.abs(freq_ind1 - freq_ind2)
+                    ]
+
+        weight_mat = np.repeat(
+            np.repeat(weight_mat[np.newaxis, :, :, :, np.newaxis], self.Ntimes, axis=0),
+            self.N_vis_pols,
+            axis=4,
+        )  # Use the same matrix for all times and polarizations
+
+        # Deal with nan-ed values
+        nan_weight_indices = np.where(~np.isfinite(np.sum(weight_mat, axis=(2, 3))))
+        if len(nan_weight_indices[0]) > 0:
+            print(
+                "WARNING: nan values encountered in DWCal inverse convariance matrix. Updating weights."
+            )
+            print(np.sum(self.visibility_weights))
+            for freq_ind in range(self.Nfreqs):
+                self.visibility_weights[:, :, freq_ind, :][nan_weight_indices] = 0
+            print(np.sum(self.visibility_weights))
+            weight_mat[np.where(~np.isfinite(weight_mat))] = (
+                0.0 + 1j * 0.0
+            )  # Remove nan values to prevent issues later on
+
+        # Fix normalization
+        for time_ind in range(self.Ntimes):
+            for vis_pol_ind in range(self.N_vis_pols):
+                normalization_factor = np.sum(
+                    self.visibility_weights[time_ind, :, :, vis_pol_ind]
+                ) / np.real(
+                    np.sum(
+                        np.trace(
+                            np.sqrt(
+                                self.visibility_weights[
+                                    time_ind, :, :, np.newaxis, vis_pol_ind
+                                ]
+                            )
+                            * np.sqrt(
+                                self.visibility_weights[
+                                    time_ind, :, np.newaxis, :, vis_pol_ind
+                                ]
+                            )
+                            * weight_mat[time_ind, :, :, :, vis_pol_ind],
+                            axis1=1,
+                            axis2=2,
+                        )
+                    )
+                )
+                weight_mat[time_ind, :, :, :, vis_pol_ind] *= normalization_factor
+
+        self.dwcal_inv_covariance = weight_mat

@@ -569,16 +569,18 @@ def dw_absolute_calibration(
         print("Calculating delay weighting matrix...")
         sys.stdout.flush()
 
-    get_dwcal_weights_from_delay_spectra(
-        caldata_obj,
+    caldata_obj.get_dwcal_weights_from_delay_spectra(
         delay_spectrum_variance,
         bl_length_bin_edges,
         delay_axis,
     )
 
     # Added for debugging
-    with open(f"/safepool/rbyrne/hera_abscal_Jun2024/dwcal_cov_matrix.npy", "wb") as f:
-        np.save(f, caldata_obj.dwcal_inv_covariance)
+    initial_cost = calibration_optimization.cost_dw_abscal_wrapper(
+        caldata_obj.abscal_params.flatten(), range(caldata_obj.Nfreqs), caldata_obj
+    )
+    print(f"Initial cost: {initial_cost}")
+    sys.stdout.flush()
 
     if verbose:
         print(
@@ -588,25 +590,12 @@ def dw_absolute_calibration(
         sys.stdout.flush()
         optimization_start_time = time.time()
 
-    # Added for debugging
-    initial_cost = calibration_optimization.cost_dw_abscal_wrapper(
-        caldata_obj.abscal_params.flatten(), range(caldata_obj.Nfreqs), caldata_obj
-    )
-    print(f"Initial cost: {initial_cost}")
-    sys.stdout.flush()
-
     calibration_optimization.run_dw_abscal_optimization(
         caldata_obj,
         xtol,
         maxiter,
         verbose=verbose,
     )
-
-    final_cost = calibration_optimization.cost_dw_abscal_wrapper(
-        caldata_obj.abscal_params.flatten(), range(caldata_obj.Nfreqs), caldata_obj
-    )
-    print(f"Final cost: {final_cost}")
-    sys.stdout.flush()
 
     if verbose:
         print(
@@ -715,106 +704,3 @@ def apply_abscal(uvdata, abscal_params, feed_polarization_array, inplace=False):
 
     if not inplace:
         return uvdata_new
-
-
-def get_dwcal_weights_from_delay_spectra(
-    caldata,
-    delay_spectrum_variance,
-    bl_length_bin_edges,
-    delay_axis,
-    oversample_factor=128,
-):
-    """
-    This function calculates the matrix that captures delay weighting (or frequency
-    covariance). The input is an array of expected variances as a function of baseline
-    length and delay.
-
-    Parameters
-    ----------
-    caldata : CalData object
-    delay_spectrum_variance : array of float
-        Array containing the expected variance as a function of baseline length and delay.
-        Shape (Nbins, Ndelays,).
-    bl_length_bin_edges : array of float
-        Defines the baseline length axis of delay_spectrum_variance. Values correspond to
-        limits of each baseline length bin. Shape (Nbins+1,).
-    delay_axis : array of float
-        Defines the delay axis of delay_spectrum_variance. Shape (Ndelays,).
-    oversample_factor : int
-        Factor by which to oversample the delay axis. Setting > 1 reduces Fourier aliasing
-        effects. Default 128.
-    """
-
-    bl_lengths = np.sqrt(np.sum(caldata.uv_array**2.0, axis=1))
-    delay_array_use = np.fft.fftfreq(
-        caldata.Nfreqs * int(oversample_factor), d=caldata.channel_width
-    )
-    dwcal_variance_use = np.zeros(
-        (
-            caldata.Nbls,
-            caldata.Nfreqs * int(oversample_factor),
-        ),
-        dtype=float,
-    )
-    for bl_ind, bl_length in enumerate(bl_lengths):
-        bin_ind = np.max(np.where(bl_length_bin_edges <= bl_length)[0])
-        if (bin_ind == len(bl_length_bin_edges) - 1) or (
-            not bl_length_bin_edges[bin_ind + 1] > bl_length
-        ):
-            print(
-                f"WARNING: Baseline length range does not cover baseline of length {bl_length} m. Skipping."
-            )
-            continue
-        dwcal_variance_use[bl_ind, :] = np.interp(
-            delay_array_use, delay_axis, delay_spectrum_variance[bin_ind, :]
-        )
-
-    freq_weighting = np.fft.ifft(1.0 / dwcal_variance_use, axis=1)
-    freq_weighting = freq_weighting[
-        :, : caldata.Nfreqs
-    ]  # Truncate frequency axis to remove oversampling
-    weight_mat = np.zeros((caldata.Nbls, caldata.Nfreqs, caldata.Nfreqs), dtype=complex)
-    for freq_ind1 in range(caldata.Nfreqs):
-        for freq_ind2 in range(caldata.Nfreqs):
-            if freq_ind1 < freq_ind2:
-                weight_mat[:, freq_ind1, freq_ind2] = np.conj(
-                    freq_weighting[:, np.abs(freq_ind1 - freq_ind2)]
-                )
-            else:
-                weight_mat[:, freq_ind1, freq_ind2] = freq_weighting[
-                    :, np.abs(freq_ind1 - freq_ind2)
-                ]
-
-    weight_mat = np.repeat(
-        np.repeat(weight_mat[np.newaxis, :, :, :, np.newaxis], caldata.Ntimes, axis=0),
-        caldata.N_vis_pols,
-        axis=4,
-    )  # Use the same matrix for all times and polarizations
-
-    # Fix normalization
-    for time_ind in range(caldata.Ntimes):
-        for vis_pol_ind in range(caldata.N_vis_pols):
-            normalization_factor = np.sum(
-                caldata.visibility_weights[time_ind, :, :, vis_pol_ind]
-            ) / np.real(
-                np.sum(
-                    np.trace(
-                        np.sqrt(
-                            caldata.visibility_weights[
-                                time_ind, :, :, np.newaxis, vis_pol_ind
-                            ]
-                        )
-                        * np.sqrt(
-                            caldata.visibility_weights[
-                                time_ind, :, np.newaxis, :, vis_pol_ind
-                            ]
-                        )
-                        * weight_mat[time_ind, :, :, :, vis_pol_ind],
-                        axis1=1,
-                        axis2=2,
-                    )
-                )
-            )
-            weight_mat[time_ind, :, :, :, vis_pol_ind] *= normalization_factor
-
-    caldata.dwcal_inv_covariance = weight_mat
