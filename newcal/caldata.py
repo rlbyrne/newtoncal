@@ -47,7 +47,14 @@ class CalData:
     dwcal_inv_covariance : array of complex
         Matrix defining frequency-frequency covariances used in delay-weighted
         calibration. Needed only if delay weighting is used in calibration.
-        Shape (Ntimes, Nbls, Nfreqs, Nfreqs, N_vis_pols,).
+        If dwcal_memory_save_mode is False, dwcal_inv_covariance has shape
+        (Ntimes, Nbls, Nfreqs, Nfreqs, N_vis_pols,). If dwcal_memory_save_mode
+        is True, dwcal_inv_covariance has shape (Ntimes, Nbls, Nfreqs, N_vis_pols,).
+        Alternatively, if the time or polarization axes have length 1,
+        dw_inv_covariance is assumed to be identical across time steps or polarization.
+    dwcal_memory_save_mode : bool
+        Defines the format of dwcal_inv_covariance. If True, dwcal_inv_covariance
+        is assumed to be Toeplitz and is stored in a more compact form.
     gains_exp_mat_1 : array of int
         Shape (Nbls, Nants,).
     gains_exp_mat_2 : array of int
@@ -91,6 +98,7 @@ class CalData:
         self.data_visibilities = None
         self.visibility_weights = None
         self.dwcal_inv_covariance = None
+        self.dwcal_memory_save_mode = None
         self.gains_exp_mat_1 = None
         self.gains_exp_mat_2 = None
         self.antenna_names = None
@@ -634,6 +642,12 @@ class CalData:
             caldata_per_freq.lst = self.lst
             caldata_per_freq.telescope_location = self.telescope_location
             caldata_per_freq.lambda_val = self.lambda_val
+            if self.dwcal_inv_covariance is not None:
+                print(
+                    "WARNING: Discarding dwcal_inv_covariance in frequency expansion."
+                )
+            caldata_per_freq.dwcal_inv_covariance = None
+            caldata_per_freq.dwcal_memory_save_mode = None
             caldata_list.append(caldata_per_freq)
 
         return caldata_list
@@ -691,39 +705,18 @@ class CalData:
             caldata_per_pol.telescope_location = self.telescope_location
             caldata_per_pol.lambda_val = self.lambda_val
             if self.dwcal_inv_covariance is not None:
-                caldata_per_pol.dwcal_inv_covariance = self.dwcal_inv_covariance[
-                    :, :, :, :, [sky_pol_ind]
-                ]
-
-            """
-            if np.max(caldata_per_pol.visibility_weights) > 0.0:
-                # Check if some antennas are fully flagged
-                antenna_weights = np.sum(
-                    np.matmul(
-                        caldata_per_pol.gains_exp_mat_1.T,
-                        caldata_per_pol.visibility_weights[:, :, 0, 0].T,
-                    )
-                    + np.matmul(
-                        caldata_per_pol.gains_exp_mat_2.T,
-                        caldata_per_pol.visibility_weights[:, :, 0, 0].T,
-                    ),
-                    axis=1,
-                )
-                use_ants = np.where(antenna_weights > 0)[0]
-                if len(use_ants) != caldata_per_pol.Nants:
-                    caldata_per_pol.gains = caldata_per_pol.gains[use_ants, :, :]
-                    caldata_per_pol.Nants = len(use_ants)
-                    caldata_per_pol.gains_exp_mat_1 = caldata_per_pol.gains_exp_mat_1[
-                        :, use_ants
-                    ]
-                    caldata_per_pol.gains_exp_mat_2 = caldata_per_pol.gains_exp_mat_2[
-                        :, use_ants
-                    ]
-                    caldata_per_pol.antenna_names = caldata_per_pol.antenna_names[
-                        use_ants
-                    ]
-            """
-
+                if np.shape(self.dwcal_inv_covariance)[-1] == 1:
+                    caldata_per_pol.dwcal_inv_covariance = self.dwcal_inv_covariance
+                else:
+                    if self.dwcal_memory_save_mode:
+                        caldata_per_pol.dwcal_inv_covariance = (
+                            self.dwcal_inv_covariance[:, :, :, [sky_pol_ind]]
+                        )
+                    else:
+                        caldata_per_pol.dwcal_inv_covariance = (
+                            self.dwcal_inv_covariance[:, :, :, :, [sky_pol_ind]]
+                        )
+            caldata_per_pol.dwcal_memory_save_mode = self.dwcal_memory_save_mode
             caldata_list.append(caldata_per_pol)
 
         return caldata_list
@@ -1101,14 +1094,32 @@ class CalData:
                         :, np.abs(freq_ind1 - freq_ind2)
                     ]
 
-        weight_mat = np.repeat(
-            np.repeat(weight_mat[np.newaxis, :, :, :, np.newaxis], self.Ntimes, axis=0),
-            self.N_vis_pols,
-            axis=4,
-        )  # Use the same matrix for all times and polarizations
+        # Use the same matrix for all times and polarizations
+        # These are included as variables so that time- and polarization-dependence
+        # can be built in later if needed
+        use_Ntimes = 1
+        use_N_vis_pols = 1
+
+        if self.dwcal_memory_save_mode:
+            weight_mat = np.repeat(
+                np.repeat(weight_mat[np.newaxis, :, :, np.newaxis], use_Ntimes, axis=0),
+                use_N_vis_pols,
+                axis=3,
+            )
+        else:
+            weight_mat = np.repeat(
+                np.repeat(
+                    weight_mat[np.newaxis, :, :, :, np.newaxis], use_Ntimes, axis=0
+                ),
+                use_N_vis_pols,
+                axis=4,
+            )
 
         # Deal with nan-ed values
-        nan_weight_indices = np.where(~np.isfinite(np.sum(weight_mat, axis=(2, 3))))
+        if self.dwcal_memory_save_mode:
+            nan_weight_indices = np.where(~np.isfinite(np.sum(weight_mat, axis=2)))
+        else:
+            nan_weight_indices = np.where(~np.isfinite(np.sum(weight_mat, axis=(2, 3))))
         if len(nan_weight_indices[0]) > 0:
             print(
                 "WARNING: nan values encountered in DWCal inverse convariance matrix. Updating weights."
@@ -1120,29 +1131,53 @@ class CalData:
             )  # Remove nan values to prevent issues later on
 
         # Fix normalization
-        for time_ind in range(self.Ntimes):
-            for vis_pol_ind in range(self.N_vis_pols):
-                normalization_factor = np.sum(
-                    self.visibility_weights[time_ind, :, :, vis_pol_ind]
-                ) / np.real(
-                    np.sum(
-                        np.trace(
-                            np.sqrt(
-                                self.visibility_weights[
-                                    time_ind, :, :, np.newaxis, vis_pol_ind
-                                ]
-                            )
-                            * np.sqrt(
-                                self.visibility_weights[
-                                    time_ind, :, np.newaxis, :, vis_pol_ind
-                                ]
-                            )
-                            * weight_mat[time_ind, :, :, :, vis_pol_ind],
-                            axis1=1,
-                            axis2=2,
+        use_visibility_weights = self.visibility_weights
+        if self.Ntimes > use_Ntimes:
+            use_visibility_weights = np.mean(use_visibility_weights, axis=0)[
+                np.newaxis, :, :, :
+            ]
+        if self.N_vis_pols > use_N_vis_pols:
+            use_visibility_weights = np.mean(use_visibility_weights, axis=3)[
+                :, :, :, np.newaxis
+            ]
+        for time_ind in range(use_Ntimes):
+            for vis_pol_ind in range(use_N_vis_pols):
+                normalization_numerator = np.sum(
+                    use_visibility_weights[time_ind, :, :, vis_pol_ind]
+                )
+                if self.dwcal_memory_save_mode:
+                    normalization_denominator = np.real(
+                        np.sum(
+                            use_visibility_weights[time_ind, :, :, vis_pol_ind]
+                            * weight_mat[time_ind, :, :, vis_pol_ind]
                         )
                     )
+                else:
+                    normalization_denominator = np.real(
+                        np.sum(
+                            np.trace(
+                                np.sqrt(
+                                    use_visibility_weights[
+                                        time_ind, :, :, np.newaxis, vis_pol_ind
+                                    ]
+                                )
+                                * np.sqrt(
+                                    use_visibility_weights[
+                                        time_ind, :, np.newaxis, :, vis_pol_ind
+                                    ]
+                                )
+                                * weight_mat[time_ind, :, :, :, vis_pol_ind],
+                                axis1=1,
+                                axis2=2,
+                            )
+                        )
+                    )
+                normalization_factor = (
+                    normalization_numerator / normalization_denominator
                 )
-                weight_mat[time_ind, :, :, :, vis_pol_ind] *= normalization_factor
+                if self.dwcal_memory_save_mode:
+                    weight_mat[time_ind, :, :, vis_pol_ind] *= normalization_factor
+                else:
+                    weight_mat[time_ind, :, :, :, vis_pol_ind] *= normalization_factor
 
         self.dwcal_inv_covariance = weight_mat

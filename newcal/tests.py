@@ -2145,6 +2145,172 @@ class TestStringMethods(unittest.TestCase):
             rtol=1e-7,
         )
 
+    def test_dwabscal_abscal_agreement_compact_dwcal(self, verbose=False):
+
+        test_freq_ind = 0
+        test_pol_ind = 0
+        use_Nfreqs = 3
+
+        model = pyuvdata.UVData()
+        model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
+        data = pyuvdata.UVData()
+        data.read(f"{THIS_DIR}/data/test_data_1freq.uvfits")
+
+        data_copy = data.copy()
+        model_copy = model.copy()
+        for ind in range(1, use_Nfreqs):
+            data_copy.freq_array += 1e6 * ind
+            model_copy.freq_array += 1e6 * ind
+            data.fast_concat(data_copy, "freq", inplace=True)
+            model.fast_concat(model_copy, "freq", inplace=True)
+
+        caldata_obj = caldata.CalData()
+        caldata_obj.load_data(data, model)
+
+        caldata_obj.visibility_weights[:, :, :, :] = 1  # Unflag all
+        dwcal_inv_covariance = np.identity(data.Nfreqs, dtype=complex)
+        caldata_obj.dwcal_inv_covariance = np.repeat(
+            np.repeat(
+                np.repeat(
+                    dwcal_inv_covariance[np.newaxis, np.newaxis, :, :, np.newaxis],
+                    1,
+                    axis=0,
+                ),
+                caldata_obj.Nbls,
+                axis=1,
+            ),
+            1,
+            axis=4,
+        )  # Construct identity matrix in a more compact form
+
+        caldata_obj.model_visibilities += np.random.normal(
+            scale=0.1,
+            size=(
+                caldata_obj.Ntimes,
+                caldata_obj.Nbls,
+                caldata_obj.Nfreqs,
+                caldata_obj.N_vis_pols,
+            ),
+        ) + 1j * np.random.normal(
+            scale=0.1,
+            size=(
+                caldata_obj.Ntimes,
+                caldata_obj.Nbls,
+                caldata_obj.Nfreqs,
+                caldata_obj.N_vis_pols,
+            ),
+        )  # Perturb model
+
+        cost_abscal = 0
+        for freq_ind in range(use_Nfreqs):
+            cost_abscal += cost_function_calculations.cost_function_abs_cal(
+                caldata_obj.abscal_params[0, freq_ind, test_pol_ind],
+                caldata_obj.abscal_params[1:, freq_ind, test_pol_ind],
+                caldata_obj.model_visibilities[:, :, freq_ind, test_pol_ind],
+                caldata_obj.data_visibilities[:, :, freq_ind, test_pol_ind],
+                caldata_obj.uv_array,
+                caldata_obj.visibility_weights[:, :, freq_ind, test_pol_ind],
+            )
+        cost_dwabscal = cost_function_calculations.cost_function_dw_abscal(
+            caldata_obj.abscal_params[0, :, test_pol_ind],
+            caldata_obj.abscal_params[1:, :, test_pol_ind],
+            caldata_obj.model_visibilities[:, :, :, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, :, test_pol_ind],
+            caldata_obj.uv_array,
+            caldata_obj.visibility_weights[:, :, :, test_pol_ind],
+            caldata_obj.dwcal_inv_covariance[:, :, :, :, test_pol_ind],
+        )
+        np.testing.assert_allclose(cost_abscal, cost_dwabscal, rtol=1e-7)
+
+        amp_jac_abscal, phase_jac_abscal = cost_function_calculations.jacobian_abs_cal(
+            caldata_obj.abscal_params[0, test_freq_ind, test_pol_ind],
+            caldata_obj.abscal_params[1:, test_freq_ind, test_pol_ind],
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.uv_array,
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+        )
+        amp_jac_dwabscal, phase_jac_dwabscal = (
+            cost_function_calculations.jacobian_dw_abscal(
+                caldata_obj.abscal_params[0, :, test_pol_ind],
+                caldata_obj.abscal_params[1:, :, test_pol_ind],
+                caldata_obj.model_visibilities[:, :, :, test_pol_ind],
+                caldata_obj.data_visibilities[:, :, :, test_pol_ind],
+                caldata_obj.uv_array,
+                caldata_obj.visibility_weights[:, :, :, test_pol_ind],
+                caldata_obj.dwcal_inv_covariance[:, :, :, :, test_pol_ind],
+            )
+        )
+        np.testing.assert_allclose(
+            amp_jac_abscal, amp_jac_dwabscal[test_freq_ind], rtol=1e-7
+        )
+        np.testing.assert_allclose(
+            phase_jac_abscal, phase_jac_dwabscal[:, test_freq_ind], rtol=1e-7
+        )
+
+        (
+            hess_amp_amp_abscal,
+            hess_amp_phasex_abscal,
+            hess_amp_phasey_abscal,
+            hess_phasex_phasex_abscal,
+            hess_phasey_phasey_abscal,
+            hess_phasex_phasey_abscal,
+        ) = cost_function_calculations.hess_abs_cal(
+            caldata_obj.abscal_params[0, test_freq_ind, test_pol_ind],
+            caldata_obj.abscal_params[1:, test_freq_ind, test_pol_ind],
+            caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
+            caldata_obj.uv_array,
+            caldata_obj.visibility_weights[:, :, test_freq_ind, test_pol_ind],
+        )
+        (
+            hess_amp_amp_dwabscal,
+            hess_amp_phasex_dwabscal,
+            hess_amp_phasey_dwabscal,
+            hess_phasex_phasex_dwabscal,
+            hess_phasey_phasey_dwabscal,
+            hess_phasex_phasey_dwabscal,
+        ) = cost_function_calculations.hess_dw_abscal(
+            caldata_obj.abscal_params[0, :, test_pol_ind],
+            caldata_obj.abscal_params[1:, :, test_pol_ind],
+            caldata_obj.model_visibilities[:, :, :, test_pol_ind],
+            caldata_obj.data_visibilities[:, :, :, test_pol_ind],
+            caldata_obj.uv_array,
+            caldata_obj.visibility_weights[:, :, :, test_pol_ind],
+            caldata_obj.dwcal_inv_covariance[:, :, :, :, test_pol_ind],
+        )
+
+        np.testing.assert_allclose(
+            hess_amp_amp_abscal,
+            hess_amp_amp_dwabscal[test_freq_ind, test_freq_ind],
+            rtol=1e-7,
+        )
+        np.testing.assert_allclose(
+            hess_amp_phasex_abscal,
+            hess_amp_phasex_dwabscal[test_freq_ind, test_freq_ind],
+            rtol=1e-7,
+        )
+        np.testing.assert_allclose(
+            hess_amp_phasey_abscal,
+            hess_amp_phasey_dwabscal[test_freq_ind, test_freq_ind],
+            rtol=1e-7,
+        )
+        np.testing.assert_allclose(
+            hess_phasex_phasex_abscal,
+            hess_phasex_phasex_dwabscal[test_freq_ind, test_freq_ind],
+            rtol=1e-7,
+        )
+        np.testing.assert_allclose(
+            hess_phasey_phasey_abscal,
+            hess_phasey_phasey_dwabscal[test_freq_ind, test_freq_ind],
+            rtol=1e-7,
+        )
+        np.testing.assert_allclose(
+            hess_phasex_phasey_abscal,
+            hess_phasex_phasey_dwabscal[test_freq_ind, test_freq_ind],
+            rtol=1e-7,
+        )
+
     def test_dwabscal_jac_wrapper(self, verbose=False):
 
         delta_val = 1e-8

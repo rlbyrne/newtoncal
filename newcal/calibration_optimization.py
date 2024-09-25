@@ -318,15 +318,26 @@ def cost_dw_abscal_wrapper(
     abscal_parameters[:, unflagged_freq_inds] = np.reshape(
         abscal_parameters_flattened, (3, len(unflagged_freq_inds))
     )
-    cost = cost_function_calculations.cost_function_dw_abscal(
-        abscal_parameters[0, :],
-        abscal_parameters[1:, :],
-        caldata_obj.model_visibilities[:, :, :, 0],
-        caldata_obj.data_visibilities[:, :, :, 0],
-        caldata_obj.uv_array,
-        caldata_obj.visibility_weights[:, :, :, 0],
-        caldata_obj.dwcal_inv_covariance[:, :, :, :, 0],
-    )
+    if caldata_obj.dwcal_memory_save_mode:
+        cost = cost_function_calculations.cost_function_dw_abscal_toeplitz(
+            abscal_parameters[0, :],
+            abscal_parameters[1:, :],
+            caldata_obj.model_visibilities[:, :, :, 0],
+            caldata_obj.data_visibilities[:, :, :, 0],
+            caldata_obj.uv_array,
+            caldata_obj.visibility_weights[:, :, :, 0],
+            caldata_obj.dwcal_inv_covariance[:, :, :, 0],
+        )
+    else:
+        cost = cost_function_calculations.cost_function_dw_abscal(
+            abscal_parameters[0, :],
+            abscal_parameters[1:, :],
+            caldata_obj.model_visibilities[:, :, :, 0],
+            caldata_obj.data_visibilities[:, :, :, 0],
+            caldata_obj.uv_array,
+            caldata_obj.visibility_weights[:, :, :, 0],
+            caldata_obj.dwcal_inv_covariance[:, :, :, :, 0],
+        )
     return cost
 
 
@@ -355,15 +366,26 @@ def jacobian_dw_abscal_wrapper(
     abscal_parameters[:, unflagged_freq_inds] = np.reshape(
         abscal_parameters_flattened, (3, len(unflagged_freq_inds))
     )
-    amp_jac, phase_jac = cost_function_calculations.jacobian_dw_abscal(
-        abscal_parameters[0, :],
-        abscal_parameters[1:, :],
-        caldata_obj.model_visibilities[:, :, :, 0],
-        caldata_obj.data_visibilities[:, :, :, 0],
-        caldata_obj.uv_array,
-        caldata_obj.visibility_weights[:, :, :, 0],
-        caldata_obj.dwcal_inv_covariance[:, :, :, :, 0],
-    )
+    if caldata_obj.dwcal_memory_save_mode:
+        amp_jac, phase_jac = cost_function_calculations.jacobian_dw_abscal_toeplitz(
+            abscal_parameters[0, :],
+            abscal_parameters[1:, :],
+            caldata_obj.model_visibilities[:, :, :, 0],
+            caldata_obj.data_visibilities[:, :, :, 0],
+            caldata_obj.uv_array,
+            caldata_obj.visibility_weights[:, :, :, 0],
+            caldata_obj.dwcal_inv_covariance[:, :, :, 0],
+        )
+    else:
+        amp_jac, phase_jac = cost_function_calculations.jacobian_dw_abscal(
+            abscal_parameters[0, :],
+            abscal_parameters[1:, :],
+            caldata_obj.model_visibilities[:, :, :, 0],
+            caldata_obj.data_visibilities[:, :, :, 0],
+            caldata_obj.uv_array,
+            caldata_obj.visibility_weights[:, :, :, 0],
+            caldata_obj.dwcal_inv_covariance[:, :, :, :, 0],
+        )
     jac_array = np.zeros((3, caldata_obj.Nfreqs), dtype=float)
     jac_array[0, :] = amp_jac
     jac_array[1:, :] = phase_jac
@@ -396,22 +418,40 @@ def hessian_dw_abscal_wrapper(
     abscal_parameters[:, unflagged_freq_inds] = np.reshape(
         abscal_parameters_flattened, (3, len(unflagged_freq_inds))
     )
-    (
-        hess_amp_amp,
-        hess_amp_phasex,
-        hess_amp_phasey,
-        hess_phasex_phasex,
-        hess_phasey_phasey,
-        hess_phasex_phasey,
-    ) = cost_function_calculations.hess_dw_abscal(
-        abscal_parameters[0, :],
-        abscal_parameters[1:, :],
-        caldata_obj.model_visibilities[:, :, :, 0],
-        caldata_obj.data_visibilities[:, :, :, 0],
-        caldata_obj.uv_array,
-        caldata_obj.visibility_weights[:, :, :, 0],
-        caldata_obj.dwcal_inv_covariance[:, :, :, :, 0],
-    )
+    if caldata_obj.dwcal_memory_save_mode:
+        (
+            hess_amp_amp,
+            hess_amp_phasex,
+            hess_amp_phasey,
+            hess_phasex_phasex,
+            hess_phasey_phasey,
+            hess_phasex_phasey,
+        ) = cost_function_calculations.hess_dw_abscal_toeplitz(
+            abscal_parameters[0, :],
+            abscal_parameters[1:, :],
+            caldata_obj.model_visibilities[:, :, :, 0],
+            caldata_obj.data_visibilities[:, :, :, 0],
+            caldata_obj.uv_array,
+            caldata_obj.visibility_weights[:, :, :, 0],
+            caldata_obj.dwcal_inv_covariance[:, :, :, 0],
+        )
+    else:
+        (
+            hess_amp_amp,
+            hess_amp_phasex,
+            hess_amp_phasey,
+            hess_phasex_phasex,
+            hess_phasey_phasey,
+            hess_phasex_phasey,
+        ) = cost_function_calculations.hess_dw_abscal(
+            abscal_parameters[0, :],
+            abscal_parameters[1:, :],
+            caldata_obj.model_visibilities[:, :, :, 0],
+            caldata_obj.data_visibilities[:, :, :, 0],
+            caldata_obj.uv_array,
+            caldata_obj.visibility_weights[:, :, :, 0],
+            caldata_obj.dwcal_inv_covariance[:, :, :, :, 0],
+        )
     hess = np.zeros((3, caldata_obj.Nfreqs, 3, caldata_obj.Nfreqs), dtype=float)
     hess[0, :, 0, :] = hess_amp_amp
     hess[0, :, 1, :] = hess_amp_phasex.T
