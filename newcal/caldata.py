@@ -1113,10 +1113,8 @@ class CalData:
             print(
                 "WARNING: nan values encountered in DWCal inverse convariance matrix. Updating weights."
             )
-            print(np.sum(self.visibility_weights))
             for freq_ind in range(self.Nfreqs):
                 self.visibility_weights[:, :, freq_ind, :][nan_weight_indices] = 0
-            print(np.sum(self.visibility_weights))
             weight_mat[np.where(~np.isfinite(weight_mat))] = (
                 0.0 + 1j * 0.0
             )  # Remove nan values to prevent issues later on

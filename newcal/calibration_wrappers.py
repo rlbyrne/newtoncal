@@ -575,13 +575,6 @@ def dw_absolute_calibration(
         delay_axis,
     )
 
-    # Added for debugging
-    initial_cost = calibration_optimization.cost_dw_abscal_wrapper(
-        caldata_obj.abscal_params.flatten(), range(caldata_obj.Nfreqs), caldata_obj
-    )
-    print(f"Initial cost: {initial_cost}")
-    sys.stdout.flush()
-
     if verbose:
         print(
             f"Done. Time calculating delay weighting matrix {(time.time() - data_format_start_time)/60.} minutes."
