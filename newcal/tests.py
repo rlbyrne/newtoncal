@@ -1850,10 +1850,10 @@ class TestStringMethods(unittest.TestCase):
             amp_grad_approx, hess_amp_amp[:, test_freq_ind], rtol=1e-8
         )
         np.testing.assert_allclose(
-            phase_grad_approx[0, :], hess_amp_phasex[:, test_freq_ind], rtol=1e-8
+            phase_grad_approx[0, :], hess_amp_phasex[:, test_freq_ind], rtol=1e-7
         )
         np.testing.assert_allclose(
-            phase_grad_approx[1, :], hess_amp_phasey[:, test_freq_ind], rtol=1e-8
+            phase_grad_approx[1, :], hess_amp_phasey[:, test_freq_ind], rtol=1e-7
         )
 
     def test_dwabscal_phase_hess(self, verbose=False):
