@@ -583,12 +583,7 @@ def dw_absolute_calibration(
         sys.stdout.flush()
         optimization_start_time = time.time()
 
-    calibration_optimization.run_dw_abscal_optimization(
-        caldata_obj,
-        xtol,
-        maxiter,
-        verbose=verbose,
-    )
+    caldata_obj.dw_abscal(xtol=xtol, maxiter=maxiter, verbose=verbose)
 
     if verbose:
         print(
