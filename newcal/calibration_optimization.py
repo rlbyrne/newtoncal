@@ -421,12 +421,18 @@ def cost_dw_abscal_wrapper(
     abscal_parameters[:, unflagged_freq_inds] = np.reshape(
         abscal_parameters_flattened, (3, len(unflagged_freq_inds))
     )
+    if caldata_obj.gains_multiply_model:
+        visibility_values_1 = caldata_obj.data_visibilities[:, :, :, 0]
+        visibility_values_2 = caldata_obj.model_visibilities[:, :, :, 0]
+    else:
+        visibility_values_1 = caldata_obj.model_visibilities[:, :, :, 0]
+        visibility_values_2 = caldata_obj.data_visibilities[:, :, :, 0]
     if caldata_obj.dwcal_memory_save_mode:
         cost = cost_function_calculations.cost_function_dw_abscal_toeplitz(
             abscal_parameters[0, :],
             abscal_parameters[1:, :],
-            caldata_obj.model_visibilities[:, :, :, 0],
-            caldata_obj.data_visibilities[:, :, :, 0],
+            visibility_values_1,
+            visibility_values_2,
             caldata_obj.uv_array,
             caldata_obj.visibility_weights[:, :, :, 0],
             caldata_obj.dwcal_inv_covariance[:, :, :, 0],
@@ -435,8 +441,8 @@ def cost_dw_abscal_wrapper(
         cost = cost_function_calculations.cost_function_dw_abscal(
             abscal_parameters[0, :],
             abscal_parameters[1:, :],
-            caldata_obj.model_visibilities[:, :, :, 0],
-            caldata_obj.data_visibilities[:, :, :, 0],
+            visibility_values_1,
+            visibility_values_2,
             caldata_obj.uv_array,
             caldata_obj.visibility_weights[:, :, :, 0],
             caldata_obj.dwcal_inv_covariance[:, :, :, :, 0],
@@ -469,12 +475,18 @@ def jacobian_dw_abscal_wrapper(
     abscal_parameters[:, unflagged_freq_inds] = np.reshape(
         abscal_parameters_flattened, (3, len(unflagged_freq_inds))
     )
+    if caldata_obj.gains_multiply_model:
+        visibility_values_1 = caldata_obj.data_visibilities[:, :, :, 0]
+        visibility_values_2 = caldata_obj.model_visibilities[:, :, :, 0]
+    else:
+        visibility_values_1 = caldata_obj.model_visibilities[:, :, :, 0]
+        visibility_values_2 = caldata_obj.data_visibilities[:, :, :, 0]
     if caldata_obj.dwcal_memory_save_mode:
         amp_jac, phase_jac = cost_function_calculations.jacobian_dw_abscal_toeplitz(
             abscal_parameters[0, :],
             abscal_parameters[1:, :],
-            caldata_obj.model_visibilities[:, :, :, 0],
-            caldata_obj.data_visibilities[:, :, :, 0],
+            visibility_values_1,
+            visibility_values_2,
             caldata_obj.uv_array,
             caldata_obj.visibility_weights[:, :, :, 0],
             caldata_obj.dwcal_inv_covariance[:, :, :, 0],
@@ -483,8 +495,8 @@ def jacobian_dw_abscal_wrapper(
         amp_jac, phase_jac = cost_function_calculations.jacobian_dw_abscal(
             abscal_parameters[0, :],
             abscal_parameters[1:, :],
-            caldata_obj.model_visibilities[:, :, :, 0],
-            caldata_obj.data_visibilities[:, :, :, 0],
+            visibility_values_1,
+            visibility_values_2,
             caldata_obj.uv_array,
             caldata_obj.visibility_weights[:, :, :, 0],
             caldata_obj.dwcal_inv_covariance[:, :, :, :, 0],
@@ -521,6 +533,12 @@ def hessian_dw_abscal_wrapper(
     abscal_parameters[:, unflagged_freq_inds] = np.reshape(
         abscal_parameters_flattened, (3, len(unflagged_freq_inds))
     )
+    if caldata_obj.gains_multiply_model:
+        visibility_values_1 = caldata_obj.data_visibilities[:, :, :, 0]
+        visibility_values_2 = caldata_obj.model_visibilities[:, :, :, 0]
+    else:
+        visibility_values_1 = caldata_obj.model_visibilities[:, :, :, 0]
+        visibility_values_2 = caldata_obj.data_visibilities[:, :, :, 0]
     if caldata_obj.dwcal_memory_save_mode:
         (
             hess_amp_amp,
@@ -532,8 +550,8 @@ def hessian_dw_abscal_wrapper(
         ) = cost_function_calculations.hess_dw_abscal_toeplitz(
             abscal_parameters[0, :],
             abscal_parameters[1:, :],
-            caldata_obj.model_visibilities[:, :, :, 0],
-            caldata_obj.data_visibilities[:, :, :, 0],
+            visibility_values_1,
+            visibility_values_2,
             caldata_obj.uv_array,
             caldata_obj.visibility_weights[:, :, :, 0],
             caldata_obj.dwcal_inv_covariance[:, :, :, 0],
@@ -549,8 +567,8 @@ def hessian_dw_abscal_wrapper(
         ) = cost_function_calculations.hess_dw_abscal(
             abscal_parameters[0, :],
             abscal_parameters[1:, :],
-            caldata_obj.model_visibilities[:, :, :, 0],
-            caldata_obj.data_visibilities[:, :, :, 0],
+            visibility_values_1,
+            visibility_values_2,
             caldata_obj.uv_array,
             caldata_obj.visibility_weights[:, :, :, 0],
             caldata_obj.dwcal_inv_covariance[:, :, :, :, 0],

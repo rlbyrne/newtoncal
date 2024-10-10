@@ -437,6 +437,7 @@ def dw_absolute_calibration(
     data_use_column="DATA",
     model_use_column="MODEL_DATA",
     initial_abscal_params=None,
+    gains_multiply_model=False,
     N_feed_pols=None,
     feed_polarization_array=None,
     min_cal_baseline_m=None,
@@ -478,6 +479,9 @@ def dw_absolute_calibration(
         are the overall amplitudes, abscal_params[1, :, :] are the x-phase gradients in units
         1/m, and abscal_params[2, :, :] are the y-phase gradients in units 1/m. Currently the
         frequency and polarization axes must match those in the data (this should be fixed).
+    gains_multiply_model : bool
+        If True, the abscal parameters multiply the model visibilities. Default
+        False.
     N_feed_pols : int
         Default min(2, N_vis_pols). Number of feed polarizations, equal to
         the number of gain values to be calculated per antenna.
@@ -564,6 +568,7 @@ def dw_absolute_calibration(
         model,
         N_feed_pols=N_feed_pols,
         feed_polarization_array=feed_polarization_array,
+        gains_multiply_model=gains_multiply_model,
         min_cal_baseline_m=min_cal_baseline_m,
         max_cal_baseline_m=max_cal_baseline_m,
         min_cal_baseline_lambda=min_cal_baseline_lambda,
