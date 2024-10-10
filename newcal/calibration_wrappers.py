@@ -13,6 +13,7 @@ def calibration_per_pol_wrapper(
     model_use_column="MODEL_DATA",
     conjugate_model=False,
     gain_init_calfile=None,
+    gains_multiply_model=False,
     gain_init_to_vis_ratio=True,
     gain_init_stddev=0.0,
     N_feed_pols=None,
@@ -64,6 +65,10 @@ def calibration_per_pol_wrapper(
         to the median ratio between the amplitudes of the model and data
         visibilities. If False, the gains are initialized to 1. Default
         True.
+    gains_multiply_model : bool
+        If True, measurement equation is defined as v_ij ≈ g_i g_j^* m_ij. If
+        False, measurement equation is defined as g_i g_j^* v_ij ≈ m_ij. Default
+        False.
     gain_init_stddev : float
         Default 0.0. Standard deviation of a random complex Gaussian
         perturbation to the initial gains.
@@ -184,6 +189,7 @@ def calibration_per_pol_wrapper(
         model,
         gain_init_calfile=gain_init_calfile,
         gain_init_to_vis_ratio=gain_init_to_vis_ratio,
+        gains_multiply_model=gains_multiply_model,
         gain_init_stddev=gain_init_stddev,
         N_feed_pols=N_feed_pols,
         feed_polarization_array=feed_polarization_array,
@@ -271,6 +277,7 @@ def abscal_wrapper(
     model_use_column="MODEL_DATA",
     N_feed_pols=None,
     feed_polarization_array=None,
+    gains_multiply_model=False,
     min_cal_baseline_m=None,
     max_cal_baseline_m=None,
     min_cal_baseline_lambda=None,
@@ -304,6 +311,9 @@ def abscal_wrapper(
         Feed polarizations to calibrate. Shape (N_feed_pols,). Options are
         -5 for X or -6 for Y. Default None. If None, feed_polarization_array
         is set to ([-5, -6])[:N_feed_pols].
+    gains_multiply_model : bool
+        If True, the abscal parameters multiply the model visibilities. Default
+        False.
     min_cal_baseline_m : float or None
         Minimum baseline length, in meters, to use in calibration. If both
         min_cal_baseline_m and min_cal_baseline_lambda are None, arbitrarily
@@ -385,6 +395,7 @@ def abscal_wrapper(
         model,
         N_feed_pols=N_feed_pols,
         feed_polarization_array=feed_polarization_array,
+        gains_multiply_model=gains_multiply_model,
         min_cal_baseline_m=min_cal_baseline_m,
         max_cal_baseline_m=max_cal_baseline_m,
         min_cal_baseline_lambda=min_cal_baseline_lambda,
@@ -600,7 +611,13 @@ def dw_absolute_calibration(
     return caldata_obj.abscal_params
 
 
-def apply_abscal(uvdata, abscal_params, feed_polarization_array, inplace=False):
+def apply_abscal(
+    uvdata,
+    abscal_params,
+    feed_polarization_array,
+    gains_multiply_model=False,
+    inplace=False,
+):
     """
     Apply absolute calibration solutions to data.
 
@@ -615,6 +632,9 @@ def apply_abscal(uvdata, abscal_params, feed_polarization_array, inplace=False):
     feed_polarization_array : array of int
         Shape (N_feed_pols). Array of polarization integers. Indicates the
         ordering of the polarization axis of the gains. X is -5 and Y is -6.
+    gains_multiply_model : bool
+        If True, the data is divided by the abscal term. If False, data is multiplied by the abscal
+        term. Default False.
     inplace : bool
         If True, updates uvdata. If False, returns a new UVData object.
 
@@ -682,13 +702,23 @@ def apply_abscal(uvdata, abscal_params, feed_polarization_array, inplace=False):
         )  # Shape (Nbls, Nfreqs,)
 
         if inplace:
-            uvdata.data_array[:, :, vis_pol_ind] *= (
-                amp_term[np.newaxis, :] * phase_correction
-            )
+            if gains_multiply_model:
+                uvdata.data_array[:, :, vis_pol_ind] /= (
+                    amp_term[np.newaxis, :] * phase_correction
+                )
+            else:
+                uvdata.data_array[:, :, vis_pol_ind] *= (
+                    amp_term[np.newaxis, :] * phase_correction
+                )
         else:
-            uvdata_new.data_array[:, :, vis_pol_ind] *= (
-                amp_term[np.newaxis, :] * phase_correction
-            )
+            if gains_multiply_model:
+                uvdata_new.data_array[:, :, vis_pol_ind] /= (
+                    amp_term[np.newaxis, :] * phase_correction
+                )
+            else:
+                uvdata_new.data_array[:, :, vis_pol_ind] *= (
+                    amp_term[np.newaxis, :] * phase_correction
+                )
 
     if not inplace:
         return uvdata_new

@@ -59,6 +59,9 @@ class CalData:
         Shape (Nbls, Nants,).
     gains_exp_mat_2 : array of int
         Shape (Nbls, Nants,).
+    gains_multiply_model : bool
+        If True, measurement equation is defined as v_ij ≈ g_i g_j^* m_ij. If False,
+        measurement equation is defined as g_i g_j^* v_ij ≈ m_ij.
     antenna_names : array of str
         Shape (Nants,). Ordering matches the ordering of the gains attribute.
     antenna_numbers : array of int
@@ -101,6 +104,7 @@ class CalData:
         self.dwcal_memory_save_mode = None
         self.gains_exp_mat_1 = None
         self.gains_exp_mat_2 = None
+        self.gains_multiply_model = None
         self.antenna_names = None
         self.antenna_numbers = None
         self.antenna_positions = None
@@ -151,6 +155,7 @@ class CalData:
         model,
         gain_init_calfile=None,
         gain_init_to_vis_ratio=True,
+        gains_multiply_model=False,
         gain_init_stddev=0.0,
         N_feed_pols=None,
         feed_polarization_array=None,
@@ -179,6 +184,12 @@ class CalData:
             to the median ratio between the amplitudes of the model and data
             visibilities. If False, the gains are initialized to 1. Default
             True.
+        gains_multiply_model : bool
+            If True, measurement equation is defined as v_ij ≈ g_i g_j^* m_ij. If
+            False, measurement equation is defined as g_i g_j^* v_ij ≈ m_ij. This
+            parameter affects how calibration is performed, and whether the data is
+            multiplied or divided by the gains when calibration solutions are applied.
+            Default False.
         gain_init_stddev : float
             Default 0.0. Standard deviation of a random complex Gaussian
             perturbation to the initial gains.
@@ -504,6 +515,7 @@ class CalData:
             self.feed_polarization_array = feed_polarization_array
 
         # Initialize gains
+        self.gains_multiply_model = gains_multiply_model
         if gain_init_calfile is None:
             self.gains = np.ones(
                 (
@@ -518,7 +530,10 @@ class CalData:
                     self.data_visibilities
                 )
                 vis_amp_ratio[np.where(self.data_visibilities == 0.0)] = np.nan
-                self.gains[:, :, :] = np.sqrt(np.nanmedian(vis_amp_ratio))
+                if self.gains_multiply_model:
+                    self.gains[:, :, :] = 1 / np.sqrt(np.nanmedian(vis_amp_ratio))
+                else:
+                    self.gains[:, :, :] = np.sqrt(np.nanmedian(vis_amp_ratio))
         else:  # Initialize from file
             self.set_gains_from_calfile(gain_init_calfile)
             # Capture nan-ed gains as flags
@@ -630,6 +645,7 @@ class CalData:
             ]
             caldata_per_freq.gains_exp_mat_1 = self.gains_exp_mat_1
             caldata_per_freq.gains_exp_mat_2 = self.gains_exp_mat_2
+            caldata_per_freq.gains_multiply_model = self.gains_multiply_model
             caldata_per_freq.antenna_names = self.antenna_names
             caldata_per_freq.antenna_numbers = self.antenna_numbers
             caldata_per_freq.antenna_positions = self.antenna_positions
@@ -692,6 +708,7 @@ class CalData:
             ]
             caldata_per_pol.gains_exp_mat_1 = self.gains_exp_mat_1
             caldata_per_pol.gains_exp_mat_2 = self.gains_exp_mat_2
+            caldata_per_pol.gains_multiply_model = self.gains_multiply_model
             caldata_per_pol.antenna_names = self.antenna_names
             caldata_per_pol.antenna_numbers = self.antenna_numbers
             caldata_per_pol.antenna_positions = self.antenna_positions
@@ -745,7 +762,10 @@ class CalData:
         uvcal.cal_type = "gain"
         uvcal.channel_width = np.full((self.Nfreqs), self.channel_width)
         uvcal.freq_array = self.freq_array
-        uvcal.gain_convention = "multiply"
+        if self.gains_multiply_model:
+            uvcal.gain_convention = "divide"
+        else:
+            uvcal.gain_convention = "multiply"
         uvcal.history = "calibrated with newcal"
         uvcal.integration_time = np.array([self.integration_time])
         uvcal.jones_array = self.feed_polarization_array
