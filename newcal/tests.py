@@ -2480,6 +2480,92 @@ class TestStringMethods(unittest.TestCase):
                 hess_approx, hess[:, test_parameter_ind], rtol=1e-5
             )
 
+    def test_calibration_gains_multiply_model_identical_data_no_flags(self):
+
+        model = pyuvdata.UVData()
+        model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
+        data = model.copy()
+
+        caldata_obj = caldata.CalData()
+        caldata_obj.load_data(
+            data,
+            model,
+            gain_init_stddev=0.1,
+            lambda_val=100.0,
+            gains_multiply_model=True,
+        )
+        print(f"Gains initial: {caldata_obj.gains}")
+
+        # Unflag all
+        caldata_obj.visibility_weights = np.ones(
+            (
+                caldata_obj.Ntimes,
+                caldata_obj.Nbls,
+                caldata_obj.Nfreqs,
+                4,
+            ),
+            dtype=float,
+        )
+
+        caldata_obj.calibration_per_pol(
+            xtol=1e-8,
+            parallel=False,
+        )
+        print(f"Gains fit final: {caldata_obj.gains}")
+
+        np.testing.assert_allclose(
+            np.abs(caldata_obj.gains),
+            np.full(
+                (caldata_obj.Nants, caldata_obj.Nfreqs, caldata_obj.N_feed_pols), 1.0
+            ),
+            atol=1e-6,
+        )
+        np.testing.assert_allclose(
+            np.angle(caldata_obj.gains),
+            np.full(
+                (caldata_obj.Nants, caldata_obj.Nfreqs, caldata_obj.N_feed_pols), 0.0
+            ),
+            atol=1e-6,
+        )
+
+    def test_calibration_gains_multiply_model_identical_data_with_flags(self):
+
+        model = pyuvdata.UVData()
+        model.read(f"{THIS_DIR}/data/test_model_1freq.uvfits")
+        data = model.copy()
+        data.data_array *= 1.2
+
+        caldata_obj = caldata.CalData()
+        caldata_obj.load_data(
+            data,
+            model,
+            gain_init_stddev=0.1,
+            lambda_val=100.0,
+            gains_multiply_model=True,
+        )
+
+        # Unflag all
+        caldata_obj.visibility_weights = np.ones(
+            (
+                caldata_obj.Ntimes,
+                caldata_obj.Nbls,
+                caldata_obj.Nfreqs,
+                4,
+            ),
+            dtype=float,
+        )
+        # Set flags
+        caldata_obj.visibility_weights[2, 10, 0, :] = 0.0
+        caldata_obj.visibility_weights[1, 20, 0, :] = 0.0
+
+        caldata_obj.calibration_per_pol(
+            xtol=1e-8,
+            parallel=False,
+        )
+
+        np.testing.assert_allclose(np.abs(caldata_obj.gains), np.sqrt(1.2), atol=1e-4)
+        np.testing.assert_allclose(np.angle(caldata_obj.gains), 0, atol=1e-6)
+
 
 if __name__ == "__main__":
     unittest.main()
