@@ -7,8 +7,8 @@ from newcal import calibration_optimization, caldata
 
 
 def calibration_per_pol_wrapper(
-    data_file_path,
-    model_file_path,
+    data,
+    model,
     data_use_column="DATA",
     model_use_column="MODEL_DATA",
     conjugate_model=False,
@@ -44,10 +44,12 @@ def calibration_per_pol_wrapper(
 
     Parameters
     ----------
-    data_file_path : str
-        Path to the ms or uvfits file containing the data visibilities.
-    model_file_path : str
-        Path to the ms or uvfits file containing the model visibilities.
+    data : str or UVData
+        Path to the pyuvdata-readable file containing the  data visibilities
+        or a pyuvdata UVData object.
+    model : str or UVData
+        Path to the pyuvdata-readable file containing the model visibilities
+        or a pyuvdata UVData object.
     data_use_column : str
         Column in an ms file to use for the data visibilities. Used only if
         data_file_path points to an ms file. Default "DATA".
@@ -150,25 +152,35 @@ def calibration_per_pol_wrapper(
         sys.stdout.flush()
         data_read_start_time = time.time()
 
-    # Read data
-    data = pyuvdata.UVData()
-    if data_file_path.endswith(".ms"):
-        data.read_ms(data_file_path, data_column=data_use_column)
-    elif data_file_path.endswith(".uvfits"):
-        data.read_uvfits(data_file_path)
-    else:
-        print(f"ERROR: Unsupported file type for data file {data_file_path}. Exiting.")
-        sys.exit(1)
-    model = pyuvdata.UVData()
-    if model_file_path.endswith(".ms"):
-        model.read_ms(model_file_path, data_column=model_use_column)
-    elif model_file_path.endswith(".uvfits"):
-        model.read_uvfits(model_file_path)
-    else:
-        print(
-            f"ERROR: Unsupported file type for model file {model_file_path}. Exiting."
-        )
-        sys.exit(1)
+    print_data_read_time = False
+    if isinstance(data, str):  # Read data
+        data_file_path = np.copy(data)
+        data = pyuvdata.UVData()
+        if data_file_path.endswith(".ms"):
+            data.read_ms(
+                data_file_path,
+                data_column=data_use_column,
+                ignore_single_chan=False,
+            )
+        elif data_file_path.endswith(".uvfits"):
+            data.read_uvfits(data_file_path)
+        else:
+            data.read(data_file_path)
+        print_data_read_time = True
+    if isinstance(model, str):  # Read model
+        model_file_path = np.copy(model)
+        model = pyuvdata.UVData()
+        if model_file_path.endswith(".ms"):
+            model.read_ms(
+                model_file_path,
+                data_column=model_use_column,
+                ignore_single_chan=False,
+            )
+        elif model_file_path.endswith(".uvfits"):
+            model.read_uvfits(model_file_path)
+        else:
+            model.read(model_file_path)
+        print_data_read_time = True
 
     if conjugate_model:
         print("Conjugating model baselines.")
@@ -176,9 +188,10 @@ def calibration_per_pol_wrapper(
         model.data_array = np.conj(model.data_array)
 
     if verbose:
-        print(
-            f"Done. Data read time {(time.time() - data_read_start_time)/60.} minutes."
-        )
+        if print_data_read_time:
+            print(
+                f"Done. Data read time {(time.time() - data_read_start_time)/60.} minutes."
+            )
         print("Formatting data...")
         sys.stdout.flush()
         data_format_start_time = time.time()
