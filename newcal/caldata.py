@@ -138,7 +138,7 @@ class CalData:
         uvcal.reorder_freqs(channel_order="freq")
         uvcal.reorder_jones()
         use_gains = np.mean(
-            uvcal.gain_array[:, 0, :, :, :], axis=2
+            uvcal.gain_array, axis=2
         )  # Average over times
 
         # Make antenna ordering match
@@ -147,7 +147,14 @@ class CalData:
             [list(cal_ant_names).index(name) for name in self.antenna_names]
         )
 
-        self.gains = use_gains[cal_ant_inds, :, :]
+        if self.gains_multiply_model:
+            if uvcal.gain_convention != "divide":
+                use_gains = 1/use_gains
+        else:
+            if uvcal.gain_convention != "multiply":
+                use_gains = 1/use_gains
+
+        self.gains = use_gains[cal_ant_inds, :]
 
     def load_data(
         self,

@@ -148,13 +148,11 @@ def calibration_per_pol_wrapper(
         pool = None
 
     if verbose:
-        print("Reading data...")
-        sys.stdout.flush()
         data_read_start_time = time.time()
 
     print_data_read_time = False
     if isinstance(data, str):  # Read data
-        data_file_path = np.copy(data)
+        data_file_path = data
         data = pyuvdata.UVData()
         if data_file_path.endswith(".ms"):
             data.read_ms(
@@ -168,7 +166,7 @@ def calibration_per_pol_wrapper(
             data.read(data_file_path)
         print_data_read_time = True
     if isinstance(model, str):  # Read model
-        model_file_path = np.copy(model)
+        model_file_path = model
         model = pyuvdata.UVData()
         if model_file_path.endswith(".ms"):
             model.read_ms(
