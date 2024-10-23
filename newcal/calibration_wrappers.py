@@ -185,6 +185,10 @@ def calibration_per_pol_wrapper(
         sys.stdout.flush()
         model.data_array = np.conj(model.data_array)
 
+    # Ensure data and model are phased the same
+    data.phase_to_time(np.mean(data.time_array))
+    model.phase_to_time(np.mean(data.time_array))
+
     if verbose:
         if print_data_read_time:
             print(

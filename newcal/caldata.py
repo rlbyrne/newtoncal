@@ -125,11 +125,17 @@ class CalData:
         Parameters
         ----------
         calfile : str
-            Path to a pyuvdata-formatted calfits file.
+            Path to a pyuvdata-formatted calfits file or a CASA-formatted .bcal file.
         """
 
         uvcal = pyuvdata.UVCal()
-        uvcal.read_calfits(calfile)
+        if calfile.endswith(".calfits"):
+            uvcal.read_calfits(calfile)
+        elif calfile.endswith(".bcal"):
+            uvcal.read_ms_cal(calfile)
+        else:
+            print(f"ERROR: Unknown file extension for file {calfile}. Exiting.")
+            sys.exit(1)
         uvcal.select(frequencies=self.freq_array, antenna_names=self.antenna_names)
         if self.feed_polarization_array is None:
             self.feed_polarization_array = uvcal.jones_array
