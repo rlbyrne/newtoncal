@@ -11,6 +11,7 @@ def calibration_per_pol_wrapper(
     model,
     data_use_column="DATA",
     model_use_column="MODEL_DATA",
+    conjugate_data=False,
     conjugate_model=False,
     gain_init_calfile=None,
     gains_multiply_model=False,
@@ -56,8 +57,11 @@ def calibration_per_pol_wrapper(
     model_use_column : str
         Column in an ms file to use for the model visibilities. Used only if
         data_file_path points to an ms file. Default "MODEL_DATA".
+    conjugate_data : bool
+        Option to conjugate data visibilities, needed sometimes when the data
+        and model convention does not match. Default False.
     conjugate_model : bool
-        Option to conjugate model baselines, needed sometimes when the data
+        Option to conjugate model visibilities, needed sometimes when the data
         and model convention does not match. Default False.
     gain_init_calfile : str or None
         Default None. If not None, provides a path to a pyuvdata-formatted
@@ -180,8 +184,13 @@ def calibration_per_pol_wrapper(
             model.read(model_file_path)
         print_data_read_time = True
 
+    if conjugate_data:
+        print("Conjugating data visibilities.")
+        sys.stdout.flush()
+        data.data_array = np.conj(data.data_array)
+
     if conjugate_model:
-        print("Conjugating model baselines.")
+        print("Conjugating model visibilities.")
         sys.stdout.flush()
         model.data_array = np.conj(model.data_array)
 
