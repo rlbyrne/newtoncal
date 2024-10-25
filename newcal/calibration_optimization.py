@@ -9,6 +9,7 @@ from newcal import cost_function_calculations
 def cost_function_single_pol_wrapper(
     gains_flattened,
     caldata_obj,
+    ant_inds,
     freq_ind,
     vis_pol_ind,
 ):
@@ -19,10 +20,12 @@ def cost_function_single_pol_wrapper(
     Parameters
     ----------
     gains_flattened : array of float
-        Array of gain values. gains_flattened[0:Nants] corresponds to the real
-        components of the gains and gains_flattened[Nants:] correponds to the
-        imaginary components. Shape (2*Nants,).
+        Array of gain values. gains_flattened[0:Nants_unflagged] corresponds to
+        the realcomponents of the gains and gains_flattened[Nants_unflagged:]
+        correponds to the imaginary components. Shape (2*Nants_unflagged,).
     caldata_obj : CalData
+    ant_inds : array of int
+        Indices of unflagged antennas to be calibrated. Shape (Nants_unflagged,).
     freq_ind : int
         Frequency channel index.
     vis_pol_ind : int
@@ -34,14 +37,10 @@ def cost_function_single_pol_wrapper(
         Value of the cost function.
     """
 
-    gains = np.reshape(
-        gains_flattened,
-        (
-            2,
-            caldata_obj.Nants,
-        ),
-    )
-    gains = gains[0, :] + 1.0j * gains[1, :]
+    gains_reshaped = np.reshape(gains_flattened, (2, len(ant_inds)))
+    gains_reshaped = gains_reshaped[0, :] + 1.0j * gains_reshaped[1, :]
+    gains = np.zeros((caldata_obj.Nants), dtype=complex)
+    gains[ant_inds] = gains_reshaped
     if caldata_obj.gains_multiply_model:
         cost = cost_function_calculations.cost_function_single_pol(
             gains,
@@ -86,6 +85,7 @@ def cost_function_single_pol_wrapper(
 def jacobian_single_pol_wrapper(
     gains_flattened,
     caldata_obj,
+    ant_inds,
     freq_ind,
     vis_pol_ind,
 ):
@@ -96,10 +96,12 @@ def jacobian_single_pol_wrapper(
     Parameters
     ----------
     gains_flattened : array of float
-        Array of gain values. gains_flattened[0:Nants] corresponds to the real
-        components of the gains and gains_flattened[Nants:] correponds to the
-        imaginary components. Shape (2*Nants,).
+        Array of gain values. gains_flattened[0:Nants_unflagged] corresponds to
+        the realcomponents of the gains and gains_flattened[Nants_unflagged:]
+        correponds to the imaginary components. Shape (2*Nants_unflagged,).
     caldata_obj : CalData
+    ant_inds : array of int
+        Indices of unflagged antennas to be calibrated. Shape (Nants_unflagged,).
     freq_ind : int
         Frequency channel index.
     vis_pol_ind : int
@@ -108,20 +110,16 @@ def jacobian_single_pol_wrapper(
     Returns
     -------
     jac_flattened : array of float
-        Jacobian of the cost function, shape (2*Nants,). jac_flattened[0:Nants]
-        corresponds to the derivatives with respect to the real part of the
-        gains; jac_flattened[Nants:] corresponds to derivatives with respect to
-        the imaginary part of the gains.
+        Jacobian of the cost function, shape (2*Nants_unflagged,).
+        jac_flattened[0:Nants_unflagged] corresponds to the derivatives with
+        respect to the real part of the gains; jac_flattened[Nants_unflagged:]
+        corresponds to derivatives with respect to the imaginary part of the gains.
     """
 
-    gains = np.reshape(
-        gains_flattened,
-        (
-            2,
-            caldata_obj.Nants,
-        ),
-    )
-    gains = gains[0, :] + 1.0j * gains[1, :]
+    gains_reshaped = np.reshape(gains_flattened, (2, len(ant_inds)))
+    gains_reshaped = gains_reshaped[0, :] + 1.0j * gains_reshaped[1, :]
+    gains = np.zeros((caldata_obj.Nants), dtype=complex)
+    gains[ant_inds] = gains_reshaped
     if caldata_obj.gains_multiply_model:
         jac = cost_function_calculations.jacobian_single_pol(
             gains,
@@ -160,13 +158,16 @@ def jacobian_single_pol_wrapper(
             caldata_obj.gains_exp_mat_2,
             caldata_obj.lambda_val,
         )
-    jac_flattened = np.stack((np.real(jac), np.imag(jac)), axis=0).flatten()
+    jac_flattened = np.stack(
+        (np.real(jac[ant_inds]), np.imag(jac[ant_inds])), axis=0
+    ).flatten()
     return jac_flattened
 
 
 def hessian_single_pol_wrapper(
     gains_flattened,
     caldata_obj,
+    ant_inds,
     freq_ind,
     vis_pol_ind,
 ):
@@ -177,10 +178,12 @@ def hessian_single_pol_wrapper(
     Parameters
     ----------
     gains_flattened : array of float
-        Array of gain values. gains_flattened[0:Nants] corresponds to the real
-        components of the gains and gains_flattened[Nants:] correponds to the
-        imaginary components. Shape (2*Nants,).
+        Array of gain values. gains_flattened[0:Nants_unflagged] corresponds to
+        the realcomponents of the gains and gains_flattened[Nants_unflagged:]
+        correponds to the imaginary components. Shape (2*Nants_unflagged,).
     caldata_obj : CalData
+    ant_inds : array of int
+        Indices of unflagged antennas to be calibrated. Shape (Nants_unflagged,).
     freq_ind : int
         Frequency channel index.
     vis_pol_ind : int
@@ -189,17 +192,14 @@ def hessian_single_pol_wrapper(
     Returns
     -------
     hess_flattened : array of float
-        Hessian of the cost function, shape (2*Nants, 2*Nants,).
+        Hessian of the cost function, shape (2*Nants_unflagged, 2*Nants_unflagged,).
     """
 
-    gains = np.reshape(
-        gains_flattened,
-        (
-            2,
-            caldata_obj.Nants,
-        ),
-    )
-    gains = gains[0, :] + 1.0j * gains[1, :]
+    Nants_unflagged = len(ant_inds)
+    gains_reshaped = np.reshape(gains_flattened, (2, Nants_unflagged))
+    gains_reshaped = gains_reshaped[0, :] + 1.0j * gains_reshaped[1, :]
+    gains = np.zeros((caldata_obj.Nants), dtype=complex)
+    gains[ant_inds] = gains_reshaped
     if caldata_obj.gains_multiply_model:
         (
             hess_real_real,
@@ -251,14 +251,20 @@ def hessian_single_pol_wrapper(
             caldata_obj.lambda_val,
         )
     hess_flattened = np.full(
-        (2 * caldata_obj.Nants, 2 * caldata_obj.Nants), np.nan, dtype=float
+        (2 * Nants_unflagged, 2 * Nants_unflagged), np.nan, dtype=float
     )
-    hess_flattened[0 : caldata_obj.Nants, 0 : caldata_obj.Nants] = hess_real_real
-    hess_flattened[caldata_obj.Nants :, 0 : caldata_obj.Nants] = hess_real_imag
-    hess_flattened[0 : caldata_obj.Nants, caldata_obj.Nants :] = np.conj(
-        hess_real_imag
+    hess_flattened[0:Nants_unflagged, 0:Nants_unflagged] = hess_real_real[ant_inds, :][
+        :, ant_inds
+    ]
+    hess_flattened[Nants_unflagged:, 0:Nants_unflagged] = hess_real_imag[ant_inds, :][
+        :, ant_inds
+    ]
+    hess_flattened[0:Nants_unflagged, Nants_unflagged:] = np.conj(
+        hess_real_imag[ant_inds, :][:, ant_inds]
     ).T
-    hess_flattened[caldata_obj.Nants :, caldata_obj.Nants :] = hess_imag_imag
+    hess_flattened[Nants_unflagged:, Nants_unflagged:] = hess_imag_imag[ant_inds, :][
+        :, ant_inds
+    ]
     return hess_flattened
 
 
@@ -647,10 +653,18 @@ def run_calibration_optimization_per_pol_single_freq(
         ):  # All flagged
             gains_fit[:, feed_pol_ind] = np.nan + 1j * np.nan
         else:
+            vis_weights_summed = np.sum(
+                caldata_obj.visibility_weights[:, :, freq_ind, feed_pol_ind], axis=0
+            )  # Sum over times
+            weight_per_ant = np.matmul(
+                caldata_obj.gains_exp_mat_1.T, vis_weights_summed
+            ) + np.matmul(caldata_obj.gains_exp_mat_2.T, vis_weights_summed)
+            ant_inds = np.where(weight_per_ant > 0.0)[0]
+
             gains_init_flattened = np.stack(
                 (
-                    np.real(caldata_obj.gains[:, freq_ind, feed_pol_ind]),
-                    np.imag(caldata_obj.gains[:, freq_ind, feed_pol_ind]),
+                    np.real(caldata_obj.gains[ant_inds, freq_ind, feed_pol_ind]),
+                    np.imag(caldata_obj.gains[ant_inds, freq_ind, feed_pol_ind]),
                 ),
                 axis=0,
             ).flatten()
@@ -660,7 +674,7 @@ def run_calibration_optimization_per_pol_single_freq(
             result = scipy.optimize.minimize(
                 cost_function_single_pol_wrapper,
                 gains_init_flattened,
-                args=(caldata_obj, freq_ind, vis_pol_ind),
+                args=(caldata_obj, ant_inds, freq_ind, vis_pol_ind),
                 method="Newton-CG",
                 jac=jacobian_single_pol_wrapper,
                 hess=hessian_single_pol_wrapper,
@@ -673,8 +687,8 @@ def run_calibration_optimization_per_pol_single_freq(
                     f"Optimization time: {(end_optimize - start_optimize)/60.} minutes"
                 )
             sys.stdout.flush()
-            gains_fit_single_pol = np.reshape(result.x, (2, caldata_obj.Nants))
-            gains_fit[:, feed_pol_ind] = (
+            gains_fit_single_pol = np.reshape(result.x, (2, len(ant_inds)))
+            gains_fit[ant_inds, feed_pol_ind] = (
                 gains_fit_single_pol[0, :] + 1j * gains_fit_single_pol[1, :]
             )
 

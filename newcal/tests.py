@@ -1073,6 +1073,15 @@ class TestStringMethods(unittest.TestCase):
 
         caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model, lambda_val=lambda_val)
+        caldata_obj.visibility_weights = np.ones(
+            (
+                caldata_obj.Ntimes,
+                caldata_obj.Nbls,
+                caldata_obj.Nfreqs,
+                4,
+            ),
+            dtype=float,
+        )  # Unflag all
 
         np.random.seed(0)
         gains_init_real = np.random.normal(
@@ -1096,7 +1105,7 @@ class TestStringMethods(unittest.TestCase):
         ).flatten()
 
         hess = calibration_optimization.hessian_single_pol_wrapper(
-            gains_flattened, caldata_obj, 0, 0
+            gains_flattened, caldata_obj, np.arange(caldata_obj.Nants), 0, 0
         )
 
         np.testing.assert_allclose(hess - np.conj(hess.T), 0.0 + 1j * 0.0)
