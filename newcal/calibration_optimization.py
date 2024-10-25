@@ -39,7 +39,7 @@ def cost_function_single_pol_wrapper(
 
     gains_reshaped = np.reshape(gains_flattened, (2, len(ant_inds)))
     gains_reshaped = gains_reshaped[0, :] + 1.0j * gains_reshaped[1, :]
-    gains = np.zeros((caldata_obj.Nants), dtype=complex)
+    gains = np.ones((caldata_obj.Nants), dtype=complex)
     gains[ant_inds] = gains_reshaped
     if caldata_obj.gains_multiply_model:
         cost = cost_function_calculations.cost_function_single_pol(
@@ -118,7 +118,7 @@ def jacobian_single_pol_wrapper(
 
     gains_reshaped = np.reshape(gains_flattened, (2, len(ant_inds)))
     gains_reshaped = gains_reshaped[0, :] + 1.0j * gains_reshaped[1, :]
-    gains = np.zeros((caldata_obj.Nants), dtype=complex)
+    gains = np.ones((caldata_obj.Nants), dtype=complex)
     gains[ant_inds] = gains_reshaped
     if caldata_obj.gains_multiply_model:
         jac = cost_function_calculations.jacobian_single_pol(
@@ -198,7 +198,7 @@ def hessian_single_pol_wrapper(
     Nants_unflagged = len(ant_inds)
     gains_reshaped = np.reshape(gains_flattened, (2, Nants_unflagged))
     gains_reshaped = gains_reshaped[0, :] + 1.0j * gains_reshaped[1, :]
-    gains = np.zeros((caldata_obj.Nants), dtype=complex)
+    gains = np.ones((caldata_obj.Nants), dtype=complex)
     gains[ant_inds] = gains_reshaped
     if caldata_obj.gains_multiply_model:
         (
@@ -639,7 +639,7 @@ def run_calibration_optimization_per_pol_single_freq(
         Fit gain values. Shape (Nants, 1, N_feed_pols,).
     """
 
-    gains_fit = np.ones((caldata_obj.Nants, caldata_obj.N_feed_pols), dtype=complex)
+    gains_fit = np.full((caldata_obj.Nants, caldata_obj.N_feed_pols), np.nan + 1j * np.nan, dtype=complex)
     if np.max(caldata_obj.visibility_weights[:, :, freq_ind, :]) == 0.0:
         print("ERROR: All data flagged.")
         gains_fit[:, :] = np.nan + 1j * np.nan
