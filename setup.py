@@ -1,15 +1,15 @@
 from setuptools import setup
 
 setup(
-    name="NewCal",
+    name="Calico",
     author="Ruby Byrne",
     author_email="rbyrne@caltech.edu",
-    url="https://github.com/rlbyrne/newcal",
+    url="https://github.com/rlbyrne/calico",
     scripts=[
-        "newcal/calibration_wrappers.py",
-        "newcal/calibration_optimization.py",
-        "newcal/cost_function_calculations.py",
-        "newcal/calibration_qa.py",
-        "newcal/caldata.py",
+        "calico/calibration_wrappers.py",
+        "calico/calibration_optimization.py",
+        "calico/cost_function_calculations.py",
+        "calico/calibration_qa.py",
+        "calico/caldata.py",
     ],
 )

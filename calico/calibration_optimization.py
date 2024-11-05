@@ -6,7 +6,7 @@ import time
 from newcal import cost_function_calculations
 
 
-def cost_function_single_pol_wrapper(
+def cost_skycal_wrapper(
     gains_flattened,
     caldata_obj,
     ant_inds,
@@ -14,8 +14,8 @@ def cost_function_single_pol_wrapper(
     vis_pol_ind,
 ):
     """
-    Wrapper for function cost_function_single_pol. Reformats the input gains to
-    be compatible with the scipy.optimize.minimize function.
+    Wrapper for function cost_skycal. Reformats the input gains to be compatible
+    with the scipy.optimize.minimize function.
 
     Parameters
     ----------
@@ -42,7 +42,7 @@ def cost_function_single_pol_wrapper(
     gains = np.ones((caldata_obj.Nants), dtype=complex)
     gains[ant_inds] = gains_reshaped
     if caldata_obj.gains_multiply_model:
-        cost = cost_function_calculations.cost_function_single_pol(
+        cost = cost_function_calculations.cost_skycal(
             gains,
             np.reshape(
                 caldata_obj.data_visibilities[:, :, freq_ind, vis_pol_ind],
@@ -61,7 +61,7 @@ def cost_function_single_pol_wrapper(
             caldata_obj.lambda_val,
         )
     else:
-        cost = cost_function_calculations.cost_function_single_pol(
+        cost = cost_function_calculations.cost_skycal(
             gains,
             np.reshape(
                 caldata_obj.model_visibilities[:, :, freq_ind, vis_pol_ind],
@@ -82,7 +82,7 @@ def cost_function_single_pol_wrapper(
     return cost
 
 
-def jacobian_single_pol_wrapper(
+def jacobian_skycal_wrapper(
     gains_flattened,
     caldata_obj,
     ant_inds,
@@ -90,7 +90,7 @@ def jacobian_single_pol_wrapper(
     vis_pol_ind,
 ):
     """
-    Wrapper for function jacobian_single_pol. Reformats the input gains and
+    Wrapper for function jacobian_skycal. Reformats the input gains and
     output Jacobian to be compatible with the scipy.optimize.minimize function.
 
     Parameters
@@ -121,7 +121,7 @@ def jacobian_single_pol_wrapper(
     gains = np.ones((caldata_obj.Nants), dtype=complex)
     gains[ant_inds] = gains_reshaped
     if caldata_obj.gains_multiply_model:
-        jac = cost_function_calculations.jacobian_single_pol(
+        jac = cost_function_calculations.jacobian_skycal(
             gains,
             np.reshape(
                 caldata_obj.data_visibilities[:, :, freq_ind, vis_pol_ind],
@@ -140,7 +140,7 @@ def jacobian_single_pol_wrapper(
             caldata_obj.lambda_val,
         )
     else:
-        jac = cost_function_calculations.jacobian_single_pol(
+        jac = cost_function_calculations.jacobian_skycal(
             gains,
             np.reshape(
                 caldata_obj.model_visibilities[:, :, freq_ind, vis_pol_ind],
@@ -164,7 +164,7 @@ def jacobian_single_pol_wrapper(
     return jac_flattened
 
 
-def hessian_single_pol_wrapper(
+def hessian_skycal_wrapper(
     gains_flattened,
     caldata_obj,
     ant_inds,
@@ -172,7 +172,7 @@ def hessian_single_pol_wrapper(
     vis_pol_ind,
 ):
     """
-    Wrapper for function hessian_single_pol. Reformats the input gains and
+    Wrapper for function hessian_skycal. Reformats the input gains and
     output Hessian to be compatible with the scipy.optimize.minimize function.
 
     Parameters
@@ -205,7 +205,7 @@ def hessian_single_pol_wrapper(
             hess_real_real,
             hess_real_imag,
             hess_imag_imag,
-        ) = cost_function_calculations.hessian_single_pol(
+        ) = cost_function_calculations.hessian_skycal(
             gains,
             caldata_obj.Nants,
             caldata_obj.Nbls,
@@ -230,7 +230,7 @@ def hessian_single_pol_wrapper(
             hess_real_real,
             hess_real_imag,
             hess_imag_imag,
-        ) = cost_function_calculations.hessian_single_pol(
+        ) = cost_function_calculations.hessian_skycal(
             gains,
             caldata_obj.Nants,
             caldata_obj.Nbls,
@@ -598,7 +598,7 @@ def hessian_dw_abscal_wrapper(
     return hess
 
 
-def run_calibration_optimization_per_pol_single_freq(
+def run_skycal_optimization_per_pol_single_freq(
     caldata_obj,
     xtol,
     maxiter,
@@ -639,7 +639,11 @@ def run_calibration_optimization_per_pol_single_freq(
         Fit gain values. Shape (Nants, 1, N_feed_pols,).
     """
 
-    gains_fit = np.full((caldata_obj.Nants, caldata_obj.N_feed_pols), np.nan + 1j * np.nan, dtype=complex)
+    gains_fit = np.full(
+        (caldata_obj.Nants, caldata_obj.N_feed_pols),
+        np.nan + 1j * np.nan,
+        dtype=complex,
+    )
     if np.max(caldata_obj.visibility_weights[:, :, freq_ind, :]) == 0.0:
         print("ERROR: All data flagged.")
         gains_fit[:, :] = np.nan + 1j * np.nan
@@ -672,12 +676,12 @@ def run_calibration_optimization_per_pol_single_freq(
             # Minimize the cost function
             start_optimize = time.time()
             result = scipy.optimize.minimize(
-                cost_function_single_pol_wrapper,
+                cost_skycal_wrapper,
                 gains_init_flattened,
                 args=(caldata_obj, ant_inds, freq_ind, vis_pol_ind),
                 method="Newton-CG",
-                jac=jacobian_single_pol_wrapper,
-                hess=hessian_single_pol_wrapper,
+                jac=jacobian_skycal_wrapper,
+                hess=hessian_skycal_wrapper,
                 options={"disp": verbose, "xtol": xtol, "maxiter": maxiter},
             )
             end_optimize = time.time()

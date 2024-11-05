@@ -1,7 +1,6 @@
 import numpy as np
 import pyuvdata
-from newcal import cost_function_calculations
-from newcal import calibration_optimization
+from calico import cost_function_calculations
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import multiprocessing
@@ -16,7 +15,7 @@ def calculate_per_antenna_cost(
     """
     Calculate the contribution of each antenna to the cost function. The cost
     function used is the standard "sky-based" per frequency, per polarization
-    cost function evaluated in cost_function_calculations.cost_function_single_pol.
+    cost function evaluated in cost_function_calculations.cost_skycal.
 
     Parameters
     ----------
@@ -84,7 +83,7 @@ def calculate_per_antenna_cost(
             total_cost = 0.0
             for freq_ind in range(caldata_obj.Nfreqs):
                 if caldata_obj.gains_multiply_model:
-                    total_cost += cost_function_calculations.cost_function_single_pol(
+                    total_cost += cost_function_calculations.cost_skycal(
                         caldata_obj.gains[:, freq_ind, pol_ind],
                         caldata_obj.data_visibilities[:, :, freq_ind, pol_ind],
                         caldata_obj.model_visibilities[:, :, freq_ind, pol_ind],
@@ -94,7 +93,7 @@ def calculate_per_antenna_cost(
                         0.0,
                     )
                 else:
-                    total_cost += cost_function_calculations.cost_function_single_pol(
+                    total_cost += cost_function_calculations.cost_skycal(
                         caldata_obj.gains[:, freq_ind, pol_ind],
                         caldata_obj.model_visibilities[:, :, freq_ind, pol_ind],
                         caldata_obj.data_visibilities[:, :, freq_ind, pol_ind],
@@ -148,7 +147,7 @@ def calculate_per_antenna_cost(
                     if caldata_obj.gains_multiply_model:
                         per_ant_cost[
                             ant_ind, pol_ind
-                        ] -= cost_function_calculations.cost_function_single_pol(
+                        ] -= cost_function_calculations.cost_skycal(
                             caldata_obj.gains[:, freq_ind, pol_ind],
                             caldata_obj.data_visibilities[:, :, freq_ind, pol_ind],
                             caldata_obj.model_visibilities[:, :, freq_ind, pol_ind],
@@ -160,7 +159,7 @@ def calculate_per_antenna_cost(
                     else:
                         per_ant_cost[
                             ant_ind, pol_ind
-                        ] -= cost_function_calculations.cost_function_single_pol(
+                        ] -= cost_function_calculations.cost_skycal(
                             caldata_obj.gains[:, freq_ind, pol_ind],
                             caldata_obj.model_visibilities[:, :, freq_ind, pol_ind],
                             caldata_obj.data_visibilities[:, :, freq_ind, pol_ind],
@@ -180,7 +179,7 @@ def calculate_per_antenna_cost(
         else:
             use_pool = pool
         result = use_pool.starmap(
-            cost_function_calculations.cost_function_single_pol,
+            cost_function_calculations.cost_skycal,
             args_list,
         )
         cost_values = np.zeros(

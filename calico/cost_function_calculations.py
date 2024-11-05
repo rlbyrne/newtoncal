@@ -2,7 +2,7 @@ import numpy as np
 import sys
 
 
-def cost_function_single_pol(
+def cost_skycal(
     gains,
     model_visibilities,
     data_visibilities,
@@ -50,7 +50,7 @@ def cost_function_single_pol(
     return cost
 
 
-def jacobian_single_pol(
+def jacobian_skycal(
     gains,
     model_visibilities,
     data_visibilities,
@@ -170,7 +170,7 @@ def reformat_baselines_to_antenna_matrix(
     return antenna_matrix
 
 
-def hessian_single_pol(
+def hessian_skycal(
     gains,
     Nants,
     Nbls,

@@ -27,7 +27,7 @@ class TestStringMethods(unittest.TestCase):
         caldata_obj = caldata.CalData()
         caldata_obj.load_data(data, model)
 
-        cost = cost_function_calculations.cost_function_single_pol(
+        cost = cost_function_calculations.cost_skycal(
             caldata_obj.gains[:, test_freq_ind, 0],
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -72,7 +72,7 @@ class TestStringMethods(unittest.TestCase):
 
         gains_init0 = np.copy(gains_init[:, test_freq_ind])
         gains_init0[test_ant_ind] -= delta_gain / 2
-        cost0 = cost_function_calculations.cost_function_single_pol(
+        cost0 = cost_function_calculations.cost_skycal(
             gains_init0,
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -83,7 +83,7 @@ class TestStringMethods(unittest.TestCase):
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_ind] += delta_gain / 2
-        cost1 = cost_function_calculations.cost_function_single_pol(
+        cost1 = cost_function_calculations.cost_skycal(
             gains_init1,
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -92,7 +92,7 @@ class TestStringMethods(unittest.TestCase):
             caldata_obj.gains_exp_mat_2,
             caldata_obj.lambda_val,
         )
-        jac = cost_function_calculations.jacobian_single_pol(
+        jac = cost_function_calculations.jacobian_skycal(
             gains_init[:, test_freq_ind],
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -143,7 +143,7 @@ class TestStringMethods(unittest.TestCase):
 
         gains_init0 = np.copy(gains_init[:, test_freq_ind])
         gains_init0[test_ant_ind] -= 1j * delta_gain / 2
-        cost0 = cost_function_calculations.cost_function_single_pol(
+        cost0 = cost_function_calculations.cost_skycal(
             gains_init0,
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -154,7 +154,7 @@ class TestStringMethods(unittest.TestCase):
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_ind] += 1j * delta_gain / 2
-        cost1 = cost_function_calculations.cost_function_single_pol(
+        cost1 = cost_function_calculations.cost_skycal(
             gains_init1,
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -163,7 +163,7 @@ class TestStringMethods(unittest.TestCase):
             caldata_obj.gains_exp_mat_2,
             caldata_obj.lambda_val,
         )
-        jac = cost_function_calculations.jacobian_single_pol(
+        jac = cost_function_calculations.jacobian_skycal(
             gains_init[:, test_freq_ind],
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -218,7 +218,7 @@ class TestStringMethods(unittest.TestCase):
 
         gains_init0 = np.copy(gains_init[:, test_freq_ind])
         gains_init0[test_ant_ind] -= delta_gain / 2
-        cost0 = cost_function_calculations.cost_function_single_pol(
+        cost0 = cost_function_calculations.cost_skycal(
             gains_init0,
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -229,7 +229,7 @@ class TestStringMethods(unittest.TestCase):
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_ind] += delta_gain / 2
-        cost1 = cost_function_calculations.cost_function_single_pol(
+        cost1 = cost_function_calculations.cost_skycal(
             gains_init1,
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -238,7 +238,7 @@ class TestStringMethods(unittest.TestCase):
             caldata_obj.gains_exp_mat_2,
             caldata_obj.lambda_val,
         )
-        jac = cost_function_calculations.jacobian_single_pol(
+        jac = cost_function_calculations.jacobian_skycal(
             gains_init[:, test_freq_ind],
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -293,7 +293,7 @@ class TestStringMethods(unittest.TestCase):
 
         gains_init0 = np.copy(gains_init[:, test_freq_ind])
         gains_init0[test_ant_ind] -= 1j * delta_gain / 2
-        cost0 = cost_function_calculations.cost_function_single_pol(
+        cost0 = cost_function_calculations.cost_skycal(
             gains_init0,
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -304,7 +304,7 @@ class TestStringMethods(unittest.TestCase):
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_ind] += 1j * delta_gain / 2
-        cost1 = cost_function_calculations.cost_function_single_pol(
+        cost1 = cost_function_calculations.cost_skycal(
             gains_init1,
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -313,7 +313,7 @@ class TestStringMethods(unittest.TestCase):
             caldata_obj.gains_exp_mat_2,
             caldata_obj.lambda_val,
         )
-        jac = cost_function_calculations.jacobian_single_pol(
+        jac = cost_function_calculations.jacobian_skycal(
             gains_init[:, test_freq_ind],
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -365,7 +365,7 @@ class TestStringMethods(unittest.TestCase):
 
         gains_init0 = np.copy(gains_init[:, test_freq_ind])
         gains_init0[test_ant_1_ind] -= delta_gain / 2
-        jac0 = cost_function_calculations.jacobian_single_pol(
+        jac0 = cost_function_calculations.jacobian_skycal(
             gains_init0,
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -376,7 +376,7 @@ class TestStringMethods(unittest.TestCase):
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_1_ind] += delta_gain / 2
-        jac1 = cost_function_calculations.jacobian_single_pol(
+        jac1 = cost_function_calculations.jacobian_skycal(
             gains_init1,
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -389,7 +389,7 @@ class TestStringMethods(unittest.TestCase):
             hess_real_real,
             hess_real_imag,
             hess_imag_imag,
-        ) = cost_function_calculations.hessian_single_pol(
+        ) = cost_function_calculations.hessian_skycal(
             gains_init[:, test_freq_ind],
             caldata_obj.Nants,
             caldata_obj.Nbls,
@@ -453,7 +453,7 @@ class TestStringMethods(unittest.TestCase):
 
         gains_init0 = np.copy(gains_init[:, test_freq_ind])
         gains_init0[test_ant_1_ind] -= 1j * delta_gain / 2
-        jac0 = cost_function_calculations.jacobian_single_pol(
+        jac0 = cost_function_calculations.jacobian_skycal(
             gains_init0,
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -464,7 +464,7 @@ class TestStringMethods(unittest.TestCase):
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_1_ind] += 1j * delta_gain / 2
-        jac1 = cost_function_calculations.jacobian_single_pol(
+        jac1 = cost_function_calculations.jacobian_skycal(
             gains_init1,
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -477,7 +477,7 @@ class TestStringMethods(unittest.TestCase):
             hess_real_real,
             hess_real_imag,
             hess_imag_imag,
-        ) = cost_function_calculations.hessian_single_pol(
+        ) = cost_function_calculations.hessian_skycal(
             gains_init[:, test_freq_ind],
             caldata_obj.Nants,
             caldata_obj.Nbls,
@@ -541,7 +541,7 @@ class TestStringMethods(unittest.TestCase):
 
         gains_init0 = np.copy(gains_init[:, test_freq_ind])
         gains_init0[test_ant_1_ind] -= delta_gain / 2
-        jac0 = cost_function_calculations.jacobian_single_pol(
+        jac0 = cost_function_calculations.jacobian_skycal(
             gains_init0,
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -552,7 +552,7 @@ class TestStringMethods(unittest.TestCase):
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_1_ind] += delta_gain / 2
-        jac1 = cost_function_calculations.jacobian_single_pol(
+        jac1 = cost_function_calculations.jacobian_skycal(
             gains_init1,
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -565,7 +565,7 @@ class TestStringMethods(unittest.TestCase):
             hess_real_real,
             hess_real_imag,
             hess_imag_imag,
-        ) = cost_function_calculations.hessian_single_pol(
+        ) = cost_function_calculations.hessian_skycal(
             gains_init[:, test_freq_ind],
             caldata_obj.Nants,
             caldata_obj.Nbls,
@@ -630,7 +630,7 @@ class TestStringMethods(unittest.TestCase):
 
         gains_init0 = np.copy(gains_init[:, test_freq_ind])
         gains_init0[test_ant_1_ind] -= 1j * delta_gain / 2
-        jac0 = cost_function_calculations.jacobian_single_pol(
+        jac0 = cost_function_calculations.jacobian_skycal(
             gains_init0,
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -641,7 +641,7 @@ class TestStringMethods(unittest.TestCase):
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_1_ind] += 1j * delta_gain / 2
-        jac1 = cost_function_calculations.jacobian_single_pol(
+        jac1 = cost_function_calculations.jacobian_skycal(
             gains_init1,
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -654,7 +654,7 @@ class TestStringMethods(unittest.TestCase):
             hess_real_real,
             hess_real_imag,
             hess_imag_imag,
-        ) = cost_function_calculations.hessian_single_pol(
+        ) = cost_function_calculations.hessian_skycal(
             gains_init[:, test_freq_ind],
             caldata_obj.Nants,
             caldata_obj.Nbls,
@@ -725,7 +725,7 @@ class TestStringMethods(unittest.TestCase):
 
         gains_init0 = np.copy(gains_init[:, test_freq_ind])
         gains_init0[test_ant_1_ind] -= delta_gain / 2
-        jac0 = cost_function_calculations.jacobian_single_pol(
+        jac0 = cost_function_calculations.jacobian_skycal(
             gains_init0,
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -736,7 +736,7 @@ class TestStringMethods(unittest.TestCase):
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_1_ind] += delta_gain / 2
-        jac1 = cost_function_calculations.jacobian_single_pol(
+        jac1 = cost_function_calculations.jacobian_skycal(
             gains_init1,
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -749,7 +749,7 @@ class TestStringMethods(unittest.TestCase):
             hess_real_real,
             hess_real_imag,
             hess_imag_imag,
-        ) = cost_function_calculations.hessian_single_pol(
+        ) = cost_function_calculations.hessian_skycal(
             gains_init[:, test_freq_ind],
             caldata_obj.Nants,
             caldata_obj.Nbls,
@@ -819,7 +819,7 @@ class TestStringMethods(unittest.TestCase):
 
         gains_init0 = np.copy(gains_init[:, test_freq_ind])
         gains_init0[test_ant_1_ind] -= 1j * delta_gain / 2
-        jac0 = cost_function_calculations.jacobian_single_pol(
+        jac0 = cost_function_calculations.jacobian_skycal(
             gains_init0,
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -830,7 +830,7 @@ class TestStringMethods(unittest.TestCase):
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_1_ind] += 1j * delta_gain / 2
-        jac1 = cost_function_calculations.jacobian_single_pol(
+        jac1 = cost_function_calculations.jacobian_skycal(
             gains_init1,
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -843,7 +843,7 @@ class TestStringMethods(unittest.TestCase):
             hess_real_real,
             hess_real_imag,
             hess_imag_imag,
-        ) = cost_function_calculations.hessian_single_pol(
+        ) = cost_function_calculations.hessian_skycal(
             gains_init[:, test_freq_ind],
             caldata_obj.Nants,
             caldata_obj.Nbls,
@@ -911,7 +911,7 @@ class TestStringMethods(unittest.TestCase):
 
         gains_init0 = np.copy(gains_init[:, test_freq_ind])
         gains_init0[test_ant_1_ind] -= delta_gain / 2
-        jac0 = cost_function_calculations.jacobian_single_pol(
+        jac0 = cost_function_calculations.jacobian_skycal(
             gains_init0,
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -922,7 +922,7 @@ class TestStringMethods(unittest.TestCase):
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_1_ind] += delta_gain / 2
-        jac1 = cost_function_calculations.jacobian_single_pol(
+        jac1 = cost_function_calculations.jacobian_skycal(
             gains_init1,
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -935,7 +935,7 @@ class TestStringMethods(unittest.TestCase):
             hess_real_real,
             hess_real_imag,
             hess_imag_imag,
-        ) = cost_function_calculations.hessian_single_pol(
+        ) = cost_function_calculations.hessian_skycal(
             gains_init[:, test_freq_ind],
             caldata_obj.Nants,
             caldata_obj.Nbls,
@@ -1004,7 +1004,7 @@ class TestStringMethods(unittest.TestCase):
 
         gains_init0 = np.copy(gains_init[:, test_freq_ind])
         gains_init0[test_ant_1_ind] -= 1j * delta_gain / 2
-        jac0 = cost_function_calculations.jacobian_single_pol(
+        jac0 = cost_function_calculations.jacobian_skycal(
             gains_init0,
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -1015,7 +1015,7 @@ class TestStringMethods(unittest.TestCase):
         )
         gains_init1 = np.copy(gains_init[:, test_freq_ind])
         gains_init1[test_ant_1_ind] += 1j * delta_gain / 2
-        jac1 = cost_function_calculations.jacobian_single_pol(
+        jac1 = cost_function_calculations.jacobian_skycal(
             gains_init1,
             caldata_obj.model_visibilities[:, :, test_freq_ind, test_pol_ind],
             caldata_obj.data_visibilities[:, :, test_freq_ind, test_pol_ind],
@@ -1028,7 +1028,7 @@ class TestStringMethods(unittest.TestCase):
             hess_real_real,
             hess_real_imag,
             hess_imag_imag,
-        ) = cost_function_calculations.hessian_single_pol(
+        ) = cost_function_calculations.hessian_skycal(
             gains_init[:, test_freq_ind],
             caldata_obj.Nants,
             caldata_obj.Nbls,
@@ -1104,7 +1104,7 @@ class TestStringMethods(unittest.TestCase):
             axis=0,
         ).flatten()
 
-        hess = calibration_optimization.hessian_single_pol_wrapper(
+        hess = calibration_optimization.hessian_skycal_wrapper(
             gains_flattened, caldata_obj, np.arange(caldata_obj.Nants), 0, 0
         )
 
@@ -1131,7 +1131,7 @@ class TestStringMethods(unittest.TestCase):
             dtype=float,
         )
 
-        caldata_obj.calibration_per_pol(
+        caldata_obj.sky_based_calibration(
             xtol=1e-8,
             parallel=False,
         )
@@ -1175,7 +1175,7 @@ class TestStringMethods(unittest.TestCase):
         caldata_obj.visibility_weights[2, 10, 0, :] = 0.0
         caldata_obj.visibility_weights[1, 20, 0, :] = 0.0
 
-        caldata_obj.calibration_per_pol(
+        caldata_obj.sky_based_calibration(
             xtol=1e-8,
             parallel=False,
         )
@@ -1225,7 +1225,7 @@ class TestStringMethods(unittest.TestCase):
         )
         caldata_obj.data_visibilities[:, baseline_inds, :, :] += data_perturbation
 
-        caldata_obj.calibration_per_pol(
+        caldata_obj.sky_based_calibration(
             xtol=1e-8,
             parallel=False,
         )
@@ -2516,7 +2516,7 @@ class TestStringMethods(unittest.TestCase):
             dtype=float,
         )
 
-        caldata_obj.calibration_per_pol(
+        caldata_obj.sky_based_calibration(
             xtol=1e-8,
             parallel=False,
         )
@@ -2567,7 +2567,7 @@ class TestStringMethods(unittest.TestCase):
         caldata_obj.visibility_weights[2, 10, 0, :] = 0.0
         caldata_obj.visibility_weights[1, 20, 0, :] = 0.0
 
-        caldata_obj.calibration_per_pol(
+        caldata_obj.sky_based_calibration(
             xtol=1e-8,
             parallel=False,
         )
