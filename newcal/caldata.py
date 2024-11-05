@@ -47,11 +47,21 @@ class CalData:
     dwcal_inv_covariance : array of complex
         Matrix defining frequency-frequency covariances used in delay-weighted
         calibration. Needed only if delay weighting is used in calibration.
-        Shape (Ntimes, Nbls, Nfreqs, Nfreqs, N_vis_pols,).
+        If dwcal_memory_save_mode is False, dwcal_inv_covariance has shape
+        (Ntimes, Nbls, Nfreqs, Nfreqs, N_vis_pols,). If dwcal_memory_save_mode
+        is True, dwcal_inv_covariance has shape (Ntimes, Nbls, Nfreqs, N_vis_pols,).
+        Alternatively, if the time or polarization axes have length 1,
+        dw_inv_covariance is assumed to be identical across time steps or polarization.
+    dwcal_memory_save_mode : bool
+        Defines the format of dwcal_inv_covariance. If True, dwcal_inv_covariance
+        is assumed to be Toeplitz and is stored in a more compact form.
     gains_exp_mat_1 : array of int
         Shape (Nbls, Nants,).
     gains_exp_mat_2 : array of int
         Shape (Nbls, Nants,).
+    gains_multiply_model : bool
+        If True, measurement equation is defined as v_ij ≈ g_i g_j^* m_ij. If False,
+        measurement equation is defined as g_i g_j^* v_ij ≈ m_ij.
     antenna_names : array of str
         Shape (Nants,). Ordering matches the ordering of the gains attribute.
     antenna_numbers : array of int
@@ -91,8 +101,10 @@ class CalData:
         self.data_visibilities = None
         self.visibility_weights = None
         self.dwcal_inv_covariance = None
+        self.dwcal_memory_save_mode = None
         self.gains_exp_mat_1 = None
         self.gains_exp_mat_2 = None
+        self.gains_multiply_model = None
         self.antenna_names = None
         self.antenna_numbers = None
         self.antenna_positions = None
@@ -113,11 +125,17 @@ class CalData:
         Parameters
         ----------
         calfile : str
-            Path to a pyuvdata-formatted calfits file.
+            Path to a pyuvdata-formatted calfits file or a CASA-formatted .bcal file.
         """
 
         uvcal = pyuvdata.UVCal()
-        uvcal.read_calfits(calfile)
+        if calfile.endswith(".calfits"):
+            uvcal.read_calfits(calfile)
+        elif calfile.endswith(".bcal"):
+            uvcal.read_ms_cal(calfile)
+        else:
+            print(f"ERROR: Unknown file extension for file {calfile}. Exiting.")
+            sys.exit(1)
         uvcal.select(frequencies=self.freq_array, antenna_names=self.antenna_names)
         if self.feed_polarization_array is None:
             self.feed_polarization_array = uvcal.jones_array
@@ -126,7 +144,7 @@ class CalData:
         uvcal.reorder_freqs(channel_order="freq")
         uvcal.reorder_jones()
         use_gains = np.mean(
-            uvcal.gain_array[:, 0, :, :, :], axis=2
+            uvcal.gain_array, axis=2
         )  # Average over times
 
         # Make antenna ordering match
@@ -135,7 +153,14 @@ class CalData:
             [list(cal_ant_names).index(name) for name in self.antenna_names]
         )
 
-        self.gains = use_gains[cal_ant_inds, :, :]
+        if self.gains_multiply_model:
+            if uvcal.gain_convention != "divide":
+                use_gains = 1/use_gains
+        else:
+            if uvcal.gain_convention != "multiply":
+                use_gains = 1/use_gains
+
+        self.gains = use_gains[cal_ant_inds, :]
 
     def load_data(
         self,
@@ -143,6 +168,7 @@ class CalData:
         model,
         gain_init_calfile=None,
         gain_init_to_vis_ratio=True,
+        gains_multiply_model=False,
         gain_init_stddev=0.0,
         N_feed_pols=None,
         feed_polarization_array=None,
@@ -171,6 +197,12 @@ class CalData:
             to the median ratio between the amplitudes of the model and data
             visibilities. If False, the gains are initialized to 1. Default
             True.
+        gains_multiply_model : bool
+            If True, measurement equation is defined as v_ij ≈ g_i g_j^* m_ij. If
+            False, measurement equation is defined as g_i g_j^* v_ij ≈ m_ij. This
+            parameter affects how calibration is performed, and whether the data is
+            multiplied or divided by the gains when calibration solutions are applied.
+            Default False.
         gain_init_stddev : float
             Default 0.0. Standard deviation of a random complex Gaussian
             perturbation to the initial gains.
@@ -496,6 +528,7 @@ class CalData:
             self.feed_polarization_array = feed_polarization_array
 
         # Initialize gains
+        self.gains_multiply_model = gains_multiply_model
         if gain_init_calfile is None:
             self.gains = np.ones(
                 (
@@ -510,7 +543,10 @@ class CalData:
                     self.data_visibilities
                 )
                 vis_amp_ratio[np.where(self.data_visibilities == 0.0)] = np.nan
-                self.gains[:, :, :] = np.sqrt(np.nanmedian(vis_amp_ratio))
+                if self.gains_multiply_model:
+                    self.gains[:, :, :] = 1 / np.sqrt(np.nanmedian(vis_amp_ratio))
+                else:
+                    self.gains[:, :, :] = np.sqrt(np.nanmedian(vis_amp_ratio))
         else:  # Initialize from file
             self.set_gains_from_calfile(gain_init_calfile)
             # Capture nan-ed gains as flags
@@ -622,6 +658,7 @@ class CalData:
             ]
             caldata_per_freq.gains_exp_mat_1 = self.gains_exp_mat_1
             caldata_per_freq.gains_exp_mat_2 = self.gains_exp_mat_2
+            caldata_per_freq.gains_multiply_model = self.gains_multiply_model
             caldata_per_freq.antenna_names = self.antenna_names
             caldata_per_freq.antenna_numbers = self.antenna_numbers
             caldata_per_freq.antenna_positions = self.antenna_positions
@@ -634,6 +671,12 @@ class CalData:
             caldata_per_freq.lst = self.lst
             caldata_per_freq.telescope_location = self.telescope_location
             caldata_per_freq.lambda_val = self.lambda_val
+            if self.dwcal_inv_covariance is not None:
+                print(
+                    "WARNING: Discarding dwcal_inv_covariance in frequency expansion."
+                )
+            caldata_per_freq.dwcal_inv_covariance = None
+            caldata_per_freq.dwcal_memory_save_mode = None
             caldata_list.append(caldata_per_freq)
 
         return caldata_list
@@ -678,6 +721,7 @@ class CalData:
             ]
             caldata_per_pol.gains_exp_mat_1 = self.gains_exp_mat_1
             caldata_per_pol.gains_exp_mat_2 = self.gains_exp_mat_2
+            caldata_per_pol.gains_multiply_model = self.gains_multiply_model
             caldata_per_pol.antenna_names = self.antenna_names
             caldata_per_pol.antenna_numbers = self.antenna_numbers
             caldata_per_pol.antenna_positions = self.antenna_positions
@@ -691,39 +735,18 @@ class CalData:
             caldata_per_pol.telescope_location = self.telescope_location
             caldata_per_pol.lambda_val = self.lambda_val
             if self.dwcal_inv_covariance is not None:
-                caldata_per_pol.dwcal_inv_covariance = self.dwcal_inv_covariance[
-                    :, :, :, :, [sky_pol_ind]
-                ]
-
-            """
-            if np.max(caldata_per_pol.visibility_weights) > 0.0:
-                # Check if some antennas are fully flagged
-                antenna_weights = np.sum(
-                    np.matmul(
-                        caldata_per_pol.gains_exp_mat_1.T,
-                        caldata_per_pol.visibility_weights[:, :, 0, 0].T,
-                    )
-                    + np.matmul(
-                        caldata_per_pol.gains_exp_mat_2.T,
-                        caldata_per_pol.visibility_weights[:, :, 0, 0].T,
-                    ),
-                    axis=1,
-                )
-                use_ants = np.where(antenna_weights > 0)[0]
-                if len(use_ants) != caldata_per_pol.Nants:
-                    caldata_per_pol.gains = caldata_per_pol.gains[use_ants, :, :]
-                    caldata_per_pol.Nants = len(use_ants)
-                    caldata_per_pol.gains_exp_mat_1 = caldata_per_pol.gains_exp_mat_1[
-                        :, use_ants
-                    ]
-                    caldata_per_pol.gains_exp_mat_2 = caldata_per_pol.gains_exp_mat_2[
-                        :, use_ants
-                    ]
-                    caldata_per_pol.antenna_names = caldata_per_pol.antenna_names[
-                        use_ants
-                    ]
-            """
-
+                if np.shape(self.dwcal_inv_covariance)[-1] == 1:
+                    caldata_per_pol.dwcal_inv_covariance = self.dwcal_inv_covariance
+                else:
+                    if self.dwcal_memory_save_mode:
+                        caldata_per_pol.dwcal_inv_covariance = (
+                            self.dwcal_inv_covariance[:, :, :, [sky_pol_ind]]
+                        )
+                    else:
+                        caldata_per_pol.dwcal_inv_covariance = (
+                            self.dwcal_inv_covariance[:, :, :, :, [sky_pol_ind]]
+                        )
+            caldata_per_pol.dwcal_memory_save_mode = self.dwcal_memory_save_mode
             caldata_list.append(caldata_per_pol)
 
         return caldata_list
@@ -752,7 +775,10 @@ class CalData:
         uvcal.cal_type = "gain"
         uvcal.channel_width = np.full((self.Nfreqs), self.channel_width)
         uvcal.freq_array = self.freq_array
-        uvcal.gain_convention = "multiply"
+        if self.gains_multiply_model:
+            uvcal.gain_convention = "divide"
+        else:
+            uvcal.gain_convention = "multiply"
         uvcal.history = "calibrated with newcal"
         uvcal.integration_time = np.array([self.integration_time])
         uvcal.jones_array = self.feed_polarization_array
@@ -1101,14 +1127,32 @@ class CalData:
                         :, np.abs(freq_ind1 - freq_ind2)
                     ]
 
-        weight_mat = np.repeat(
-            np.repeat(weight_mat[np.newaxis, :, :, :, np.newaxis], self.Ntimes, axis=0),
-            self.N_vis_pols,
-            axis=4,
-        )  # Use the same matrix for all times and polarizations
+        # Use the same matrix for all times and polarizations
+        # These are included as variables so that time- and polarization-dependence
+        # can be built in later if needed
+        use_Ntimes = 1
+        use_N_vis_pols = 1
+
+        if self.dwcal_memory_save_mode:
+            weight_mat = np.repeat(
+                np.repeat(weight_mat[np.newaxis, :, :, np.newaxis], use_Ntimes, axis=0),
+                use_N_vis_pols,
+                axis=3,
+            )
+        else:
+            weight_mat = np.repeat(
+                np.repeat(
+                    weight_mat[np.newaxis, :, :, :, np.newaxis], use_Ntimes, axis=0
+                ),
+                use_N_vis_pols,
+                axis=4,
+            )
 
         # Deal with nan-ed values
-        nan_weight_indices = np.where(~np.isfinite(np.sum(weight_mat, axis=(2, 3))))
+        if self.dwcal_memory_save_mode:
+            nan_weight_indices = np.where(~np.isfinite(np.sum(weight_mat, axis=2)))
+        else:
+            nan_weight_indices = np.where(~np.isfinite(np.sum(weight_mat, axis=(2, 3))))
         if len(nan_weight_indices[0]) > 0:
             print(
                 "WARNING: nan values encountered in DWCal inverse convariance matrix. Updating weights."
@@ -1120,29 +1164,53 @@ class CalData:
             )  # Remove nan values to prevent issues later on
 
         # Fix normalization
-        for time_ind in range(self.Ntimes):
-            for vis_pol_ind in range(self.N_vis_pols):
-                normalization_factor = np.sum(
-                    self.visibility_weights[time_ind, :, :, vis_pol_ind]
-                ) / np.real(
-                    np.sum(
-                        np.trace(
-                            np.sqrt(
-                                self.visibility_weights[
-                                    time_ind, :, :, np.newaxis, vis_pol_ind
-                                ]
-                            )
-                            * np.sqrt(
-                                self.visibility_weights[
-                                    time_ind, :, np.newaxis, :, vis_pol_ind
-                                ]
-                            )
-                            * weight_mat[time_ind, :, :, :, vis_pol_ind],
-                            axis1=1,
-                            axis2=2,
+        use_visibility_weights = self.visibility_weights
+        if self.Ntimes > use_Ntimes:
+            use_visibility_weights = np.mean(use_visibility_weights, axis=0)[
+                np.newaxis, :, :, :
+            ]
+        if self.N_vis_pols > use_N_vis_pols:
+            use_visibility_weights = np.mean(use_visibility_weights, axis=3)[
+                :, :, :, np.newaxis
+            ]
+        for time_ind in range(use_Ntimes):
+            for vis_pol_ind in range(use_N_vis_pols):
+                normalization_numerator = np.sum(
+                    use_visibility_weights[time_ind, :, :, vis_pol_ind]
+                )
+                if self.dwcal_memory_save_mode:
+                    normalization_denominator = np.real(
+                        np.sum(
+                            use_visibility_weights[time_ind, :, :, vis_pol_ind]
+                            * weight_mat[time_ind, :, :, vis_pol_ind]
                         )
                     )
+                else:
+                    normalization_denominator = np.real(
+                        np.sum(
+                            np.trace(
+                                np.sqrt(
+                                    use_visibility_weights[
+                                        time_ind, :, :, np.newaxis, vis_pol_ind
+                                    ]
+                                )
+                                * np.sqrt(
+                                    use_visibility_weights[
+                                        time_ind, :, np.newaxis, :, vis_pol_ind
+                                    ]
+                                )
+                                * weight_mat[time_ind, :, :, :, vis_pol_ind],
+                                axis1=1,
+                                axis2=2,
+                            )
+                        )
+                    )
+                normalization_factor = (
+                    normalization_numerator / normalization_denominator
                 )
-                weight_mat[time_ind, :, :, :, vis_pol_ind] *= normalization_factor
+                if self.dwcal_memory_save_mode:
+                    weight_mat[time_ind, :, :, vis_pol_ind] *= normalization_factor
+                else:
+                    weight_mat[time_ind, :, :, :, vis_pol_ind] *= normalization_factor
 
         self.dwcal_inv_covariance = weight_mat

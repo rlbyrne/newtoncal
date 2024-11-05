@@ -7,12 +7,14 @@ from newcal import calibration_optimization, caldata
 
 
 def calibration_per_pol_wrapper(
-    data_file_path,
-    model_file_path,
+    data,
+    model,
     data_use_column="DATA",
     model_use_column="MODEL_DATA",
+    conjugate_data=False,
     conjugate_model=False,
     gain_init_calfile=None,
+    gains_multiply_model=False,
     gain_init_to_vis_ratio=True,
     gain_init_stddev=0.0,
     N_feed_pols=None,
@@ -43,18 +45,23 @@ def calibration_per_pol_wrapper(
 
     Parameters
     ----------
-    data_file_path : str
-        Path to the ms or uvfits file containing the data visibilities.
-    model_file_path : str
-        Path to the ms or uvfits file containing the model visibilities.
+    data : str or UVData
+        Path to the pyuvdata-readable file containing the  data visibilities
+        or a pyuvdata UVData object.
+    model : str or UVData
+        Path to the pyuvdata-readable file containing the model visibilities
+        or a pyuvdata UVData object.
     data_use_column : str
         Column in an ms file to use for the data visibilities. Used only if
         data_file_path points to an ms file. Default "DATA".
     model_use_column : str
         Column in an ms file to use for the model visibilities. Used only if
         data_file_path points to an ms file. Default "MODEL_DATA".
+    conjugate_data : bool
+        Option to conjugate data visibilities, needed sometimes when the data
+        and model convention does not match. Default False.
     conjugate_model : bool
-        Option to conjugate model baselines, needed sometimes when the data
+        Option to conjugate model visibilities, needed sometimes when the data
         and model convention does not match. Default False.
     gain_init_calfile : str or None
         Default None. If not None, provides a path to a pyuvdata-formatted
@@ -64,6 +71,10 @@ def calibration_per_pol_wrapper(
         to the median ratio between the amplitudes of the model and data
         visibilities. If False, the gains are initialized to 1. Default
         True.
+    gains_multiply_model : bool
+        If True, measurement equation is defined as v_ij ≈ g_i g_j^* m_ij. If
+        False, measurement equation is defined as g_i g_j^* v_ij ≈ m_ij. Default
+        False.
     gain_init_stddev : float
         Default 0.0. Standard deviation of a random complex Gaussian
         perturbation to the initial gains.
@@ -141,39 +152,57 @@ def calibration_per_pol_wrapper(
         pool = None
 
     if verbose:
-        print("Reading data...")
-        sys.stdout.flush()
         data_read_start_time = time.time()
 
-    # Read data
-    data = pyuvdata.UVData()
-    if data_file_path.endswith(".ms"):
-        data.read_ms(data_file_path, data_column=data_use_column)
-    elif data_file_path.endswith(".uvfits"):
-        data.read_uvfits(data_file_path)
-    else:
-        print(f"ERROR: Unsupported file type for data file {data_file_path}. Exiting.")
-        sys.exit(1)
-    model = pyuvdata.UVData()
-    if model_file_path.endswith(".ms"):
-        model.read_ms(model_file_path, data_column=model_use_column)
-    elif model_file_path.endswith(".uvfits"):
-        model.read_uvfits(model_file_path)
-    else:
-        print(
-            f"ERROR: Unsupported file type for model file {model_file_path}. Exiting."
-        )
-        sys.exit(1)
+    print_data_read_time = False
+    if isinstance(data, str):  # Read data
+        data_file_path = data
+        data = pyuvdata.UVData()
+        if data_file_path.endswith(".ms"):
+            data.read_ms(
+                data_file_path,
+                data_column=data_use_column,
+                ignore_single_chan=False,
+            )
+        elif data_file_path.endswith(".uvfits"):
+            data.read_uvfits(data_file_path)
+        else:
+            data.read(data_file_path)
+        print_data_read_time = True
+    if isinstance(model, str):  # Read model
+        model_file_path = model
+        model = pyuvdata.UVData()
+        if model_file_path.endswith(".ms"):
+            model.read_ms(
+                model_file_path,
+                data_column=model_use_column,
+                ignore_single_chan=False,
+            )
+        elif model_file_path.endswith(".uvfits"):
+            model.read_uvfits(model_file_path)
+        else:
+            model.read(model_file_path)
+        print_data_read_time = True
+
+    if conjugate_data:
+        print("Conjugating data visibilities.")
+        sys.stdout.flush()
+        data.data_array = np.conj(data.data_array)
 
     if conjugate_model:
-        print("Conjugating model baselines.")
+        print("Conjugating model visibilities.")
         sys.stdout.flush()
         model.data_array = np.conj(model.data_array)
 
+    # Ensure data and model are phased the same
+    data.phase_to_time(np.mean(data.time_array))
+    model.phase_to_time(np.mean(data.time_array))
+
     if verbose:
-        print(
-            f"Done. Data read time {(time.time() - data_read_start_time)/60.} minutes."
-        )
+        if print_data_read_time:
+            print(
+                f"Done. Data read time {(time.time() - data_read_start_time)/60.} minutes."
+            )
         print("Formatting data...")
         sys.stdout.flush()
         data_format_start_time = time.time()
@@ -184,6 +213,7 @@ def calibration_per_pol_wrapper(
         model,
         gain_init_calfile=gain_init_calfile,
         gain_init_to_vis_ratio=gain_init_to_vis_ratio,
+        gains_multiply_model=gains_multiply_model,
         gain_init_stddev=gain_init_stddev,
         N_feed_pols=N_feed_pols,
         feed_polarization_array=feed_polarization_array,
@@ -271,6 +301,7 @@ def abscal_wrapper(
     model_use_column="MODEL_DATA",
     N_feed_pols=None,
     feed_polarization_array=None,
+    gains_multiply_model=False,
     min_cal_baseline_m=None,
     max_cal_baseline_m=None,
     min_cal_baseline_lambda=None,
@@ -304,6 +335,9 @@ def abscal_wrapper(
         Feed polarizations to calibrate. Shape (N_feed_pols,). Options are
         -5 for X or -6 for Y. Default None. If None, feed_polarization_array
         is set to ([-5, -6])[:N_feed_pols].
+    gains_multiply_model : bool
+        If True, the abscal parameters multiply the model visibilities. Default
+        False.
     min_cal_baseline_m : float or None
         Minimum baseline length, in meters, to use in calibration. If both
         min_cal_baseline_m and min_cal_baseline_lambda are None, arbitrarily
@@ -385,6 +419,7 @@ def abscal_wrapper(
         model,
         N_feed_pols=N_feed_pols,
         feed_polarization_array=feed_polarization_array,
+        gains_multiply_model=gains_multiply_model,
         min_cal_baseline_m=min_cal_baseline_m,
         max_cal_baseline_m=max_cal_baseline_m,
         min_cal_baseline_lambda=min_cal_baseline_lambda,
@@ -426,6 +461,7 @@ def dw_absolute_calibration(
     data_use_column="DATA",
     model_use_column="MODEL_DATA",
     initial_abscal_params=None,
+    gains_multiply_model=False,
     N_feed_pols=None,
     feed_polarization_array=None,
     min_cal_baseline_m=None,
@@ -467,6 +503,9 @@ def dw_absolute_calibration(
         are the overall amplitudes, abscal_params[1, :, :] are the x-phase gradients in units
         1/m, and abscal_params[2, :, :] are the y-phase gradients in units 1/m. Currently the
         frequency and polarization axes must match those in the data (this should be fixed).
+    gains_multiply_model : bool
+        If True, the abscal parameters multiply the model visibilities. Default
+        False.
     N_feed_pols : int
         Default min(2, N_vis_pols). Number of feed polarizations, equal to
         the number of gain values to be calculated per antenna.
@@ -553,6 +592,7 @@ def dw_absolute_calibration(
         model,
         N_feed_pols=N_feed_pols,
         feed_polarization_array=feed_polarization_array,
+        gains_multiply_model=gains_multiply_model,
         min_cal_baseline_m=min_cal_baseline_m,
         max_cal_baseline_m=max_cal_baseline_m,
         min_cal_baseline_lambda=min_cal_baseline_lambda,
@@ -600,7 +640,13 @@ def dw_absolute_calibration(
     return caldata_obj.abscal_params
 
 
-def apply_abscal(uvdata, abscal_params, feed_polarization_array, inplace=False):
+def apply_abscal(
+    uvdata,
+    abscal_params,
+    feed_polarization_array,
+    gains_multiply_model=False,
+    inplace=False,
+):
     """
     Apply absolute calibration solutions to data.
 
@@ -615,6 +661,9 @@ def apply_abscal(uvdata, abscal_params, feed_polarization_array, inplace=False):
     feed_polarization_array : array of int
         Shape (N_feed_pols). Array of polarization integers. Indicates the
         ordering of the polarization axis of the gains. X is -5 and Y is -6.
+    gains_multiply_model : bool
+        If True, the data is divided by the abscal term. If False, data is multiplied by the abscal
+        term. Default False.
     inplace : bool
         If True, updates uvdata. If False, returns a new UVData object.
 
@@ -682,13 +731,23 @@ def apply_abscal(uvdata, abscal_params, feed_polarization_array, inplace=False):
         )  # Shape (Nbls, Nfreqs,)
 
         if inplace:
-            uvdata.data_array[:, :, vis_pol_ind] *= (
-                amp_term[np.newaxis, :] * phase_correction
-            )
+            if gains_multiply_model:
+                uvdata.data_array[:, :, vis_pol_ind] /= (
+                    amp_term[np.newaxis, :] * phase_correction
+                )
+            else:
+                uvdata.data_array[:, :, vis_pol_ind] *= (
+                    amp_term[np.newaxis, :] * phase_correction
+                )
         else:
-            uvdata_new.data_array[:, :, vis_pol_ind] *= (
-                amp_term[np.newaxis, :] * phase_correction
-            )
+            if gains_multiply_model:
+                uvdata_new.data_array[:, :, vis_pol_ind] /= (
+                    amp_term[np.newaxis, :] * phase_correction
+                )
+            else:
+                uvdata_new.data_array[:, :, vis_pol_ind] *= (
+                    amp_term[np.newaxis, :] * phase_correction
+                )
 
     if not inplace:
         return uvdata_new

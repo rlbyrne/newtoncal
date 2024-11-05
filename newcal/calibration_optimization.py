@@ -9,6 +9,7 @@ from newcal import cost_function_calculations
 def cost_function_single_pol_wrapper(
     gains_flattened,
     caldata_obj,
+    ant_inds,
     freq_ind,
     vis_pol_ind,
 ):
@@ -19,10 +20,12 @@ def cost_function_single_pol_wrapper(
     Parameters
     ----------
     gains_flattened : array of float
-        Array of gain values. gains_flattened[0:Nants] corresponds to the real
-        components of the gains and gains_flattened[Nants:] correponds to the
-        imaginary components. Shape (2*Nants,).
+        Array of gain values. gains_flattened[0:Nants_unflagged] corresponds to
+        the realcomponents of the gains and gains_flattened[Nants_unflagged:]
+        correponds to the imaginary components. Shape (2*Nants_unflagged,).
     caldata_obj : CalData
+    ant_inds : array of int
+        Indices of unflagged antennas to be calibrated. Shape (Nants_unflagged,).
     freq_ind : int
         Frequency channel index.
     vis_pol_ind : int
@@ -34,38 +37,55 @@ def cost_function_single_pol_wrapper(
         Value of the cost function.
     """
 
-    gains = np.reshape(
-        gains_flattened,
-        (
-            2,
-            caldata_obj.Nants,
-        ),
-    )
-    gains = gains[0, :] + 1.0j * gains[1, :]
-    cost = cost_function_calculations.cost_function_single_pol(
-        gains,
-        np.reshape(
-            caldata_obj.model_visibilities[:, :, freq_ind, vis_pol_ind],
-            (caldata_obj.Ntimes, caldata_obj.Nbls),
-        ),
-        np.reshape(
-            caldata_obj.data_visibilities[:, :, freq_ind, vis_pol_ind],
-            (caldata_obj.Ntimes, caldata_obj.Nbls),
-        ),
-        np.reshape(
-            caldata_obj.visibility_weights[:, :, freq_ind, vis_pol_ind],
-            (caldata_obj.Ntimes, caldata_obj.Nbls),
-        ),
-        caldata_obj.gains_exp_mat_1,
-        caldata_obj.gains_exp_mat_2,
-        caldata_obj.lambda_val,
-    )
+    gains_reshaped = np.reshape(gains_flattened, (2, len(ant_inds)))
+    gains_reshaped = gains_reshaped[0, :] + 1.0j * gains_reshaped[1, :]
+    gains = np.ones((caldata_obj.Nants), dtype=complex)
+    gains[ant_inds] = gains_reshaped
+    if caldata_obj.gains_multiply_model:
+        cost = cost_function_calculations.cost_function_single_pol(
+            gains,
+            np.reshape(
+                caldata_obj.data_visibilities[:, :, freq_ind, vis_pol_ind],
+                (caldata_obj.Ntimes, caldata_obj.Nbls),
+            ),
+            np.reshape(
+                caldata_obj.model_visibilities[:, :, freq_ind, vis_pol_ind],
+                (caldata_obj.Ntimes, caldata_obj.Nbls),
+            ),
+            np.reshape(
+                caldata_obj.visibility_weights[:, :, freq_ind, vis_pol_ind],
+                (caldata_obj.Ntimes, caldata_obj.Nbls),
+            ),
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
+        )
+    else:
+        cost = cost_function_calculations.cost_function_single_pol(
+            gains,
+            np.reshape(
+                caldata_obj.model_visibilities[:, :, freq_ind, vis_pol_ind],
+                (caldata_obj.Ntimes, caldata_obj.Nbls),
+            ),
+            np.reshape(
+                caldata_obj.data_visibilities[:, :, freq_ind, vis_pol_ind],
+                (caldata_obj.Ntimes, caldata_obj.Nbls),
+            ),
+            np.reshape(
+                caldata_obj.visibility_weights[:, :, freq_ind, vis_pol_ind],
+                (caldata_obj.Ntimes, caldata_obj.Nbls),
+            ),
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
+        )
     return cost
 
 
 def jacobian_single_pol_wrapper(
     gains_flattened,
     caldata_obj,
+    ant_inds,
     freq_ind,
     vis_pol_ind,
 ):
@@ -76,10 +96,12 @@ def jacobian_single_pol_wrapper(
     Parameters
     ----------
     gains_flattened : array of float
-        Array of gain values. gains_flattened[0:Nants] corresponds to the real
-        components of the gains and gains_flattened[Nants:] correponds to the
-        imaginary components. Shape (2*Nants,).
+        Array of gain values. gains_flattened[0:Nants_unflagged] corresponds to
+        the realcomponents of the gains and gains_flattened[Nants_unflagged:]
+        correponds to the imaginary components. Shape (2*Nants_unflagged,).
     caldata_obj : CalData
+    ant_inds : array of int
+        Indices of unflagged antennas to be calibrated. Shape (Nants_unflagged,).
     freq_ind : int
         Frequency channel index.
     vis_pol_ind : int
@@ -88,45 +110,64 @@ def jacobian_single_pol_wrapper(
     Returns
     -------
     jac_flattened : array of float
-        Jacobian of the cost function, shape (2*Nants,). jac_flattened[0:Nants]
-        corresponds to the derivatives with respect to the real part of the
-        gains; jac_flattened[Nants:] corresponds to derivatives with respect to
-        the imaginary part of the gains.
+        Jacobian of the cost function, shape (2*Nants_unflagged,).
+        jac_flattened[0:Nants_unflagged] corresponds to the derivatives with
+        respect to the real part of the gains; jac_flattened[Nants_unflagged:]
+        corresponds to derivatives with respect to the imaginary part of the gains.
     """
 
-    gains = np.reshape(
-        gains_flattened,
-        (
-            2,
-            caldata_obj.Nants,
-        ),
-    )
-    gains = gains[0, :] + 1.0j * gains[1, :]
-    jac = cost_function_calculations.jacobian_single_pol(
-        gains,
-        np.reshape(
-            caldata_obj.model_visibilities[:, :, freq_ind, vis_pol_ind],
-            (caldata_obj.Ntimes, caldata_obj.Nbls),
-        ),
-        np.reshape(
-            caldata_obj.data_visibilities[:, :, freq_ind, vis_pol_ind],
-            (caldata_obj.Ntimes, caldata_obj.Nbls),
-        ),
-        np.reshape(
-            caldata_obj.visibility_weights[:, :, freq_ind, vis_pol_ind],
-            (caldata_obj.Ntimes, caldata_obj.Nbls),
-        ),
-        caldata_obj.gains_exp_mat_1,
-        caldata_obj.gains_exp_mat_2,
-        caldata_obj.lambda_val,
-    )
-    jac_flattened = np.stack((np.real(jac), np.imag(jac)), axis=0).flatten()
+    gains_reshaped = np.reshape(gains_flattened, (2, len(ant_inds)))
+    gains_reshaped = gains_reshaped[0, :] + 1.0j * gains_reshaped[1, :]
+    gains = np.ones((caldata_obj.Nants), dtype=complex)
+    gains[ant_inds] = gains_reshaped
+    if caldata_obj.gains_multiply_model:
+        jac = cost_function_calculations.jacobian_single_pol(
+            gains,
+            np.reshape(
+                caldata_obj.data_visibilities[:, :, freq_ind, vis_pol_ind],
+                (caldata_obj.Ntimes, caldata_obj.Nbls),
+            ),
+            np.reshape(
+                caldata_obj.model_visibilities[:, :, freq_ind, vis_pol_ind],
+                (caldata_obj.Ntimes, caldata_obj.Nbls),
+            ),
+            np.reshape(
+                caldata_obj.visibility_weights[:, :, freq_ind, vis_pol_ind],
+                (caldata_obj.Ntimes, caldata_obj.Nbls),
+            ),
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
+        )
+    else:
+        jac = cost_function_calculations.jacobian_single_pol(
+            gains,
+            np.reshape(
+                caldata_obj.model_visibilities[:, :, freq_ind, vis_pol_ind],
+                (caldata_obj.Ntimes, caldata_obj.Nbls),
+            ),
+            np.reshape(
+                caldata_obj.data_visibilities[:, :, freq_ind, vis_pol_ind],
+                (caldata_obj.Ntimes, caldata_obj.Nbls),
+            ),
+            np.reshape(
+                caldata_obj.visibility_weights[:, :, freq_ind, vis_pol_ind],
+                (caldata_obj.Ntimes, caldata_obj.Nbls),
+            ),
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
+        )
+    jac_flattened = np.stack(
+        (np.real(jac[ant_inds]), np.imag(jac[ant_inds])), axis=0
+    ).flatten()
     return jac_flattened
 
 
 def hessian_single_pol_wrapper(
     gains_flattened,
     caldata_obj,
+    ant_inds,
     freq_ind,
     vis_pol_ind,
 ):
@@ -137,10 +178,12 @@ def hessian_single_pol_wrapper(
     Parameters
     ----------
     gains_flattened : array of float
-        Array of gain values. gains_flattened[0:Nants] corresponds to the real
-        components of the gains and gains_flattened[Nants:] correponds to the
-        imaginary components. Shape (2*Nants,).
+        Array of gain values. gains_flattened[0:Nants_unflagged] corresponds to
+        the realcomponents of the gains and gains_flattened[Nants_unflagged:]
+        correponds to the imaginary components. Shape (2*Nants_unflagged,).
     caldata_obj : CalData
+    ant_inds : array of int
+        Indices of unflagged antennas to be calibrated. Shape (Nants_unflagged,).
     freq_ind : int
         Frequency channel index.
     vis_pol_ind : int
@@ -149,50 +192,79 @@ def hessian_single_pol_wrapper(
     Returns
     -------
     hess_flattened : array of float
-        Hessian of the cost function, shape (2*Nants, 2*Nants,).
+        Hessian of the cost function, shape (2*Nants_unflagged, 2*Nants_unflagged,).
     """
 
-    gains = np.reshape(
-        gains_flattened,
+    Nants_unflagged = len(ant_inds)
+    gains_reshaped = np.reshape(gains_flattened, (2, Nants_unflagged))
+    gains_reshaped = gains_reshaped[0, :] + 1.0j * gains_reshaped[1, :]
+    gains = np.ones((caldata_obj.Nants), dtype=complex)
+    gains[ant_inds] = gains_reshaped
+    if caldata_obj.gains_multiply_model:
         (
-            2,
+            hess_real_real,
+            hess_real_imag,
+            hess_imag_imag,
+        ) = cost_function_calculations.hessian_single_pol(
+            gains,
             caldata_obj.Nants,
-        ),
-    )
-    gains = gains[0, :] + 1.0j * gains[1, :]
-    (
-        hess_real_real,
-        hess_real_imag,
-        hess_imag_imag,
-    ) = cost_function_calculations.hessian_single_pol(
-        gains,
-        caldata_obj.Nants,
-        caldata_obj.Nbls,
-        np.reshape(
-            caldata_obj.model_visibilities[:, :, freq_ind, vis_pol_ind],
-            (caldata_obj.Ntimes, caldata_obj.Nbls),
-        ),
-        np.reshape(
-            caldata_obj.data_visibilities[:, :, freq_ind, vis_pol_ind],
-            (caldata_obj.Ntimes, caldata_obj.Nbls),
-        ),
-        np.reshape(
-            caldata_obj.visibility_weights[:, :, freq_ind, vis_pol_ind],
-            (caldata_obj.Ntimes, caldata_obj.Nbls),
-        ),
-        caldata_obj.gains_exp_mat_1,
-        caldata_obj.gains_exp_mat_2,
-        caldata_obj.lambda_val,
-    )
+            caldata_obj.Nbls,
+            np.reshape(
+                caldata_obj.data_visibilities[:, :, freq_ind, vis_pol_ind],
+                (caldata_obj.Ntimes, caldata_obj.Nbls),
+            ),
+            np.reshape(
+                caldata_obj.model_visibilities[:, :, freq_ind, vis_pol_ind],
+                (caldata_obj.Ntimes, caldata_obj.Nbls),
+            ),
+            np.reshape(
+                caldata_obj.visibility_weights[:, :, freq_ind, vis_pol_ind],
+                (caldata_obj.Ntimes, caldata_obj.Nbls),
+            ),
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
+        )
+    else:
+        (
+            hess_real_real,
+            hess_real_imag,
+            hess_imag_imag,
+        ) = cost_function_calculations.hessian_single_pol(
+            gains,
+            caldata_obj.Nants,
+            caldata_obj.Nbls,
+            np.reshape(
+                caldata_obj.model_visibilities[:, :, freq_ind, vis_pol_ind],
+                (caldata_obj.Ntimes, caldata_obj.Nbls),
+            ),
+            np.reshape(
+                caldata_obj.data_visibilities[:, :, freq_ind, vis_pol_ind],
+                (caldata_obj.Ntimes, caldata_obj.Nbls),
+            ),
+            np.reshape(
+                caldata_obj.visibility_weights[:, :, freq_ind, vis_pol_ind],
+                (caldata_obj.Ntimes, caldata_obj.Nbls),
+            ),
+            caldata_obj.gains_exp_mat_1,
+            caldata_obj.gains_exp_mat_2,
+            caldata_obj.lambda_val,
+        )
     hess_flattened = np.full(
-        (2 * caldata_obj.Nants, 2 * caldata_obj.Nants), np.nan, dtype=float
+        (2 * Nants_unflagged, 2 * Nants_unflagged), np.nan, dtype=float
     )
-    hess_flattened[0 : caldata_obj.Nants, 0 : caldata_obj.Nants] = hess_real_real
-    hess_flattened[caldata_obj.Nants :, 0 : caldata_obj.Nants] = hess_real_imag
-    hess_flattened[0 : caldata_obj.Nants, caldata_obj.Nants :] = np.conj(
-        hess_real_imag
+    hess_flattened[0:Nants_unflagged, 0:Nants_unflagged] = hess_real_real[ant_inds, :][
+        :, ant_inds
+    ]
+    hess_flattened[Nants_unflagged:, 0:Nants_unflagged] = hess_real_imag[ant_inds, :][
+        :, ant_inds
+    ]
+    hess_flattened[0:Nants_unflagged, Nants_unflagged:] = np.conj(
+        hess_real_imag[ant_inds, :][:, ant_inds]
     ).T
-    hess_flattened[caldata_obj.Nants :, caldata_obj.Nants :] = hess_imag_imag
+    hess_flattened[Nants_unflagged:, Nants_unflagged:] = hess_imag_imag[ant_inds, :][
+        :, ant_inds
+    ]
     return hess_flattened
 
 
@@ -212,14 +284,24 @@ def cost_abscal_wrapper(abscal_parameters, caldata_obj):
         Value of the cost function.
     """
 
-    cost = cost_function_calculations.cost_function_abs_cal(
-        abscal_parameters[0],
-        abscal_parameters[1:],
-        caldata_obj.model_visibilities[:, :, 0, 0],
-        caldata_obj.data_visibilities[:, :, 0, 0],
-        caldata_obj.uv_array,
-        caldata_obj.visibility_weights[:, :, 0, 0],
-    )
+    if caldata_obj.gains_multiply_model:
+        cost = cost_function_calculations.cost_function_abs_cal(
+            abscal_parameters[0],
+            abscal_parameters[1:],
+            caldata_obj.data_visibilities[:, :, 0, 0],
+            caldata_obj.model_visibilities[:, :, 0, 0],
+            caldata_obj.uv_array,
+            caldata_obj.visibility_weights[:, :, 0, 0],
+        )
+    else:
+        cost = cost_function_calculations.cost_function_abs_cal(
+            abscal_parameters[0],
+            abscal_parameters[1:],
+            caldata_obj.model_visibilities[:, :, 0, 0],
+            caldata_obj.data_visibilities[:, :, 0, 0],
+            caldata_obj.uv_array,
+            caldata_obj.visibility_weights[:, :, 0, 0],
+        )
     return cost
 
 
@@ -240,14 +322,24 @@ def jacobian_abscal_wrapper(abscal_parameters, caldata_obj):
     """
 
     jac = np.zeros((3,), dtype=float)
-    amp_jac, phase_jac = cost_function_calculations.jacobian_abs_cal(
-        abscal_parameters[0],
-        abscal_parameters[1:],
-        caldata_obj.model_visibilities[:, :, 0, 0],
-        caldata_obj.data_visibilities[:, :, 0, 0],
-        caldata_obj.uv_array,
-        caldata_obj.visibility_weights[:, :, 0, 0],
-    )
+    if caldata_obj.gains_multiply_model:
+        amp_jac, phase_jac = cost_function_calculations.jacobian_abs_cal(
+            abscal_parameters[0],
+            abscal_parameters[1:],
+            caldata_obj.data_visibilities[:, :, 0, 0],
+            caldata_obj.model_visibilities[:, :, 0, 0],
+            caldata_obj.uv_array,
+            caldata_obj.visibility_weights[:, :, 0, 0],
+        )
+    else:
+        amp_jac, phase_jac = cost_function_calculations.jacobian_abs_cal(
+            abscal_parameters[0],
+            abscal_parameters[1:],
+            caldata_obj.model_visibilities[:, :, 0, 0],
+            caldata_obj.data_visibilities[:, :, 0, 0],
+            caldata_obj.uv_array,
+            caldata_obj.visibility_weights[:, :, 0, 0],
+        )
     jac[0] = amp_jac
     jac[1:] = phase_jac
     return jac
@@ -270,21 +362,38 @@ def hessian_abscal_wrapper(abscal_parameters, caldata_obj):
     """
 
     hess = np.zeros((3, 3), dtype=float)
-    (
-        hess_amp_amp,
-        hess_amp_phasex,
-        hess_amp_phasey,
-        hess_phasex_phasex,
-        hess_phasey_phasey,
-        hess_phasex_phasey,
-    ) = cost_function_calculations.hess_abs_cal(
-        abscal_parameters[0],
-        abscal_parameters[1:],
-        caldata_obj.model_visibilities[:, :, 0, 0],
-        caldata_obj.data_visibilities[:, :, 0, 0],
-        caldata_obj.uv_array,
-        caldata_obj.visibility_weights[:, :, 0, 0],
-    )
+    if caldata_obj.gains_multiply_model:
+        (
+            hess_amp_amp,
+            hess_amp_phasex,
+            hess_amp_phasey,
+            hess_phasex_phasex,
+            hess_phasey_phasey,
+            hess_phasex_phasey,
+        ) = cost_function_calculations.hess_abs_cal(
+            abscal_parameters[0],
+            abscal_parameters[1:],
+            caldata_obj.data_visibilities[:, :, 0, 0],
+            caldata_obj.model_visibilities[:, :, 0, 0],
+            caldata_obj.uv_array,
+            caldata_obj.visibility_weights[:, :, 0, 0],
+        )
+    else:
+        (
+            hess_amp_amp,
+            hess_amp_phasex,
+            hess_amp_phasey,
+            hess_phasex_phasex,
+            hess_phasey_phasey,
+            hess_phasex_phasey,
+        ) = cost_function_calculations.hess_abs_cal(
+            abscal_parameters[0],
+            abscal_parameters[1:],
+            caldata_obj.model_visibilities[:, :, 0, 0],
+            caldata_obj.data_visibilities[:, :, 0, 0],
+            caldata_obj.uv_array,
+            caldata_obj.visibility_weights[:, :, 0, 0],
+        )
     hess[0, 0] = hess_amp_amp
     hess[0, 1] = hess[1, 0] = hess_amp_phasex
     hess[0, 2] = hess[2, 0] = hess_amp_phasey
@@ -318,15 +427,32 @@ def cost_dw_abscal_wrapper(
     abscal_parameters[:, unflagged_freq_inds] = np.reshape(
         abscal_parameters_flattened, (3, len(unflagged_freq_inds))
     )
-    cost = cost_function_calculations.cost_function_dw_abscal(
-        abscal_parameters[0, :],
-        abscal_parameters[1:, :],
-        caldata_obj.model_visibilities[:, :, :, 0],
-        caldata_obj.data_visibilities[:, :, :, 0],
-        caldata_obj.uv_array,
-        caldata_obj.visibility_weights[:, :, :, 0],
-        caldata_obj.dwcal_inv_covariance[:, :, :, :, 0],
-    )
+    if caldata_obj.gains_multiply_model:
+        visibility_values_1 = caldata_obj.data_visibilities[:, :, :, 0]
+        visibility_values_2 = caldata_obj.model_visibilities[:, :, :, 0]
+    else:
+        visibility_values_1 = caldata_obj.model_visibilities[:, :, :, 0]
+        visibility_values_2 = caldata_obj.data_visibilities[:, :, :, 0]
+    if caldata_obj.dwcal_memory_save_mode:
+        cost = cost_function_calculations.cost_function_dw_abscal_toeplitz(
+            abscal_parameters[0, :],
+            abscal_parameters[1:, :],
+            visibility_values_1,
+            visibility_values_2,
+            caldata_obj.uv_array,
+            caldata_obj.visibility_weights[:, :, :, 0],
+            caldata_obj.dwcal_inv_covariance[:, :, :, 0],
+        )
+    else:
+        cost = cost_function_calculations.cost_function_dw_abscal(
+            abscal_parameters[0, :],
+            abscal_parameters[1:, :],
+            visibility_values_1,
+            visibility_values_2,
+            caldata_obj.uv_array,
+            caldata_obj.visibility_weights[:, :, :, 0],
+            caldata_obj.dwcal_inv_covariance[:, :, :, :, 0],
+        )
     return cost
 
 
@@ -355,15 +481,32 @@ def jacobian_dw_abscal_wrapper(
     abscal_parameters[:, unflagged_freq_inds] = np.reshape(
         abscal_parameters_flattened, (3, len(unflagged_freq_inds))
     )
-    amp_jac, phase_jac = cost_function_calculations.jacobian_dw_abscal(
-        abscal_parameters[0, :],
-        abscal_parameters[1:, :],
-        caldata_obj.model_visibilities[:, :, :, 0],
-        caldata_obj.data_visibilities[:, :, :, 0],
-        caldata_obj.uv_array,
-        caldata_obj.visibility_weights[:, :, :, 0],
-        caldata_obj.dwcal_inv_covariance[:, :, :, :, 0],
-    )
+    if caldata_obj.gains_multiply_model:
+        visibility_values_1 = caldata_obj.data_visibilities[:, :, :, 0]
+        visibility_values_2 = caldata_obj.model_visibilities[:, :, :, 0]
+    else:
+        visibility_values_1 = caldata_obj.model_visibilities[:, :, :, 0]
+        visibility_values_2 = caldata_obj.data_visibilities[:, :, :, 0]
+    if caldata_obj.dwcal_memory_save_mode:
+        amp_jac, phase_jac = cost_function_calculations.jacobian_dw_abscal_toeplitz(
+            abscal_parameters[0, :],
+            abscal_parameters[1:, :],
+            visibility_values_1,
+            visibility_values_2,
+            caldata_obj.uv_array,
+            caldata_obj.visibility_weights[:, :, :, 0],
+            caldata_obj.dwcal_inv_covariance[:, :, :, 0],
+        )
+    else:
+        amp_jac, phase_jac = cost_function_calculations.jacobian_dw_abscal(
+            abscal_parameters[0, :],
+            abscal_parameters[1:, :],
+            visibility_values_1,
+            visibility_values_2,
+            caldata_obj.uv_array,
+            caldata_obj.visibility_weights[:, :, :, 0],
+            caldata_obj.dwcal_inv_covariance[:, :, :, :, 0],
+        )
     jac_array = np.zeros((3, caldata_obj.Nfreqs), dtype=float)
     jac_array[0, :] = amp_jac
     jac_array[1:, :] = phase_jac
@@ -396,22 +539,46 @@ def hessian_dw_abscal_wrapper(
     abscal_parameters[:, unflagged_freq_inds] = np.reshape(
         abscal_parameters_flattened, (3, len(unflagged_freq_inds))
     )
-    (
-        hess_amp_amp,
-        hess_amp_phasex,
-        hess_amp_phasey,
-        hess_phasex_phasex,
-        hess_phasey_phasey,
-        hess_phasex_phasey,
-    ) = cost_function_calculations.hess_dw_abscal(
-        abscal_parameters[0, :],
-        abscal_parameters[1:, :],
-        caldata_obj.model_visibilities[:, :, :, 0],
-        caldata_obj.data_visibilities[:, :, :, 0],
-        caldata_obj.uv_array,
-        caldata_obj.visibility_weights[:, :, :, 0],
-        caldata_obj.dwcal_inv_covariance[:, :, :, :, 0],
-    )
+    if caldata_obj.gains_multiply_model:
+        visibility_values_1 = caldata_obj.data_visibilities[:, :, :, 0]
+        visibility_values_2 = caldata_obj.model_visibilities[:, :, :, 0]
+    else:
+        visibility_values_1 = caldata_obj.model_visibilities[:, :, :, 0]
+        visibility_values_2 = caldata_obj.data_visibilities[:, :, :, 0]
+    if caldata_obj.dwcal_memory_save_mode:
+        (
+            hess_amp_amp,
+            hess_amp_phasex,
+            hess_amp_phasey,
+            hess_phasex_phasex,
+            hess_phasey_phasey,
+            hess_phasex_phasey,
+        ) = cost_function_calculations.hess_dw_abscal_toeplitz(
+            abscal_parameters[0, :],
+            abscal_parameters[1:, :],
+            visibility_values_1,
+            visibility_values_2,
+            caldata_obj.uv_array,
+            caldata_obj.visibility_weights[:, :, :, 0],
+            caldata_obj.dwcal_inv_covariance[:, :, :, 0],
+        )
+    else:
+        (
+            hess_amp_amp,
+            hess_amp_phasex,
+            hess_amp_phasey,
+            hess_phasex_phasex,
+            hess_phasey_phasey,
+            hess_phasex_phasey,
+        ) = cost_function_calculations.hess_dw_abscal(
+            abscal_parameters[0, :],
+            abscal_parameters[1:, :],
+            visibility_values_1,
+            visibility_values_2,
+            caldata_obj.uv_array,
+            caldata_obj.visibility_weights[:, :, :, 0],
+            caldata_obj.dwcal_inv_covariance[:, :, :, :, 0],
+        )
     hess = np.zeros((3, caldata_obj.Nfreqs, 3, caldata_obj.Nfreqs), dtype=float)
     hess[0, :, 0, :] = hess_amp_amp
     hess[0, :, 1, :] = hess_amp_phasex.T
@@ -472,7 +639,7 @@ def run_calibration_optimization_per_pol_single_freq(
         Fit gain values. Shape (Nants, 1, N_feed_pols,).
     """
 
-    gains_fit = np.ones((caldata_obj.Nants, caldata_obj.N_feed_pols), dtype=complex)
+    gains_fit = np.full((caldata_obj.Nants, caldata_obj.N_feed_pols), np.nan + 1j * np.nan, dtype=complex)
     if np.max(caldata_obj.visibility_weights[:, :, freq_ind, :]) == 0.0:
         print("ERROR: All data flagged.")
         gains_fit[:, :] = np.nan + 1j * np.nan
@@ -486,10 +653,18 @@ def run_calibration_optimization_per_pol_single_freq(
         ):  # All flagged
             gains_fit[:, feed_pol_ind] = np.nan + 1j * np.nan
         else:
+            vis_weights_summed = np.sum(
+                caldata_obj.visibility_weights[:, :, freq_ind, feed_pol_ind], axis=0
+            )  # Sum over times
+            weight_per_ant = np.matmul(
+                caldata_obj.gains_exp_mat_1.T, vis_weights_summed
+            ) + np.matmul(caldata_obj.gains_exp_mat_2.T, vis_weights_summed)
+            ant_inds = np.where(weight_per_ant > 0.0)[0]
+
             gains_init_flattened = np.stack(
                 (
-                    np.real(caldata_obj.gains[:, freq_ind, feed_pol_ind]),
-                    np.imag(caldata_obj.gains[:, freq_ind, feed_pol_ind]),
+                    np.real(caldata_obj.gains[ant_inds, freq_ind, feed_pol_ind]),
+                    np.imag(caldata_obj.gains[ant_inds, freq_ind, feed_pol_ind]),
                 ),
                 axis=0,
             ).flatten()
@@ -499,7 +674,7 @@ def run_calibration_optimization_per_pol_single_freq(
             result = scipy.optimize.minimize(
                 cost_function_single_pol_wrapper,
                 gains_init_flattened,
-                args=(caldata_obj, freq_ind, vis_pol_ind),
+                args=(caldata_obj, ant_inds, freq_ind, vis_pol_ind),
                 method="Newton-CG",
                 jac=jacobian_single_pol_wrapper,
                 hess=hessian_single_pol_wrapper,
@@ -512,8 +687,8 @@ def run_calibration_optimization_per_pol_single_freq(
                     f"Optimization time: {(end_optimize - start_optimize)/60.} minutes"
                 )
             sys.stdout.flush()
-            gains_fit_single_pol = np.reshape(result.x, (2, caldata_obj.Nants))
-            gains_fit[:, feed_pol_ind] = (
+            gains_fit_single_pol = np.reshape(result.x, (2, len(ant_inds)))
+            gains_fit[ant_inds, feed_pol_ind] = (
                 gains_fit_single_pol[0, :] + 1j * gains_fit_single_pol[1, :]
             )
 
@@ -571,8 +746,12 @@ def run_calibration_optimization_per_pol_single_freq(
             )
             crosspol_phase = 0.0
 
-        gains_fit[:, 0] *= np.exp(-1j * crosspol_phase / 2)
-        gains_fit[:, 1] *= np.exp(1j * crosspol_phase / 2)
+        if caldata_obj.gains_multiply_model:
+            gains_fit[:, 0] /= np.exp(-1j * crosspol_phase / 2)
+            gains_fit[:, 1] /= np.exp(1j * crosspol_phase / 2)
+        else:
+            gains_fit[:, 0] *= np.exp(-1j * crosspol_phase / 2)
+            gains_fit[:, 1] *= np.exp(1j * crosspol_phase / 2)
 
     return gains_fit
 
