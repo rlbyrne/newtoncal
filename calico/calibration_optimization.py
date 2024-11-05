@@ -3,7 +3,7 @@ import sys
 import scipy
 import scipy.optimize
 import time
-from newcal import cost_function_calculations
+from calico import cost_function_calculations
 
 
 def cost_skycal_wrapper(
