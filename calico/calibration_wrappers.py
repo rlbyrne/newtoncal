@@ -3,10 +3,10 @@ import sys
 import time
 import pyuvdata
 import multiprocessing
-from newcal import calibration_optimization, caldata
+from calico import caldata
 
 
-def calibration_per_pol_wrapper(
+def sky_based_calibration_wrapper(
     data,
     model,
     data_use_column="DATA",
@@ -36,8 +36,8 @@ def calibration_per_pol_wrapper(
     log_file_path=None,
 ):
     """
-    Top-level wrapper for running calibration per polarization. This is the
-    simplest "sky-based" calibration approach. Function creates a CalData object,
+    Top-level wrapper for running sky-based calibration per polarization. This is the
+    simplest sky-based calibration approach. Function creates a CalData object,
     updates the gains attribute, and returns a pyuvdata UVCal object containing
     the calibration solutions. Here the XX and YY visibilities are calibrated
     individually and the cross-polarization phase is applied from the XY and YX
@@ -261,7 +261,7 @@ def calibration_per_pol_wrapper(
             verbose=verbose,
         )
 
-    caldata_obj.calibration_per_pol(
+    caldata_obj.sky_based_calibration(
         xtol=xtol,
         maxiter=maxiter,
         get_crosspol_phase=get_crosspol_phase,

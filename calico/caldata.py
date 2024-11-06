@@ -2,7 +2,7 @@ import numpy as np
 import sys
 import pyuvdata
 from astropy.units import Quantity
-from newcal import calibration_qa, calibration_optimization
+from calico import calibration_qa, calibration_optimization
 import multiprocessing
 
 
@@ -143,9 +143,7 @@ class CalData:
             uvcal.select(jones=self.feed_polarization_array)
         uvcal.reorder_freqs(channel_order="freq")
         uvcal.reorder_jones()
-        use_gains = np.mean(
-            uvcal.gain_array, axis=2
-        )  # Average over times
+        use_gains = np.mean(uvcal.gain_array, axis=2)  # Average over times
 
         # Make antenna ordering match
         cal_ant_names = np.array([uvcal.antenna_names[ant] for ant in uvcal.ant_array])
@@ -155,10 +153,10 @@ class CalData:
 
         if self.gains_multiply_model:
             if uvcal.gain_convention != "divide":
-                use_gains = 1/use_gains
+                use_gains = 1 / use_gains
         else:
             if uvcal.gain_convention != "multiply":
-                use_gains = 1/use_gains
+                use_gains = 1 / use_gains
 
         self.gains = use_gains[cal_ant_inds, :]
 
@@ -779,7 +777,7 @@ class CalData:
             uvcal.gain_convention = "divide"
         else:
             uvcal.gain_convention = "multiply"
-        uvcal.history = "calibrated with newcal"
+        uvcal.history = "calibrated with calico"
         uvcal.integration_time = np.array([self.integration_time])
         uvcal.jones_array = self.feed_polarization_array
         uvcal.spw_array = np.array([0])
@@ -820,7 +818,7 @@ class CalData:
 
         return uvcal
 
-    def calibration_per_pol(
+    def sky_based_calibration(
         self,
         xtol=1e-5,
         maxiter=200,
@@ -891,7 +889,7 @@ class CalData:
                     else:
                         use_pool = multiprocessing.Pool(processes=max_processes)
                 gains_fit = use_pool.starmap(
-                    calibration_optimization.run_calibration_optimization_per_pol_single_freq,
+                    calibration_optimization.run_skycal_optimization_per_pol_single_freq,
                     args_list,
                 )
                 for freq_ind in range(self.Nfreqs):
@@ -900,7 +898,7 @@ class CalData:
                     use_pool.terminate()
             else:
                 for freq_ind in range(self.Nfreqs):
-                    gains_fit = calibration_optimization.run_calibration_optimization_per_pol_single_freq(
+                    gains_fit = calibration_optimization.run_skycal_optimization_per_pol_single_freq(
                         self,
                         xtol,
                         maxiter,
