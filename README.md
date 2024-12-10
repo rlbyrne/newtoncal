@@ -14,22 +14,22 @@ CaliCo is developed and maintained by Ruby Byrne (rbyrne@caltech.edu).
 
 ### Software Dependencies
 
-* pyuvdata ([[https://github.com/RadioAstronomySoftwareGroup/pyuvdata]])
+* pyuvdata (https://github.com/RadioAstronomySoftwareGroup/pyuvdata)
 * numpy
 * scipy
 * astropy
 
 ### Other Requirements
 
-* Visibility data in a pyuvdata-readable format (see [[https://pyuvdata.readthedocs.io/]] for details)
+* Visibility data in a pyuvdata-readable format (see https://pyuvdata.readthedocs.io/ for details)
 * Model visibilities in a pyuvdata-readable format, generated with the visibility simulator of your choice. Some options for visibility simulators include:
-    * pyuvsim ([[https://github.com/RadioAstronomySoftwareGroup/pyuvsim]], see [Lanman et al. 2019](https://doi.org/10.21105/joss.01234))
-    * matvis ([[https://github.com/HERA-Team/matvis]], see [Kittiwisit et al. 2023](https://doi.org/10.48550/arXiv.2312.09763))
-    * fftvis ([[https://github.com/tyler-a-cox/fftvis]])
-    * FHD ([[https://github.com/EoRImaging/FHD]], see [Sullivan et al. 2013](https://doi.org/10.1088/0004-637X/759/1/17) and [Barry et al. 2019](https://doi.org/10.1017/pasa.2019.21))
+    * pyuvsim (https://github.com/RadioAstronomySoftwareGroup/pyuvsim, see [Lanman et al. 2019](https://doi.org/10.21105/joss.01234))
+    * matvis (https://github.com/HERA-Team/matvis, see [Kittiwisit et al. 2023](https://doi.org/10.48550/arXiv.2312.09763))
+    * fftvis (https://github.com/tyler-a-cox/fftvis)
+    * FHD (https://github.com/EoRImaging/FHD, see [Sullivan et al. 2013](https://doi.org/10.1088/0004-637X/759/1/17) and [Barry et al. 2019](https://doi.org/10.1017/pasa.2019.21))
 * Data flags, generated with the flagging software of your choice and saved to the data file. Some options for flagging software include:
     * aoflagger
-    * SSINS ([[https://github.com/mwilensky768/SSINS]], see [Wilensky et al. 2019](https://doi.org/10.1088/1538-3873/ab3cad))
+    * SSINS (https://github.com/mwilensky768/SSINS, see [Wilensky et al. 2019](https://doi.org/10.1088/1538-3873/ab3cad))
 
 ## Documentation
 
