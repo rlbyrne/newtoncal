@@ -7,7 +7,7 @@
 
 \title{Calibration Cost Functions and Derivatives}
 \author{Ruby Byrne}
-\date{last updated May 2024}
+\date{last updated December 2024}
 
 \begin{document}
 
@@ -22,6 +22,7 @@ The simplest calibration implementation is not fully polarized. We calibrate the
 For a single polarization, time step, and frequency, calibration consists of minimizing the chi-squared quantity
 \begin{equation}
     \chi^2(\boldsymbol{g}) = \sum_{jk} \frac{1}{\sigma_{jk}^2} \left| m_{jk} - g_j g_k^* v_{jk} \right|^2.
+\label{eq:skycal_cost_basic}
 \end{equation}
 
 \subsection{Jacobian Calculation}
@@ -147,6 +148,16 @@ and
 \end{split}
 \end{equation}
 
+\subsection{Gain Multiplication Convention}
+
+Equation \ref{eq:skycal_cost_basic} uses a convention in which the gains multiply the data $v_{jk}$. Another convention is to define the gains as multiplying the model visibilities. The gains would then be applied to the data by dividing the data by the gains, not multiplying. In that case, the cost function would become
+\begin{equation}
+    \chi^2(\boldsymbol{g}) = \sum_{jk} \frac{1}{\sigma_{jk}^2} \left| g_j g_k^* m_{jk} - v_{jk} \right|^2.
+\end{equation}
+This is just equivalent to \ref{eq:skycal_cost_basic} where $m_{jk}$ and $v_{jk}$ are switched. The calibration solutions are not equivalent to those from Equation \ref{eq:skycal_cost_basic} because the noise properties are somewhat different.
+
+The first and second derivatives from sections \ref{s:simplest_jac} and \ref{s:simplest_hess} can be inferred by simply switching $m_{jk}$ and $v_{jk}$. This option is supported in the CaliCo software package by setting the option \texttt{gains\_multiply\_model=True}.
+
 
 \subsection{Phase Regularization}
 \label{s:phase_regularization}
@@ -248,6 +259,8 @@ and
 
 Per-polarization calibration has a degeneracy in the cross-polarization phase, meaning the overall phase between the $p$-polarized and $q$-polarized gains. We can see this by noting that the transformation $g_{jp} \rightarrow g_{jp} e^{-i\phi/2}$ and $g_{jq} \rightarrow g_{jq} e^{i\phi/2}$ leave $\chi^2$ unchanged, where here $p$ and $q$ denote the two feed polarizations.
 
+\subsubsection{From Model Visibilities}
+
 We can constrain this phase by matching the cross-polarization data and model. We do this by minimizing this chi-squared:
 \begin{equation}
 \chi^2(\phi) = \sum_{jk} \frac{1}{\sigma^2_{jkpq}} \left| e^{-i\phi} v^\text{cal}_{jkpq} - m_{jkpq} \right|^2 + \sum_{jk} \frac{1}{\sigma^2_{jkqp}} \left| e^{i\phi} v^\text{cal}_{jkqp} - m_{jkqp} \right|^2.
@@ -300,7 +313,61 @@ It follows that
 \end{equation}
 where Arg denotes the complex argument.
 
+\subsubsection{From Pseudo-V}
 
+An alternative approach to minimizing the cross-polarization phase is appropriate when the cross-polarization model visibilities are untrustworthy. This approach leverages the assumption that the sky has minimal instrinsic Stokes V polarization and that psuedo Stokes V is a reasonable approximation for true Stokes V.
+
+Pseudo Stokes V visibilities are given by $i v_{jkpq} - i v_{jkqp}$. We can minimize pseudo Stokes V by minimizing the quantity
+\begin{equation}
+    \chi^2(\phi) = \sum_{jk} \frac{1}{\sigma^2_{jk}} \left| i e^{-i \phi} v^\text{cal}_{jkpq} - i e^{i \phi} v^\text{cal}_{jkqp} \right|^2,
+\end{equation}
+where $v^\text{cal}_{jkpq}$ and $v^\text{cal}_{jkqp}$ are the cross-polarization visibilities, calibrated up to the cross-polarization phase $\phi$. This is equivalent to minimizing
+\begin{equation}
+    \chi^2(\phi) = \sum_{jk} \frac{1}{\sigma^2_{jk}} \left| e^{-i \phi} v^\text{cal}_{jkpq} - e^{i \phi} v^\text{cal}_{jkqp} \right|^2.
+\end{equation}
+Expanding this expression gives
+\begin{equation}
+\begin{split}
+    \chi^2(\phi) &= \sum_{jk} \frac{1}{\sigma^2_{jk}} \left[ \re^2\left( e^{-i \phi} v^\text{cal}_{jkpq} - e^{i \phi} v^\text{cal}_{jkqp}\right) + \im^2\left( e^{-i \phi} v^\text{cal}_{jkpq} - e^{i \phi} v^\text{cal}_{jkqp}\right) \right] \\
+    &= \sum_{jk} \frac{1}{\sigma^2_{jk}} \left[ \re^2\left( e^{-i \phi} v^\text{cal}_{jkpq} \right) + \re^2 
+    \left( e^{i \phi} v^\text{cal}_{jkqp} \right) - 2 \re \left( e^{-i \phi} v^\text{cal}_{jkpq} \right) \re
+    \left( e^{i \phi} v^\text{cal}_{jkqp} \right) \right.  \\
+    &\left. + \im^2\left( e^{-i \phi} v^\text{cal}_{jkpq} \right) + \im^2 
+    \left( e^{i \phi} v^\text{cal}_{jkqp} \right) - 2 \im \left( e^{-i \phi} v^\text{cal}_{jkpq} \right) \im
+    \left( e^{i \phi} v^\text{cal}_{jkqp} \right) \right] \\
+    &= \sum_{jk} \frac{1}{\sigma^2_{jk}} \left[ \left| v^\text{cal}_{jkpq} \right|^2 + \left| v^\text{cal}_{jkqp} \right|^2  \right. \\ 
+    & \left. - 2 \re \left( e^{-i \phi} v^\text{cal}_{jkpq} \right) \re
+    \left( e^{i \phi} v^\text{cal}_{jkqp} \right) - 2 \im \left( e^{-i \phi} v^\text{cal}_{jkpq} \right) \im
+    \left( e^{i \phi} v^\text{cal}_{jkqp} \right) \right].
+\end{split}
+\end{equation}
+Minimizing this expression is equivalent to minimizing
+\begin{equation}
+\begin{split}
+    \chi^2 &= \sum_{jk} \frac{1}{\sigma^2_{jk}} \left[ - \re \left( e^{-i \phi} v^\text{cal}_{jkpq} \right) \re
+    \left( e^{i \phi} v^\text{cal}_{jkqp} \right) - \im \left( e^{-i \phi} v^\text{cal}_{jkpq} \right) \im
+    \left( e^{i \phi} v^\text{cal}_{jkqp} \right) \right] \\
+    &= - \sum_{jk} \frac{1}{\sigma^2_{jk}} \re \left( e^{-2 i \phi} v^\text{cal}_{jkpq} (v^\text{cal}_{jkqp})^* \right) \\
+    &= - \sum_{jk} \frac{1}{\sigma^2_{jk}} \left[ \cos(-2 \phi) \re \left( v^\text{cal}_{jkpq} (v^\text{cal}_{jkqp})^* \right) - \sin(-2 \phi) \im \left( v^\text{cal}_{jkpq} (v^\text{cal}_{jkqp})^* \right)  \right] \\
+    &= - \sum_{jk} \frac{1}{\sigma^2_{jk}} \left[ \cos(2 \phi) \re \left( v^\text{cal}_{jkpq} (v^\text{cal}_{jkqp})^* \right) + \sin(2 \phi) \im \left( v^\text{cal}_{jkpq} (v^\text{cal}_{jkqp})^* \right)  \right]. \\
+\end{split}
+\end{equation}
+Taking the derivative gives
+\begin{equation}
+    \frac{\partial \chi^2(\phi)}{\partial \phi} = - \sum_{jk} \frac{1}{\sigma^2_{jk}} \left[ -2 \sin(2 \phi) \re \left( v^\text{cal}_{jkpq} (v^\text{cal}_{jkqp})^* \right) + 2 \cos(2 \phi) \im \left( v^\text{cal}_{jkpq} (v^\text{cal}_{jkqp})^* \right)  \right].
+\end{equation}
+Using the extremum condition $\left. \frac{\partial \chi^2(\phi)}{\partial \phi} \right|_{\phi=\phi_0} = 0$ gives
+\begin{equation}
+    \sin(2 \phi_0) \sum_{jk} \frac{1}{\sigma^2_{jk}} \re \left( v^\text{cal}_{jkpq} (v^\text{cal}_{jkqp})^* \right) = \cos(2 \phi_0) \sum_{jk} \frac{1}{\sigma^2_{jk}} \im \left( v^\text{cal}_{jkpq} (v^\text{cal}_{jkqp})^* \right),
+\end{equation}
+so
+\begin{equation}
+    \tan (2 \phi_0) = \frac{\sum_{jk} \frac{1}{\sigma^2_{jk}} \im \left( v^\text{cal}_{jkpq} (v^\text{cal}_{jkqp})^* \right)}{\sum_{jk} \frac{1}{\sigma^2_{jk}} \re \left( v^\text{cal}_{jkpq} (v^\text{cal}_{jkqp})^* \right)}.
+\end{equation}
+We then get that
+\begin{equation}
+    \phi_0 = \frac{1}{2} \operatorname{Arg} \left[ \sum_{jk} \frac{1}{\sigma^2_{jk}} v^\text{cal}_{jkpq} (v^\text{cal}_{jkqp})^*\right]
+\end{equation}
 
 
 \section{Per-Frequency, Per-Polarization Including the Time Axis}
@@ -363,6 +430,7 @@ and
 \end{equation}
 
 The phase regularization term does not depend on either the data or model visibilities, so it is time-independent. We can therefore use the quantities derived in \S\ref{s:phase_regularization}.
+
 
 \begin{comment}
 \section{Direction-Dependent Calibration}
@@ -522,6 +590,193 @@ and
 Here $\{x_j, y_j\}$ and $\{x_k, y_k\}$ are the coordinates of antennas $j$ and $k$, respectively. Note that we require calibrating with the antenna positions, not with the baseline locations.
 
 
+\section{Delay-Weighted Absolute Calibration}
+
+\subsection{Cost Function}
+
+For delay-weighted absolute calibration, we need to include the frequency axis in our cost function calculation. The basic cost would then be
+\begin{equation}
+\begin{split}
+    &\chi^2[A(f), \Delta_x(f), \Delta_y(f)] = \\
+    &\sum_f \sum_{jk} \frac{1}{\sigma_{jk}^2(f)} \left| A^2(f) e^{i[\Delta_x(f) x_{jk} + \Delta_y(f) y_{jk}]} v^\text{rel}_{jk}(f) - m_{jk}(f) \right|^2.
+\end{split}
+\end{equation}
+With the weighting function $W_{jk}(f)$, this becomes
+\begin{equation}
+\begin{split}
+    &\chi^2[A(f), \Delta_x(f), \Delta_y(f)] = \\
+    &\sum_{f_1} \sum_{f_2} \sum_{jk} \frac{1}{\sigma_{jk}(f_1)\sigma_{jk}(f_2)} W_{jk}(f_2-f_1) \times \\
+    & \left[ A^2(f_1) e^{i[\Delta_x(f_1) x_{jk} + \Delta_y(f_1) y_{jk}]} v^\text{rel}_{jk}(f_1) - m_{jk}(f_1) \right]^* \times \\
+    & \left[ A^2(f_2) e^{i[\Delta_x(f_2) x_{jk} + \Delta_y(f_2) y_{jk}]} v^\text{rel}_{jk}(f_2) - m_{jk}(f_2) \right].
+\end{split}
+\end{equation}
+
+\subsection{Jacobian}
+
+We now take derivatives of the cost function:
+\begin{equation}
+\begin{split}
+    &\frac{\partial \chi^2[A(f), \Delta_x(f), \Delta_y(f)]}{\partial A(f_0)} \\
+    & = \frac{\partial}{\partial A(f_0)} \sum_{f_1} \sum_{f_2} \sum_{jk} \frac{1}{\sigma_{jk}(f_1)\sigma_{jk}(f_2)} W_{jk}(f_2-f_1) \times \\
+    & \left[ A^2(f_1) e^{i[\Delta_x(f_1) x_{jk} + \Delta_y(f_1) y_{jk}]} v^\text{rel}_{jk}(f_1) - m_{jk}(f_1) \right]^* \times \\
+    & \left[ A^2(f_2) e^{i[\Delta_x(f_2) x_{jk} + \Delta_y(f_2) y_{jk}]} v^\text{rel}_{jk}(f_2) - m_{jk}(f_2) \right] \\
+    & = \sum_{f_1 \neq f_0} \sum_{jk} \frac{1}{\sigma_{jk}(f_1)\sigma_{jk}(f_0)} W_{jk}(f_0-f_1) \times \\
+    & \left[ A^2(f_1) e^{i[\Delta_x(f_1) x_{jk} + \Delta_y(f_1) y_{jk}]} v^\text{rel}_{jk}(f_1) - m_{jk}(f_1) \right]^* \times \\
+    & \left[ 2 A(f_0) e^{i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^\text{rel}_{jk}(f_0) \right] \\
+    & + \sum_{f_2 \neq f_0} \sum_{jk} \frac{1}{\sigma_{jk}(f_0)\sigma_{jk}(f_2)} W_{jk}(f_2-f_0) \times \\
+    & \left[ 2 A(f_0) e^{i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^\text{rel}_{jk}(f_0) \right]^* \times \\
+    & \left[ A^2(f_2) e^{i[\Delta_x(f_2) x_{jk} + \Delta_y(f_2) y_{jk}]} v^\text{rel}_{jk}(f_2) - m_{jk}(f_2) \right] \\
+    & + \sum_{jk} \frac{1}{\sigma^2_{jk}(f_0)} W_{jk}(0) \times \\
+    & \left[ A^2(f_0) e^{i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^\text{rel}_{jk}(f_0) - m_{jk}(f_0) \right]^* \times \\
+    & \left[ 2 A(f_0) e^{i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^\text{rel}_{jk}(f_0) \right] \\
+    & + \sum_{jk} \frac{1}{\sigma^2_{jk}(f_0)} W_{jk}(0) \times \\
+    & \left[ 2 A(f_0) e^{i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^\text{rel}_{jk}(f_0) \right]^* \times \\
+    & \left[ A^2(f_0) e^{i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^\text{rel}_{jk}(f_0) - m_{jk}(f_0) \right]. \\
+\end{split}
+\end{equation}
+This reduces to
+\begin{equation}
+\begin{split}
+    &\frac{\partial \chi^2[A(f), \Delta_x(f), \Delta_y(f)]}{\partial A(f_0)} \\
+    & = \sum_{f_1} \sum_{jk} \frac{1}{\sigma_{jk}(f_1)\sigma_{jk}(f_0)} W_{jk}(f_0-f_1) \times \\
+    & \left[ A^2(f_1) e^{i[\Delta_x(f_1) x_{jk} + \Delta_y(f_1) y_{jk}]} v^\text{rel}_{jk}(f_1) - m_{jk}(f_1) \right]^* \times \\
+    & \left[ 2 A(f_0) e^{i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^\text{rel}_{jk}(f_0) \right] \\
+    & + \sum_{f_2} \sum_{jk} \frac{1}{\sigma_{jk}(f_0)\sigma_{jk}(f_2)} W_{jk}(f_2-f_0) \times \\
+    & \left[ 2 A(f_0) e^{i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^\text{rel}_{jk}(f_0) \right]^* \times \\
+    & \left[ A^2(f_2) e^{i[\Delta_x(f_2) x_{jk} + \Delta_y(f_2) y_{jk}]} v^\text{rel}_{jk}(f_2) - m_{jk}(f_2) \right]. \\
+\end{split}
+\end{equation}
+Using the fact that the weighting matrix must be Hermitian, such that $W_{jk}(f) = W^*_{jk}(-f)$, we get that
+\begin{equation}
+\begin{split}
+    &\frac{\partial \chi^2[A(f), \Delta_x(f), \Delta_y(f)]}{\partial A(f_0)} \\
+    & = 4 A(f_0) \re \left( \sum_{jk} \frac{1}{\sigma_{jk}(f_0)} \left[ e^{i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^\text{rel}_{jk}(f_0) \right]^* \times \right. \\
+    & \left. \sum_{f} \frac{1}{\sigma_{jk}(f)} W_{jk}(f-f_0) \left[ A^2(f) e^{i[\Delta_x(f) x_{jk} + \Delta_y(f) y_{jk}]} v^\text{rel}_{jk}(f) - m_{jk}(f) \right] \right) . \\
+\end{split}
+\end{equation}
+
+Now taking derivatives with respect to the phase gradient terms gives
+\begin{equation}
+\begin{split}
+    &\frac{\partial \chi^2[A(f), \Delta_x(f), \Delta_y(f)]}{\partial \Delta_x(f_0)} \\
+    & = \sum_{f_1} \sum_{jk} \frac{1}{\sigma_{jk}(f_1)\sigma_{jk}(f_0)} W_{jk}(f_0-f_1) \times \\
+    & \left[ A^2(f_1) e^{i[\Delta_x(f_1) x_{jk} + \Delta_y(f_1) y_{jk}]} v^\text{rel}_{jk}(f_1) - m_{jk}(f_1) \right]^* \times \\
+    & \left[ i x_{jk} A^2(f_0) e^{i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^\text{rel}_{jk}(f_0) \right] \\
+    & + \sum_{f_2} \sum_{jk} \frac{1}{\sigma_{jk}(f_0)\sigma_{jk}(f_2)} W_{jk}(f_2-f_0) \times \\
+    & \left[ -i x_{jk} A^2(f_0) e^{-i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^{\text{rel}*}_{jk}(f_0) \right] \times \\
+    & \left[ A^2(f_2) e^{i[\Delta_x(f_2) x_{jk} + \Delta_y(f_2) y_{jk}]} v^\text{rel}_{jk}(f_2) - m_{jk}(f_2) \right]. \\
+\end{split}
+\end{equation}
+Once again using the fact that the weighting matrix is Hermitian, this becomes
+\begin{equation}
+\begin{split}
+    &\frac{\partial \chi^2[A(f), \Delta_x(f), \Delta_y(f)]}{\partial \Delta_x(f_0)} \\
+    & = 2 A^2(f_0) \re \left( \sum_{jk} \frac{1}{\sigma_{jk}(f_0)} \left[ -i x_{jk} e^{-i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^{\text{rel}*}_{jk}(f_0) \right] \right. \\
+    & \left. \times \sum_{f} \frac{1}{\sigma_{jk}(f)} W_{jk}(f-f_0) \left[ A^2(f) e^{i[\Delta_x(f) x_{jk} + \Delta_y(f) y_{jk}]} v^\text{rel}_{jk}(f) - m_{jk}(f) \right] \right). \\
+\end{split}
+\end{equation}
+It follows that
+\begin{equation}
+\begin{split}
+    &\frac{\partial \chi^2[A(f), \Delta_x(f), \Delta_y(f)]}{\partial \Delta_y(f_0)} \\
+    & = 2 A^2(f_0) \re \left( \sum_{jk} \frac{1}{\sigma_{jk}(f_0)} \left[ -i y_{jk}  e^{-i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^{\text{rel}*}_{jk}(f_0) \right] \right. \\
+    & \left. \times \sum_{f} \frac{1}{\sigma_{jk}(f)} W_{jk}(f-f_0) \left[ A^2(f) e^{i[\Delta_x(f) x_{jk} + \Delta_y(f) y_{jk}]} v^\text{rel}_{jk}(f) - m_{jk}(f) \right] \right). \\
+\end{split}
+\end{equation}
+
+
+\subsection{Hessian}
+
+Beginning with the second derivative with respect to the amplitude terms, we get
+\begin{equation}
+\begin{split}
+    &\frac{\partial^2 \chi^2[A(f), \Delta_x(f), \Delta_y(f)]}{\partial A(f_0) \partial A(f_1)} \\
+    & = 4 \frac{\partial A(f_0)}{\partial A(f_1)} \re \left( \sum_{jk} \frac{1}{\sigma_{jk}(f_0)} \left[ e^{i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^\text{rel}_{jk}(f_0) \right]^* \times \right. \\
+    & \left. \sum_{f} \frac{1}{\sigma_{jk}(f)} W_{jk}(f-f_0) \left[ A^2(f) e^{i[\Delta_x(f) x_{jk} + \Delta_y(f) y_{jk}]} v^\text{rel}_{jk}(f) - m_{jk}(f) \right] \right) \\
+    &+ 4 A(f_0) \re \left( \sum_{jk} \frac{1}{\sigma_{jk}(f_0)} \left[ e^{i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^\text{rel}_{jk}(f_0) \right]^* \times \right. \\
+    & \left. \sum_{f} \frac{1}{\sigma_{jk}(f)} W_{jk}(f-f_0) \left[ \frac{\partial}{\partial A(f_1)} A^2(f) e^{i[\Delta_x(f) x_{jk} + \Delta_y(f) y_{jk}]} v^\text{rel}_{jk}(f) - m_{jk}(f) \right] \right) \\
+    & = 4 \delta_{f_0 f_1} \re \left( \sum_{jk} \frac{1}{\sigma_{jk}(f_0)} \left[ e^{i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^\text{rel}_{jk}(f_0) \right]^* \times \right. \\
+    & \left. \sum_{f} \frac{1}{\sigma_{jk}(f)} W_{jk}(f-f_0) \left[ A^2(f) e^{i[\Delta_x(f) x_{jk} + \Delta_y(f) y_{jk}]} v^\text{rel}_{jk}(f) - m_{jk}(f) \right] \right) \\
+    &+ 8 A(f_0) A(f_1) \re \left( \sum_{jk} \frac{1}{\sigma_{jk}(f_0)\sigma_{jk}(f_1)} W_{jk}(f_1-f_0) \left[ e^{i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^\text{rel}_{jk}(f_0) \right]^* \times \right. \\
+    & \left. \left[ e^{i[\Delta_x(f_1) x_{jk} + \Delta_y(f_1) y_{jk}]} v^\text{rel}_{jk}(f_1) \right] \right) \\
+\end{split}
+\end{equation}
+
+Now taking the derivatives of the phase Jacobians we get
+\begin{equation}
+\begin{split}
+    &\frac{\partial \chi^2[A(f), \Delta_x(f), \Delta_y(f)]}{\partial \Delta_x(f_0) \partial A(f_1)} \\
+    & = 4 \delta_{f_0 f_1} A(f_0) \re \left( \sum_{jk} \frac{1}{\sigma_{jk}(f_0)} \left[ -i x_{jk} e^{-i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^{\text{rel}*}_{jk}(f_0) \right] \right. \\
+    & \left. \times \sum_{f} \frac{1}{\sigma_{jk}(f)} W_{jk}(f-f_0) \left[ A^2(f) e^{i[\Delta_x(f) x_{jk} + \Delta_y(f) y_{jk}]} v^\text{rel}_{jk}(f) - m_{jk}(f) \right] \right) \\
+    &+ 4 A^2(f_0) A(f_1) \re \left( \sum_{jk} \frac{1}{\sigma_{jk}(f_0) \sigma_{jk}(f_1)} W_{jk}(f_1-f_0) \right. \\
+    & \left. \times \left[ -i x_{jk} e^{-i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^{\text{rel}*}_{jk}(f_0) \right] \left[e^{i[\Delta_x(f_1) x_{jk} + \Delta_y(f_1) y_{jk}]} v^\text{rel}_{jk}(f_1)\right] \right) \\
+\end{split}
+\end{equation}
+and
+\begin{equation}
+\begin{split}
+    &\frac{\partial \chi^2[A(f), \Delta_x(f), \Delta_y(f)]}{\partial \Delta_y(f_0) \partial A(f_1)} \\
+    & = 4 \delta_{f_0 f_1} A(f_0) \re \left( \sum_{jk} \frac{1}{\sigma_{jk}(f_0)} \left[ -i y_{jk} e^{-i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^{\text{rel}*}_{jk}(f_0) \right] \right. \\
+    & \left. \times \sum_{f} \frac{1}{\sigma_{jk}(f)} W_{jk}(f-f_0) \left[ A^2(f) e^{i[\Delta_x(f) x_{jk} + \Delta_y(f) y_{jk}]} v^\text{rel}_{jk}(f) - m_{jk}(f) \right] \right) \\
+    &+ 4 A^2(f_0) A(f_1) \re \left( \sum_{jk} \frac{1}{\sigma_{jk}(f_0) \sigma_{jk}(f_1)} W_{jk}(f_1-f_0) \right. \\
+    & \left. \times \left[ -i y_{jk} e^{-i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^{\text{rel}*}_{jk}(f_0) \right] \left[e^{i[\Delta_x(f_1) x_{jk} + \Delta_y(f_1) y_{jk}]} v^\text{rel}_{jk}(f_1)\right] \right). \\
+\end{split}
+\end{equation}
+The phase-phase derivative is given by
+\begin{equation}
+\begin{split}
+    &\frac{\partial \chi^2[A(f), \Delta_x(f), \Delta_y(f)]}{\partial \Delta_x(f_0) \partial \Delta_x(f_1)} \\
+    & = \frac{\partial}{\partial \Delta_x(f_1)} \left( \sum_{jk} \left[ i x_{jk} A^2(f_0) e^{i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^\text{rel}_{jk}(f_0) \right] \times \right. \\
+     &\sum_{f}  \frac{1}{\sigma_{jk}(f)\sigma_{jk}(f_0)} W_{jk}(f_0-f) \times \\
+    & \left[ A^2(f) e^{i[\Delta_x(f) x_{jk} + \Delta_y(f) y_{jk}]} v^\text{rel}_{jk}(f) - m_{jk}(f) \right]^* \\
+    & + \sum_{jk} \left[ -i x_{jk} A^2(f_0) e^{-i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^{\text{rel}*}_{jk}(f_0) \right] \times \\
+    & \sum_{f}  \frac{1}{\sigma_{jk}(f_0)\sigma_{jk}(f)} W_{jk}(f-f_0) \times \\
+    & \left. \left[ A^2(f) e^{i[\Delta_x(f) x_{jk} + \Delta_y(f) y_{jk}]} v^\text{rel}_{jk}(f) - m_{jk}(f) \right] \right) \\
+    & = \delta_{f_0 f_1} \sum_{jk} \left[ - x^2_{jk} A^2(f_0) e^{i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^\text{rel}_{jk}(f_0) \right] \times \\
+     &\sum_{f}  \frac{1}{\sigma_{jk}(f)\sigma_{jk}(f_0)} W_{jk}(f_0-f) \times \\
+    & \left[ A^2(f) e^{i[\Delta_x(f) x_{jk} + \Delta_y(f) y_{jk}]} v^\text{rel}_{jk}(f) - m_{jk}(f) \right]^* \\
+    & + \delta_{f_0 f_1} \sum_{jk} \left[ - x^2_{jk} A^2(f_0) e^{-i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^{\text{rel}*}_{jk}(f_0) \right] \times \\
+    & \sum_{f}  \frac{1}{\sigma_{jk}(f_0)\sigma_{jk}(f)} W_{jk}(f-f_0) \times \\
+    & \left[ A^2(f) e^{i[\Delta_x(f) x_{jk} + \Delta_y(f) y_{jk}]} v^\text{rel}_{jk}(f) - m_{jk}(f) \right] \\
+    & + \sum_{jk} \frac{1}{\sigma_{jk}(f_0)\sigma_{jk}(f_1)} W_{jk}(f_0-f_1) \times \\
+    & x^2_{jk} A^2(f_0) A^2(f_1) e^{i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]-i[\Delta_x(f_1) x_{jk} + \Delta_y(f_1) y_{jk}]} v^\text{rel}_{jk}(f_0) v^{\text{rel}*}_{jk}(f_1) \\
+    & + \sum_{jk} \frac{1}{\sigma_{jk}(f_0)\sigma_{jk}(f_1)} W_{jk}(f_1-f_0) \times \\
+    & x^2_{jk} A^2(f_0) A^2(f_1) e^{-i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]+i[\Delta_x(f_1) x_{jk} + \Delta_y(f_1) y_{jk}]} v^{\text{rel}*}_{jk}(f_0) v^\text{rel}_{jk}(f_1).
+\end{split}
+\end{equation}
+Using the fact that the weighting matrix is Hermitian, we get that
+\begin{equation}
+\begin{split}
+    &\frac{\partial \chi^2[A(f), \Delta_x(f), \Delta_y(f)]}{\partial \Delta_x(f_0) \partial \Delta_x(f_1)} \\
+    & = 2 \re \left( \delta_{f_0 f_1} \sum_{jk} \left[ - x^2_{jk} A^2(f_0) e^{i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^\text{rel}_{jk}(f_0) \right] \times \right. \\
+     &\sum_{f}  \frac{1}{\sigma_{jk}(f)\sigma_{jk}(f_0)} W_{jk}(f_0-f) \times \\
+    & \left. \left[ A^2(f) e^{i[\Delta_x(f) x_{jk} + \Delta_y(f) y_{jk}]} v^\text{rel}_{jk}(f) - m_{jk}(f) \right]^* \right) \\
+    & + 2 \re \left( \sum_{jk} \frac{1}{\sigma_{jk}(f_0)\sigma_{jk}(f_1)} W_{jk}(f_0-f_1) \times \right. \\
+    & \left. x^2_{jk} A^2(f_0) A^2(f_1) e^{i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]-i[\Delta_x(f_1) x_{jk} + \Delta_y(f_1) y_{jk}]} v^\text{rel}_{jk}(f_0) v^{\text{rel}*}_{jk}(f_1) \right).
+\end{split}
+\end{equation}
+It follows that 
+\begin{equation}
+\begin{split}
+    &\frac{\partial \chi^2[A(f), \Delta_x(f), \Delta_y(f)]}{\partial \Delta_y(f_0) \partial \Delta_y(f_1)} \\
+    & = 2 \re \left( \delta_{f_0 f_1} \sum_{jk} \left[ - y^2_{jk} A^2(f_0) e^{i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^\text{rel}_{jk}(f_0) \right] \times \right. \\
+     &\sum_{f}  \frac{1}{\sigma_{jk}(f)\sigma_{jk}(f_0)} W_{jk}(f_0-f) \times \\
+    & \left. \left[ A^2(f) e^{i[\Delta_x(f) x_{jk} + \Delta_y(f) y_{jk}]} v^\text{rel}_{jk}(f) - m_{jk}(f) \right]^* \right) \\
+    & + 2 \re \left( \sum_{jk} \frac{1}{\sigma_{jk}(f_0)\sigma_{jk}(f_1)} W_{jk}(f_0-f_1) \times \right. \\
+    & \left. y^2_{jk} A^2(f_0) A^2(f_1) e^{i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]-i[\Delta_x(f_1) x_{jk} + \Delta_y(f_1) y_{jk}]} v^\text{rel}_{jk}(f_0) v^{\text{rel}*}_{jk}(f_1) \right).
+\end{split}
+\end{equation}
+and
+\begin{equation}
+\begin{split}
+    &\frac{\partial \chi^2[A(f), \Delta_x(f), \Delta_y(f)]}{\partial \Delta_x(f_0) \partial \Delta_y(f_1)} \\
+    & = 2 \re \left( \delta_{f_0 f_1} \sum_{jk} \left[ - x_{jk} y_{jk} A^2(f_0) e^{i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]} v^\text{rel}_{jk}(f_0) \right] \times \right. \\
+     &\sum_{f}  \frac{1}{\sigma_{jk}(f)\sigma_{jk}(f_0)} W_{jk}(f_0-f) \times \\
+    & \left. \left[ A^2(f) e^{i[\Delta_x(f) x_{jk} + \Delta_y(f) y_{jk}]} v^\text{rel}_{jk}(f) - m_{jk}(f) \right]^* \right) \\
+    & + 2 \re \left( \sum_{jk} \frac{1}{\sigma_{jk}(f_0)\sigma_{jk}(f_1)} W_{jk}(f_0-f_1) \times \right. \\
+    & \left. x_{jk} y_{jk} A^2(f_0) A^2(f_1) e^{i[\Delta_x(f_0) x_{jk} + \Delta_y(f_0) y_{jk}]-i[\Delta_x(f_1) x_{jk} + \Delta_y(f_1) y_{jk}]} v^\text{rel}_{jk}(f_0) v^{\text{rel}*}_{jk}(f_1) \right).
+\end{split}
+\end{equation}
 
 
 \end{document}
