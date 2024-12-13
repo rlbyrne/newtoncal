@@ -20,9 +20,9 @@ def cost_skycal_wrapper(
     Parameters
     ----------
     gains_flattened : array of float
-        Array of gain values. gains_flattened[0:Nants_unflagged] corresponds to
-        the realcomponents of the gains and gains_flattened[Nants_unflagged:]
-        correponds to the imaginary components. Shape (2*Nants_unflagged,).
+        Array of gain values. Even indices correspond to the real components of the
+        gains and odd indices correspond to the imaginary components. Shape
+        (2*Nants_unflagged,).
     caldata_obj : CalData
     ant_inds : array of int
         Indices of unflagged antennas to be calibrated. Shape (Nants_unflagged,).
@@ -37,8 +37,8 @@ def cost_skycal_wrapper(
         Value of the cost function.
     """
 
-    gains_reshaped = np.reshape(gains_flattened, (2, len(ant_inds)))
-    gains_reshaped = gains_reshaped[0, :] + 1.0j * gains_reshaped[1, :]
+    gains_reshaped = np.reshape(gains_flattened, (len(ant_inds), 2))
+    gains_reshaped = gains_reshaped[:, 0] + 1.0j * gains_reshaped[:, 1]
     gains = np.ones((caldata_obj.Nants), dtype=complex)
     gains[ant_inds] = gains_reshaped
     if caldata_obj.gains_multiply_model:
@@ -96,9 +96,9 @@ def jacobian_skycal_wrapper(
     Parameters
     ----------
     gains_flattened : array of float
-        Array of gain values. gains_flattened[0:Nants_unflagged] corresponds to
-        the realcomponents of the gains and gains_flattened[Nants_unflagged:]
-        correponds to the imaginary components. Shape (2*Nants_unflagged,).
+        Array of gain values. Even indices correspond to the real components of the
+        gains and odd indices correspond to the imaginary components. Shape
+        (2*Nants_unflagged,).
     caldata_obj : CalData
     ant_inds : array of int
         Indices of unflagged antennas to be calibrated. Shape (Nants_unflagged,).
@@ -111,13 +111,13 @@ def jacobian_skycal_wrapper(
     -------
     jac_flattened : array of float
         Jacobian of the cost function, shape (2*Nants_unflagged,).
-        jac_flattened[0:Nants_unflagged] corresponds to the derivatives with
-        respect to the real part of the gains; jac_flattened[Nants_unflagged:]
-        corresponds to derivatives with respect to the imaginary part of the gains.
+        Even indices correspond to the derivatives with respect to the real part
+        of the gains and odd indices correspond to derivatives with respect to
+        the imaginary part of the gains.
     """
 
-    gains_reshaped = np.reshape(gains_flattened, (2, len(ant_inds)))
-    gains_reshaped = gains_reshaped[0, :] + 1.0j * gains_reshaped[1, :]
+    gains_reshaped = np.reshape(gains_flattened, (len(ant_inds), 2))
+    gains_reshaped = gains_reshaped[:, 0] + 1.0j * gains_reshaped[:, 1]
     gains = np.ones((caldata_obj.Nants), dtype=complex)
     gains[ant_inds] = gains_reshaped
     if caldata_obj.gains_multiply_model:
@@ -159,7 +159,7 @@ def jacobian_skycal_wrapper(
             caldata_obj.lambda_val,
         )
     jac_flattened = np.stack(
-        (np.real(jac[ant_inds]), np.imag(jac[ant_inds])), axis=0
+        (np.real(jac[ant_inds]), np.imag(jac[ant_inds])), axis=1
     ).flatten()
     return jac_flattened
 
@@ -178,9 +178,9 @@ def hessian_skycal_wrapper(
     Parameters
     ----------
     gains_flattened : array of float
-        Array of gain values. gains_flattened[0:Nants_unflagged] corresponds to
-        the realcomponents of the gains and gains_flattened[Nants_unflagged:]
-        correponds to the imaginary components. Shape (2*Nants_unflagged,).
+        Array of gain values. Even indices correspond to the real components of the
+        gains and odd indices correspond to the imaginary components. Shape
+        (2*Nants_unflagged,).
     caldata_obj : CalData
     ant_inds : array of int
         Indices of unflagged antennas to be calibrated. Shape (Nants_unflagged,).
@@ -196,8 +196,8 @@ def hessian_skycal_wrapper(
     """
 
     Nants_unflagged = len(ant_inds)
-    gains_reshaped = np.reshape(gains_flattened, (2, Nants_unflagged))
-    gains_reshaped = gains_reshaped[0, :] + 1.0j * gains_reshaped[1, :]
+    gains_reshaped = np.reshape(gains_flattened, (Nants_unflagged, 2))
+    gains_reshaped = gains_reshaped[:, 0] + 1.0j * gains_reshaped[:, 1]
     gains = np.ones((caldata_obj.Nants), dtype=complex)
     gains[ant_inds] = gains_reshaped
     if caldata_obj.gains_multiply_model:
@@ -253,18 +253,20 @@ def hessian_skycal_wrapper(
     hess_flattened = np.full(
         (2 * Nants_unflagged, 2 * Nants_unflagged), np.nan, dtype=float
     )
-    hess_flattened[0:Nants_unflagged, 0:Nants_unflagged] = hess_real_real[ant_inds, :][
-        :, ant_inds
-    ]
-    hess_flattened[Nants_unflagged:, 0:Nants_unflagged] = hess_real_imag[ant_inds, :][
-        :, ant_inds
-    ]
-    hess_flattened[0:Nants_unflagged, Nants_unflagged:] = np.conj(
-        hess_real_imag[ant_inds, :][:, ant_inds]
-    ).T
-    hess_flattened[Nants_unflagged:, Nants_unflagged:] = hess_imag_imag[ant_inds, :][
-        :, ant_inds
-    ]
+    for ant_ind_1 in range(Nants_unflagged):
+        for ant_ind_2 in range(Nants_unflagged):
+            hess_flattened[2 * ant_ind_1, 2 * ant_ind_2] = hess_real_real[
+                ant_ind_1, ant_ind_2
+            ]
+            hess_flattened[2 * ant_ind_1 + 1, 2 * ant_ind_2] = hess_real_imag[
+                ant_ind_1, ant_ind_2
+            ]
+            hess_flattened[2 * ant_ind_1, 2 * ant_ind_2 + 1] = np.conj(
+                hess_real_imag[ant_ind_2, ant_ind_1]
+            )
+            hess_flattened[2 * ant_ind_1 + 1, 2 * ant_ind_2 + 1] = hess_imag_imag[
+                ant_ind_1, ant_ind_2
+            ]
     return hess_flattened
 
 
@@ -670,7 +672,7 @@ def run_skycal_optimization_per_pol_single_freq(
                     np.real(caldata_obj.gains[ant_inds, freq_ind, feed_pol_ind]),
                     np.imag(caldata_obj.gains[ant_inds, freq_ind, feed_pol_ind]),
                 ),
-                axis=0,
+                axis=1,
             ).flatten()
 
             # Minimize the cost function
