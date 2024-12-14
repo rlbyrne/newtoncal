@@ -1101,7 +1101,7 @@ class TestStringMethods(unittest.TestCase):
                 np.real(gains_init[:, test_freq_ind]),
                 np.imag(gains_init[:, test_freq_ind]),
             ),
-            axis=0,
+            axis=1,
         ).flatten()
 
         hess = calibration_optimization.hessian_skycal_wrapper(
