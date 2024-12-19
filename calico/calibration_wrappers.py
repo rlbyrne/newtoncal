@@ -238,7 +238,7 @@ def sky_based_calibration_wrapper(
         optimization_start_time = time.time()
 
     for ant_flag_iter in range(antenna_flagging_iterations):
-        caldata_obj.calibration_per_pol(
+        caldata_obj.sky_based_calibration(
             xtol=xtol / 10,  # Lower tolerance for antenna flagging
             maxiter=int(maxiter / 2),  # Lower maxiter for antenna flagging
             get_crosspol_phase=False,  # No crosspol phase needed for antenna flagging
